@@ -1,0 +1,164 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Employee {
+  id                     String                  @id @default(uuid())
+  email                  String                  @unique
+  firstName              String
+  lastName               String
+  title                  String?
+  department             String?
+  hireDate               DateTime
+  managerId              String?
+  status                 String
+  
+  payType       String?
+  hourlyRate    Float?
+  annualSalary  Float?
+  fte           Float?   @default(1)
+
+  monthlyAccrualOverride Float?
+  accrualOverrideReason  String?
+
+  manager                Employee?               @relation("ManagerToReports", fields: [managerId], references: [id])
+  directReports          Employee[]              @relation("ManagerToReports")
+
+  requests               PTORequest[]
+  ledger                 PTOLedger[]
+  roleAssignments        EmployeeRoleAssignment[]
+
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+
+  @@index([managerId])
+}
+
+model PTORequest {
+  id              String    @id @default(uuid())
+  employeeId      String
+  leaveType       String
+  startDate       DateTime
+  endDate         DateTime
+  hours           Float
+  status          String
+  approverId      String?
+  notes           String?
+  approvalComment String?
+  decisionAt      DateTime?
+  decidedBy       String?
+
+  employee        Employee  @relation(fields: [employeeId], references: [id])
+
+  createdAt       DateTime  @default(now())
+
+  @@index([employeeId, status])
+}
+
+model PTOLedger {
+  id            String    @id @default(uuid())
+  employeeId    String
+  bucket        String
+  type          String
+  hours         Float
+  balance       Float
+  effectiveDate DateTime
+  notes         String?
+
+  employee      Employee   @relation(fields: [employeeId], references: [id])
+
+  createdAt     DateTime   @default(now())
+
+  @@index([employeeId, bucket, effectiveDate])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String
+  action     String
+  entityType String
+  entityId   String
+  oldValue   String?  @db.Text
+  newValue   String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  @@index([action])
+  @@index([entityType])
+  @@index([createdAt])
+}
+
+model Role {
+  id              String                   @id @default(uuid())
+  code            String                   @unique
+  name            String
+  description     String?
+  isActive        Boolean                  @default(true)
+
+  rolePermissions RolePermission[]
+  assignments     EmployeeRoleAssignment[]
+
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+}
+
+model Permission {
+  id              String           @id @default(uuid())
+  code            String           @unique
+  name            String
+  description     String?
+  category        String
+
+  rolePermissions RolePermission[]
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model RolePermission {
+  id           String      @id @default(uuid())
+  roleId       String
+  permissionId String
+
+  role         Role        @relation(fields: [roleId], references: [id])
+  permission   Permission  @relation(fields: [permissionId], references: [id])
+
+  createdAt    DateTime    @default(now())
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+}
+
+model EmployeeRoleAssignment {
+  id                 String    @id @default(uuid())
+  employeeId         String
+  roleId             String
+  effectiveStartDate DateTime?
+  effectiveEndDate   DateTime?
+  isActive           Boolean   @default(true)
+
+  employee           Employee  @relation(fields: [employeeId], references: [id])
+  role               Role      @relation(fields: [roleId], references: [id])
+
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([employeeId])
+  @@index([roleId])
+  @@unique([employeeId, roleId, isActive])
+}
+
+model PolicySettings {
+  id                 String   @id @default(uuid())
+  accrualRate0To5    Float    @default(10)
+  accrualRate6To10   Float    @default(13.33)
+  accrualRateOver10  Float    @default(16.67)
+  rolloverCapHours   Float    @default(80)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
