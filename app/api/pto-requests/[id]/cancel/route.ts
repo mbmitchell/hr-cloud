@@ -4,7 +4,7 @@ import { getCurrentUser } from "../../../../../lib/auth/current-user";
 
 export async function POST(
   _request: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const currentUser = await getCurrentUser();
@@ -16,12 +16,21 @@ export async function POST(
       );
     }
 
-    const requestId = String(params.id || "").trim();
+    const { id } = await context.params;
+    const requestId = String(id || "").trim();
+    const currentEmployeeId = String(currentUser.id || "").trim();
 
     if (!requestId) {
       return NextResponse.json(
         { error: "Request ID is required." },
         { status: 400 }
+      );
+    }
+
+    if (!currentEmployeeId) {
+      return NextResponse.json(
+        { error: "No employee record is linked to your account." },
+        { status: 403 }
       );
     }
 
@@ -43,7 +52,7 @@ export async function POST(
       );
     }
 
-    if (existingRequest.employeeId !== currentUser.id) {
+    if (existingRequest.employeeId !== currentEmployeeId) {
       return NextResponse.json(
         { error: "You can only cancel your own requests." },
         { status: 403 }
@@ -56,7 +65,7 @@ export async function POST(
         data: {
           status: "CANCELLED",
           decisionAt: new Date(),
-          decidedBy: currentUser.id,
+          decidedBy: currentEmployeeId,
           approvalComment: "Cancelled by employee",
         },
       });
@@ -65,14 +74,14 @@ export async function POST(
         data: {
           requestId: updatedRequest.id,
           action: "CANCELLED",
-          actionById: currentUser.id,
+          actionById: currentEmployeeId,
           comment: "Cancelled by employee",
         },
       });
 
       await tx.auditLog.create({
         data: {
-          userId: currentUser.id,
+          userId: currentEmployeeId,
           action: "REQUEST_CANCELLED",
           entityType: "PTORequest",
           entityId: updatedRequest.id,

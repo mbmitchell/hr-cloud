@@ -6,11 +6,7 @@ import { getEmployeeRoles, isManagerOf } from "../../lib/auth/permissions";
 import { auth } from "../../auth"; // adjust path as needed
 import { redirect } from "next/navigation";
 
-const session = await auth();
 
-if (!session?.user) {
-  redirect("/login");
-}
 
 type SearchParams = Promise<{
   search?: string;
@@ -23,6 +19,11 @@ export default async function EmployeesPage({
 }: {
   searchParams: SearchParams;
 }) {
+  const session = await auth();
+
+if (!session?.user) {
+  redirect("/login");
+}
   const params = await searchParams;
   const search = (params.search ?? "").trim().toLowerCase();
   const departmentFilter = (params.department ?? "").trim();

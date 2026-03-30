@@ -6,13 +6,17 @@ import PTORequestsClient from "./PTORequestsClient";
 export default async function PTORequestsPage() {
   const session = await auth();
 
-  if (!session?.user) {
+  if (!session?.user?.email) {
     redirect("/login");
   }
 
-  const employeeId = String(session.user.employeeId || "").trim();
+  const employee = await prisma.employee.findUnique({
+    where: {
+      email: session.user.email,
+    },
+  });
 
-  if (!employeeId) {
+  if (!employee) {
     return (
       <div className="text-red-600">
         No employee record is linked to your account.
@@ -22,7 +26,7 @@ export default async function PTORequestsPage() {
 
   const requests = await prisma.pTORequest.findMany({
     where: {
-      employeeId,
+      employeeId: employee.id,
     },
     orderBy: {
       createdAt: "desc",
