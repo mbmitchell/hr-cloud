@@ -11,6 +11,11 @@ export default async function CalendarPage() {
   }
 
   const requests = await prisma.pTORequest.findMany({
+    where: {
+      status: {
+        in: ["APPROVED", "PENDING"],
+      },
+    },
     include: {
       employee: true,
     },

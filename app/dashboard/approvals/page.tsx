@@ -36,24 +36,28 @@ export default async function ManagerApprovalsPage() {
     };
   }
 
-  const requests = await prisma.pTORequest.findMany({
-    where: whereClause,
-    include: {
-      employee: {
-        include: {
-          manager: true,
-          ledger: {
-            orderBy: [{ effectiveDate: "desc" }, { createdAt: "desc" }],
-          },
-          requests: {
-            orderBy: [{ createdAt: "desc" }],
-            take: 5,
-          },
+
+const requests = await prisma.pTORequest.findMany({
+  where: whereClause,
+  include: {
+    employee: {
+      include: {
+        manager: true,
+        ledger: {
+          orderBy: [{ effectiveDate: "desc" }, { createdAt: "desc" }],
+        },
+        requests: {
+          orderBy: [{ createdAt: "desc" }],
+          take: 5,
         },
       },
     },
-    orderBy: [{ createdAt: "asc" }],
-  });
+    actions: {
+      orderBy: [{ createdAt: "asc" }],
+    },
+  },
+  orderBy: [{ createdAt: "asc" }],
+});
 
   const rows = await Promise.all(
     requests.map(async (request) => {
@@ -140,6 +144,13 @@ export default async function ManagerApprovalsPage() {
           endDate: r.endDate.toISOString(),
           hours: r.hours,
           status: r.status,
+        })),
+                actions: request.actions.map((action) => ({
+          id: action.id,
+          action: action.action,
+          actionById: action.actionById,
+          createdAt: action.createdAt.toISOString(),
+          comment: action.comment,
         })),
       };
     })

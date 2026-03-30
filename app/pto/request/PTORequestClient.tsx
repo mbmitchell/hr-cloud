@@ -52,6 +52,31 @@ type StaffingConflict = {
   }>;
 };
 
+
+function countWeekdaysInclusive(start: string, end: string) {
+  if (!start || !end) return 0;
+
+  const startDate = new Date(`${start}T12:00:00`);
+  const endDate = new Date(`${end}T12:00:00`);
+
+  if (endDate < startDate) return 0;
+
+  let count = 0;
+  const current = new Date(startDate);
+
+  while (current <= endDate) {
+    const day = current.getDay();
+
+    if (day !== 0 && day !== 6) {
+      count += 1;
+    }
+
+    current.setDate(current.getDate() + 1);
+  }
+
+  return count;
+}
+
 export default function PTORequestClient() {
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [currentUser, setCurrentUser] = useState<CurrentUserInfo | null>(null);
@@ -177,6 +202,18 @@ export default function PTORequestClient() {
 
     loadConflicts();
   }, [employeeId, startDate, endDate]);
+
+  useEffect(() => {
+    if (!startDate || !endDate) return;
+    if (leaveType === "COMP") return;
+
+    const workdayCount = countWeekdaysInclusive(startDate, endDate);
+    const calculatedHours = workdayCount * 8;
+
+    if (calculatedHours > 0) {
+      setHours(String(calculatedHours));
+    }
+  }, [startDate, endDate, leaveType]);
 
   const requestedHours = useMemo(() => Number(hours || 0), [hours]);
 
@@ -351,37 +388,53 @@ export default function PTORequestClient() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium mb-2">Start Date</label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full border rounded px-3 py-2"
-                required
-              />
+<input
+  type="date"
+  value={startDate}
+  onChange={(e) => {
+    const newStartDate = e.target.value;
+    setStartDate(newStartDate);
+
+    if (!endDate || endDate < newStartDate) {
+      setEndDate(newStartDate);
+    }
+  }}
+  className="w-full border rounded px-3 py-2"
+  required
+/>
             </div>
 
             <div>
               <label className="block text-sm font-medium mb-2">End Date</label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full border rounded px-3 py-2"
-                required
-              />
+<input
+  type="date"
+  value={endDate}
+  min={startDate || undefined}
+  onChange={(e) => setEndDate(e.target.value)}
+  className="w-full border rounded px-3 py-2"
+  required
+/>
             </div>
 
             <div>
               <label className="block text-sm font-medium mb-2">Hours</label>
               <input
                 type="number"
-                min="1"
+                min="0.5"
                 step="0.5"
                 value={hours}
                 onChange={(e) => setHours(e.target.value)}
                 className="w-full border rounded px-3 py-2"
                 required
               />
+              <p className="text-xs text-slate-500 mt-1">
+  Hours default based on weekdays selected, but can be adjusted for partial days.
+</p>
+{Number(hours) === 0 && startDate && endDate && (
+  <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded p-3 mt-2">
+    Selected dates do not include any weekdays. PTO is normally requested for workdays only.
+  </div>
+)}
             </div>
           </div>
 

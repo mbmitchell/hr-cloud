@@ -1,0 +1,27 @@
+version: 1.0
+runtime: nodejs22
+
+build:
+  commands:
+    pre-build:
+      - npm ci
+    build:
+      - npx prisma generate
+      - npm run build
+
+run:
+  runtime-version: 22
+  command: sh -c "npx prisma migrate deploy && npm run start"
+  network:
+    port: 3000
+  env:
+    - name: NODE_ENV
+      value: production
+    - name: DEV_OVERRIDE
+      value: "false"
+    - name: DATABASE_URL
+      value: "mysql://admin:R00ster32!@mfn-hr-test.cxit1sc1iuul.us-east-1.rds.amazonaws.com:3306/mfn_hr_test"
+    - name: NEXTAUTH_SECRET
+      value: "iAO5WFVngzmIV2liC1lIRjcEmpR2GJkn1i5BOVPuwPY="
+    - name: NEXTAUTH_URL
+      value: "www.example.com"

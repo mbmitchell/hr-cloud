@@ -42,3 +42,35 @@ body {
 .rbc-today {
   background: #eff6ff !important;
 }
+/* PTO Calendar Colors */
+
+.rbc-event-pto {
+  background-color: #3b82f6 !important;
+  border: none !important;
+}
+
+.rbc-event-sick {
+  background-color: #f97316 !important;
+  border: none !important;
+}
+
+.rbc-event-comp {
+  background-color: #8b5cf6 !important;
+  border: none !important;
+}
+
+.rbc-event-default {
+  background-color: #64748b !important;
+}
+
+/* Pending overlay */
+
+.rbc-event-pending {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(255,255,255,0.3),
+    rgba(255,255,255,0.3) 6px,
+    rgba(255,255,255,0.1) 6px,
+    rgba(255,255,255,0.1) 12px
+  ) !important;
+}

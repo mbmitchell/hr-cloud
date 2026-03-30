@@ -55,17 +55,36 @@ const localizer = dateFnsLocalizer({
 function eventClassName(event: CalendarItem) {
   const { leaveType, status } = event.resource;
 
-  if (status === "PENDING") return "rbc-event-pending";
-  if (leaveType === "PTO") return "rbc-event-pto";
-  if (leaveType === "SICK") return "rbc-event-sick";
-  if (leaveType === "COMP") return "rbc-event-comp";
-  return "rbc-event-default";
+  let base = "rbc-event-default";
+
+  if (leaveType === "PTO") base = "rbc-event-pto";
+  if (leaveType === "SICK") base = "rbc-event-sick";
+  if (leaveType === "COMP") base = "rbc-event-comp";
+
+  if (status === "PENDING") {
+    base += " rbc-event-pending";
+  }
+
+  return base;
 }
 
 function parseDateOnly(value: string) {
   const datePart = value.split("T")[0];
   const [year, month, day] = datePart.split("-").map(Number);
   return new Date(year, month - 1, day);
+}
+
+function isDateBetween(date: Date, start: Date, end: Date) {
+  const d = new Date(date);
+  d.setHours(0,0,0,0);
+
+  const s = new Date(start);
+  s.setHours(0,0,0,0);
+
+  const e = new Date(end);
+  e.setHours(0,0,0,0);
+
+  return d >= s && d <= e;
 }
 
 export default function CompanyCalendar({
@@ -86,22 +105,35 @@ export default function CompanyCalendar({
     setMounted(true);
   }, []);
 
-  const mappedEvents = useMemo<CalendarItem[]>(() => {
-    return events.map((event) => {
-      const start = parseDateOnly(event.start);
-      const endInclusive = parseDateOnly(event.end);
-      const endExclusive = addDays(endInclusive, 1);
+ const mappedEvents = useMemo<CalendarItem[]>(() => {
+  return events.map((event) => {
+    const start = parseDateOnly(event.start);
+    const endInclusive = parseDateOnly(event.end);
+    const endExclusive = addDays(endInclusive, 1);
 
-      return {
-        id: event.id,
-        title: `${event.employeeName} • ${event.leaveType} • ${event.status}`,
-        start,
-        end: endExclusive,
-        allDay: true,
-        resource: event,
-      };
-    });
-  }, [events]);
+    const initials = event.employeeName
+      .split(" ")
+      .map((n) => n[0])
+      .join("");
+
+    return {
+      id: event.id,
+      title: `${initials} ${event.leaveType}`,
+      start,
+      end: endExclusive,
+      allDay: true,
+      resource: event,
+    };
+  });
+}, [events]);
+
+const todayEvents = useMemo(() => {
+  const today = new Date();
+
+  return mappedEvents.filter((event) =>
+    isDateBetween(today, event.start, addDays(event.end, -1))
+  );
+}, [mappedEvents]);
 
   async function handleSelectEvent(event: CalendarItem) {
     setLoadingDetail(true);
@@ -175,6 +207,29 @@ export default function CompanyCalendar({
 
   return (
     <div className="bg-white rounded shadow p-4">
+      {/* Who's Out Today */}
+<div className="mb-6 bg-slate-50 border rounded p-4">
+  <div className="text-sm font-semibold mb-2">
+    Who's Out Today
+  </div>
+
+  {todayEvents.length === 0 ? (
+    <div className="text-sm text-slate-500">
+      No employees are out today.
+    </div>
+  ) : (
+    <div className="space-y-1 text-sm">
+      {todayEvents.map((event) => (
+        <div key={event.id}>
+          <b>{event.resource.employeeName}</b> — {event.resource.leaveType}
+          {event.resource.status === "PENDING" && (
+            <span className="text-slate-500"> (pending)</span>
+          )}
+        </div>
+      ))}
+    </div>
+  )}
+</div>
       <div className="mb-4 flex flex-wrap gap-4 text-sm">
         <div className="flex items-center gap-2">
           <span className="inline-block h-3 w-3 rounded bg-blue-500" />
@@ -218,6 +273,19 @@ export default function CompanyCalendar({
             tooltipAccessor={(event) =>
               `${event.resource.employeeName} • ${event.resource.leaveType} • ${event.resource.status} • ${event.resource.hours} hrs`
             }
+            dayPropGetter={(date) => {
+  const today = new Date();
+  if (
+    date.getFullYear() === today.getFullYear() &&
+    date.getMonth() === today.getMonth() &&
+    date.getDate() === today.getDate()
+  ) {
+    return {
+      style: { backgroundColor: "#f8fafc" },
+    };
+  }
+  return {};
+}}
           />
         ) : (
           <div className="h-full flex items-center justify-center text-sm text-slate-500">

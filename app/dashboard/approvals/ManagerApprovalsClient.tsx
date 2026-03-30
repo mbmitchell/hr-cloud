@@ -41,6 +41,13 @@ type ApprovalRow = {
   staffingConflictCount: number;
   staffingConflictEmployees: ConflictRow[];
   recentRequests: RecentRequest[];
+    actions: {
+    id: string;
+    action: string;
+    actionById: string | null;
+    createdAt: string;
+    comment: string | null;
+  }[];
 };
 
 function fmtDate(value: string) {
@@ -272,13 +279,15 @@ export default function ManagerApprovalsClient({
                         {loadingId === request.id ? "Working..." : "Approve"}
                       </button>
 
-                      <button
-                        onClick={() => handleDecision(request.id, "DENIED")}
-                        disabled={loadingId === request.id}
-                        className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-500 disabled:opacity-50"
-                      >
-                        {loadingId === request.id ? "Working..." : "Deny"}
-                      </button>
+                     <button
+  onClick={() => handleDecision(request.id, "DENIED")}
+  disabled={
+    loadingId === request.id || !(comments[request.id]?.trim())
+  }
+  className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-500 disabled:opacity-50"
+>
+  {loadingId === request.id ? "Working..." : "Deny"}
+</button>
                     </div>
                   </div>
 
@@ -313,6 +322,36 @@ export default function ManagerApprovalsClient({
                         )}
                       </div>
                     </div>
+                    <div className="border rounded p-4 mt-4">
+  <div className="text-sm font-medium text-slate-700 mb-3">
+    Request History
+  </div>
+
+  <div className="space-y-3">
+    {request.actions.length === 0 ? (
+      <div className="text-sm text-slate-500">
+        No history available.
+      </div>
+    ) : (
+      request.actions.map((action) => (
+        <div key={action.id} className="border rounded p-3 text-sm">
+          <div className="font-medium">
+            {action.action}
+          </div>
+          <div className="text-slate-600">
+            {fmtDate(action.createdAt)}
+          </div>
+          {action.comment && (
+            <div className="text-slate-500 mt-1">
+              {action.comment}
+            </div>
+            
+          )}
+        </div>
+      ))
+    )}
+  </div>
+</div>
                   </div>
                 </div>
               </div>

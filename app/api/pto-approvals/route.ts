@@ -23,6 +23,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
+    { error: "APPROVAL ROUTE HIT WITH BAD PAYLOAD" }
 
     const requestId = String(body.requestId || "").trim();
     const status = String(body.status || "").trim();
@@ -76,64 +77,77 @@ export async function POST(request: Request) {
       }
     }
 
-    const updatedRequest = await prisma.pTORequest.update({
-      where: { id: requestId },
-      data: {
-        status,
-        approvalComment,
-        decisionAt: new Date(),
-        decidedBy: approvalAccess.user.id,
-      },
-    });
-
-    if (status === "APPROVED") {
-      const bucket = getBucketForLeaveType(existingRequest.leaveType);
-
-      const latestLedger = await prisma.pTOLedger.findFirst({
-        where: {
-          employeeId: existingRequest.employeeId,
-          bucket,
-        },
-        orderBy: [{ effectiveDate: "desc" }, { createdAt: "desc" }],
-      });
-
-      const currentBalance = latestLedger?.balance ?? 0;
-      const newBalance = currentBalance - existingRequest.hours;
-
-      const ledgerEntry = await prisma.pTOLedger.create({
+    const result = await prisma.$transaction(async (tx) => {
+      const updatedRequest = await tx.pTORequest.update({
+        where: { id: requestId },
         data: {
-          employeeId: existingRequest.employeeId,
-          bucket,
-          type: "USAGE",
-          hours: -existingRequest.hours,
-          balance: newBalance,
-          effectiveDate: new Date(),
-          notes: `Approved ${existingRequest.leaveType} request ${existingRequest.id}${
-            approvalComment ? ` - ${approvalComment}` : ""
-          }`,
+          status,
+          approvalComment,
+          decisionAt: new Date(),
+          decidedBy: approvalAccess.user.id,
         },
       });
 
-      await prisma.auditLog.create({
+      await tx.pTORequestAction.create({
         data: {
-          userId: approvalAccess.user.id,
-          action: "REQUEST_APPROVED",
-          entityType: "PTORequest",
-          entityId: updatedRequest.id,
-          oldValue: JSON.stringify({
-            status: existingRequest.status,
-            approvalComment: existingRequest.approvalComment,
-          }),
-          newValue: JSON.stringify({
-            status: updatedRequest.status,
-            approvalComment: updatedRequest.approvalComment,
-            ledgerEntryId: ledgerEntry.id,
+          requestId: updatedRequest.id,
+          action: status,
+          actionById: approvalAccess.user.id,
+          comment: approvalComment,
+        },
+      });
+
+      if (status === "APPROVED") {
+        const bucket = getBucketForLeaveType(existingRequest.leaveType);
+
+        const latestLedger = await tx.pTOLedger.findFirst({
+          where: {
+            employeeId: existingRequest.employeeId,
             bucket,
-          }),
-        },
-      });
-    } else {
-      await prisma.auditLog.create({
+          },
+          orderBy: [{ effectiveDate: "desc" }, { createdAt: "desc" }],
+        });
+
+        const currentBalance = latestLedger?.balance ?? 0;
+        const newBalance = currentBalance - existingRequest.hours;
+
+        const ledgerEntry = await tx.pTOLedger.create({
+          data: {
+            employeeId: existingRequest.employeeId,
+            bucket,
+            type: "USAGE",
+            hours: -existingRequest.hours,
+            balance: newBalance,
+            effectiveDate: new Date(),
+            notes: `Approved ${existingRequest.leaveType} request ${existingRequest.id}${
+              approvalComment ? ` - ${approvalComment}` : ""
+            }`,
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            userId: approvalAccess.user.id,
+            action: "REQUEST_APPROVED",
+            entityType: "PTORequest",
+            entityId: updatedRequest.id,
+            oldValue: JSON.stringify({
+              status: existingRequest.status,
+              approvalComment: existingRequest.approvalComment,
+            }),
+            newValue: JSON.stringify({
+              status: updatedRequest.status,
+              approvalComment: updatedRequest.approvalComment,
+              ledgerEntryId: ledgerEntry.id,
+              bucket,
+            }),
+          },
+        });
+
+        return updatedRequest;
+      }
+
+      await tx.auditLog.create({
         data: {
           userId: approvalAccess.user.id,
           action: "REQUEST_DENIED",
@@ -149,10 +163,14 @@ export async function POST(request: Request) {
           }),
         },
       });
-    }
 
-    return NextResponse.json(updatedRequest);
-  } catch {
+      return updatedRequest;
+    });
+
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error("Failed to process approval:", error);
+
     return NextResponse.json(
       { error: "Failed to process approval." },
       { status: 500 }
