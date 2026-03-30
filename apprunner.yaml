@@ -10,7 +10,7 @@ build:
       - npm run build
 
 run:
-  runtime-version: 22
+  runtime-version: 22.22.1
   command: sh -c "npx prisma migrate deploy && npm run start"
   network:
     port: 3000
