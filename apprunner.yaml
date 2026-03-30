@@ -24,4 +24,4 @@ run:
     - name: NEXTAUTH_SECRET
       value: "iAO5WFVngzmIV2liC1lIRjcEmpR2GJkn1i5BOVPuwPY="
     - name: NEXTAUTH_URL
-      value: "www.example.com"
+      value: "http://www.example.com"
