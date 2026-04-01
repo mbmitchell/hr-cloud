@@ -11,6 +11,7 @@ type EmployeeOption = {
 
 export default function AdminAdjustmentsClient() {
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
+  const [roles, setRoles] = useState<string[]>([]);
   const [employeeId, setEmployeeId] = useState("");
   const [bucket, setBucket] = useState("COMP");
   const [adjustmentType, setAdjustmentType] = useState("MANUAL_ADD");
@@ -25,13 +26,20 @@ export default function AdminAdjustmentsClient() {
   useEffect(() => {
     async function loadEmployees() {
       try {
-        const response = await fetch("/api/employees");
-        const data = await response.json();
+        const [employeesResponse, meResponse] = await Promise.all([
+          fetch("/api/employees"),
+          fetch("/api/me"),
+        ]);
+        const data = await employeesResponse.json();
+        const me = await meResponse.json();
 
-        if (response.ok) {
+        if (employeesResponse.ok) {
           setEmployees(data);
           if (data.length > 0) {
             setEmployeeId(data[0].id);
+          }
+          if (meResponse.ok) {
+            setRoles(me.roles ?? []);
           }
         } else {
           setMessage("Unable to load employees.");
@@ -43,6 +51,20 @@ export default function AdminAdjustmentsClient() {
 
     loadEmployees();
   }, []);
+
+  const isManagerOnly =
+    roles.includes("MANAGER") &&
+    !roles.includes("SITE_ADMIN") &&
+    !roles.includes("HR_ADMIN");
+
+  useEffect(() => {
+    if (!isManagerOnly) {
+      return;
+    }
+
+    setBucket("COMP");
+    setAdjustmentType("MANUAL_ADD");
+  }, [isManagerOnly]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -84,6 +106,11 @@ export default function AdminAdjustmentsClient() {
   return (
     <div className="max-w-3xl space-y-6">
       <h2 className="text-2xl font-bold">Admin Adjustments</h2>
+      {isManagerOnly && (
+        <div className="bg-blue-50 border border-blue-200 rounded p-4 text-sm text-blue-900">
+          Managers can add COMP time for themselves and their direct reports only.
+        </div>
+      )}
 
       <div className="bg-white rounded shadow p-6">
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -111,6 +138,7 @@ export default function AdminAdjustmentsClient() {
                 value={bucket}
                 onChange={(e) => setBucket(e.target.value)}
                 className="w-full border rounded px-3 py-2"
+                disabled={isManagerOnly}
               >
                 <option value="PTO">PTO</option>
                 <option value="COMP">COMP</option>
@@ -125,6 +153,7 @@ export default function AdminAdjustmentsClient() {
                 value={adjustmentType}
                 onChange={(e) => setAdjustmentType(e.target.value)}
                 className="w-full border rounded px-3 py-2"
+                disabled={isManagerOnly}
               >
                 <option value="MANUAL_ADD">Manual Add</option>
                 <option value="MANUAL_SUBTRACT">Manual Subtract</option>

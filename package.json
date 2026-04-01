@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start -p 3000",
+    "test": "node --import tsx --test tests/**/*.test.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts"
@@ -15,9 +16,11 @@
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "@types/nodemailer": "^7.0.11",
     "date-fns": "^4.1.0",
     "next": "^15.0.0",
     "next-auth": "^5.0.0-beta.30",
+    "nodemailer": "^7.0.13",
     "react": "^18.3.1",
     "react-big-calendar": "^1.19.4",
     "react-dom": "^18.3.1"

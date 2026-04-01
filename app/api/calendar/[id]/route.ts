@@ -2,12 +2,18 @@ import { prisma } from "../../../../lib/db";
 import { NextResponse } from "next/server";
 import { getApprovalScope } from "../../../../lib/auth/access";
 import { isManagerOf } from "../../../../lib/auth/permissions";
+import {
+  assertCanViewEmployee,
+  isAuthorizationError,
+  requireActor,
+} from "../../../../lib/server/authorization";
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const actor = await requireActor();
     const { id } = await params;
 
     const requestRecord = await prisma.pTORequest.findUnique({
@@ -23,6 +29,8 @@ export async function GET(
         { status: 404 }
       );
     }
+
+    await assertCanViewEmployee(actor.id, requestRecord.employeeId);
 
     const approvalAccess = await getApprovalScope();
 
@@ -52,7 +60,14 @@ export async function GET(
       approvalComment: requestRecord.approvalComment ?? "",
       canAct,
     });
-  } catch {
+  } catch (error) {
+    if (isAuthorizationError(error)) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
     return NextResponse.json(
       { error: "Failed to load calendar event." },
       { status: 500 }

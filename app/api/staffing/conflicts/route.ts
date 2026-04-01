@@ -1,8 +1,15 @@
 import { prisma } from "../../../../lib/db";
 import { NextResponse } from "next/server";
+import {
+  assertCanViewEmployee,
+  isAuthorizationError,
+  requireActor,
+} from "../../../../lib/server/authorization";
+import { getVisibleEmployeeIds } from "../../../../lib/server/employee-visibility";
 
 export async function GET(request: Request) {
   try {
+    const actor = await requireActor();
     const { searchParams } = new URL(request.url);
 
     const employeeId = String(searchParams.get("employeeId") || "").trim();
@@ -31,6 +38,9 @@ export async function GET(request: Request) {
         { status: 404 }
       );
     }
+
+    await assertCanViewEmployee(actor.id, employeeId);
+    const visibleEmployeeIds = new Set(await getVisibleEmployeeIds(actor.id));
 
     if (!employee.department) {
       return NextResponse.json({
@@ -69,23 +79,33 @@ export async function GET(request: Request) {
 
     const approved = overlaps.filter((r) => r.status === "APPROVED");
     const pending = overlaps.filter((r) => r.status === "PENDING");
+    const visibleEmployeesOff = overlaps.map((request) => ({
+      id: request.id,
+      employeeId: request.employeeId,
+      employeeName: visibleEmployeeIds.has(request.employeeId)
+        ? `${request.employee.firstName} ${request.employee.lastName}`
+        : "Unavailable",
+      leaveType: request.leaveType,
+      status: request.status,
+      startDate: request.startDate.toISOString(),
+      endDate: request.endDate.toISOString(),
+    }));
 
     return NextResponse.json({
       department: employee.department,
       conflictCount: overlaps.length,
       approvedCount: approved.length,
       pendingCount: pending.length,
-      employeesOff: overlaps.map((request) => ({
-        id: request.id,
-        employeeId: request.employeeId,
-        employeeName: `${request.employee.firstName} ${request.employee.lastName}`,
-        leaveType: request.leaveType,
-        status: request.status,
-        startDate: request.startDate.toISOString(),
-        endDate: request.endDate.toISOString(),
-      })),
+      employeesOff: visibleEmployeesOff,
     });
-  } catch {
+  } catch (error) {
+    if (isAuthorizationError(error)) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
     return NextResponse.json(
       { error: "Failed to load staffing conflicts." },
       { status: 500 }

@@ -37,7 +37,8 @@ type ApprovalRow = {
   projectedPtoBalance: number;
   monthlyAccrualRate: number;
   accrualCount: number;
-  effectiveAvailableBalance: number;
+  effectiveAvailableBalance: number | null;
+  isWorkflowOnly: boolean;
   staffingConflictCount: number;
   staffingConflictEmployees: ConflictRow[];
   recentRequests: RecentRequest[];
@@ -154,7 +155,10 @@ export default function ManagerApprovalsClient({
         <div className="space-y-6">
           {filteredRequests.map((request) => {
             const isComp = request.leaveType === "COMP";
-            const shortfall = request.hours > request.effectiveAvailableBalance;
+            const isWorkflowOnly = request.isWorkflowOnly;
+            const shortfall =
+              request.effectiveAvailableBalance != null &&
+              request.hours > request.effectiveAvailableBalance;
 
             return (
               <div key={request.id} className="bg-white rounded shadow overflow-hidden">
@@ -223,11 +227,20 @@ export default function ManagerApprovalsClient({
                         Availability at Request Date
                       </div>
 
-                      {isComp ? (
+                      {isWorkflowOnly ? (
+                        <>
+                          <div className="text-sm">
+                            <b>Balance Impact:</b> None
+                          </div>
+                          <div className="text-xs text-slate-500 mt-1">
+                            Bereavement leave is informational only and does not reduce PTO or COMP balances.
+                          </div>
+                        </>
+                      ) : isComp ? (
                         <>
                           <div className="text-sm">
                             <b>COMP Available:</b>{" "}
-                            {request.effectiveAvailableBalance.toFixed(2)} hours
+                            {(request.effectiveAvailableBalance ?? 0).toFixed(2)} hours
                           </div>
                           <div className="text-xs text-slate-500 mt-1">
                             COMP does not accrue automatically.

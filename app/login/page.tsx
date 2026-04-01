@@ -9,5 +9,14 @@ export default async function LoginPage() {
     redirect("/");
   }
 
-  return <LoginForm />;
+  return (
+    <LoginForm
+      allowDevAuth={process.env.AUTH_ENABLE_DEV_AUTH === "true"}
+      allowMicrosoft365Auth={Boolean(
+        process.env.AUTH_MICROSOFT_ENTRA_ID_ID &&
+          process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET &&
+          process.env.AUTH_MICROSOFT_ENTRA_ID_ISSUER
+      )}
+    />
+  );
 }

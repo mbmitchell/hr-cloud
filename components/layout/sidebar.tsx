@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getCurrentUser } from "../../lib/auth/current-user";
 import { getEmployeeRoles } from "../../lib/auth/permissions";
+import { canCurrentUserAccessAdjustmentsPage } from "../../lib/auth/access";
 
 export default async function Sidebar() {
   const user = await getCurrentUser();
@@ -22,7 +23,9 @@ export default async function Sidebar() {
   const canSeeReports =
     isSiteAdmin || isHrAdmin || isAccounting || isExecutive;
   const canSeeApprovals = isSiteAdmin || isHrAdmin || isManager;
-  const canSeeAdjustments = isSiteAdmin || isHrAdmin;
+  const canSeeAdjustments = user
+    ? await canCurrentUserAccessAdjustmentsPage()
+    : false;
   const canSeeAudit = isSiteAdmin || isHrAdmin || isAuditor;
 
   const canSeePolicy = isSiteAdmin || isHrAdmin;

@@ -1,9 +1,22 @@
 import { prisma } from "../../../lib/db";
 import { NextResponse } from "next/server";
+import {
+  isAuthorizationError,
+  requireActor,
+} from "../../../lib/server/authorization";
+import { getVisibleEmployeeIds } from "../../../lib/server/employee-visibility";
 
 export async function GET() {
   try {
+    const actor = await requireActor();
+    const visibleEmployeeIds = await getVisibleEmployeeIds(actor.id);
+
     const requests = await prisma.pTORequest.findMany({
+      where: {
+        employeeId: {
+          in: visibleEmployeeIds,
+        },
+      },
       include: {
         employee: true,
       },
@@ -21,7 +34,14 @@ export async function GET() {
     }));
 
     return NextResponse.json(events);
-  } catch {
+  } catch (error) {
+    if (isAuthorizationError(error)) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
     return NextResponse.json(
       { error: "Failed to load calendar events." },
       { status: 500 }

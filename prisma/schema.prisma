@@ -84,12 +84,15 @@ model PTOLedger {
   balance       Float
   effectiveDate DateTime
   notes         String?
+  sourceRequestId String? @unique
+  idempotencyKey  String? @unique
 
   employee Employee @relation(fields: [employeeId], references: [id])
 
   createdAt DateTime @default(now())
 
   @@index([employeeId, bucket, effectiveDate])
+  @@index([employeeId, bucket, effectiveDate, createdAt])
 }
 
 model AuditLog {

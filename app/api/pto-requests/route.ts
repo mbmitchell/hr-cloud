@@ -1,17 +1,26 @@
 import { prisma } from "../../../lib/db";
 import { NextResponse } from "next/server";
+import {
+  assertCanCreateRequestFor,
+  isAuthorizationError,
+  requireActor,
+} from "../../../lib/server/authorization";
+import { writeAuditLog } from "../../../lib/server/audit/write-audit-log";
+import { isLeaveType } from "../../../lib/pto/leave-types";
+import { sendPtoRequestSubmittedNotification } from "../../../lib/server/notifications/request-notifications";
 
 export async function POST(request: Request) {
   try {
+    const actor = await requireActor();
     const body = await request.json();
-    console.log("=== PTO REQUEST ROUTE HIT ===", body);
 
-    const employeeId = String(body.employeeId || "").trim();
+    const requestedEmployeeId = String(body.employeeId || actor.id).trim();
     const leaveType = String(body.leaveType || "").trim();
     const startDate = String(body.startDate || "").trim();
     const endDate = String(body.endDate || "").trim();
     const hours = Number(body.hours);
     const notes = body.notes ? String(body.notes).trim() : null;
+    const employeeId = requestedEmployeeId || actor.id;
 
     if (!employeeId || !leaveType || !startDate || !endDate || !hours) {
       return NextResponse.json(
@@ -20,8 +29,40 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!isLeaveType(leaveType)) {
+      return NextResponse.json(
+        { error: "Leave type is invalid." },
+        { status: 400 }
+      );
+    }
+
+    const parsedStartDate = new Date(startDate);
+    const parsedEndDate = new Date(endDate);
+
+    if (
+      Number.isNaN(parsedStartDate.getTime()) ||
+      Number.isNaN(parsedEndDate.getTime())
+    ) {
+      return NextResponse.json(
+        { error: "Start date and end date must be valid dates." },
+        { status: 400 }
+      );
+    }
+
+    if (hours <= 0) {
+      return NextResponse.json(
+        { error: "Hours must be greater than zero." },
+        { status: 400 }
+      );
+    }
+
+    await assertCanCreateRequestFor(actor.id, employeeId);
+
     const employee = await prisma.employee.findUnique({
       where: { id: employeeId },
+      select: {
+        id: true,
+      },
     });
 
     if (!employee) {
@@ -36,8 +77,8 @@ export async function POST(request: Request) {
         data: {
           employeeId,
           leaveType,
-          startDate: new Date(startDate),
-          endDate: new Date(endDate),
+          startDate: parsedStartDate,
+          endDate: parsedEndDate,
           hours,
           status: "PENDING",
           notes,
@@ -48,16 +89,51 @@ export async function POST(request: Request) {
         data: {
           requestId: requestRecord.id,
           action: "SUBMITTED",
-          actionById: employeeId,
+          actionById: actor.id,
           comment: notes,
+        },
+      });
+
+      await writeAuditLog(tx, {
+        userId: actor.id,
+        action: "REQUEST_CREATED",
+        entityType: "PTORequest",
+        entityId: requestRecord.id,
+        newValue: {
+          employeeId: requestRecord.employeeId,
+          leaveType: requestRecord.leaveType,
+          startDate: requestRecord.startDate.toISOString(),
+          endDate: requestRecord.endDate.toISOString(),
+          hours: requestRecord.hours,
+          status: requestRecord.status,
+          notes: requestRecord.notes,
+          submittedBy: actor.id,
         },
       });
 
       return requestRecord;
     });
 
+    try {
+      await sendPtoRequestSubmittedNotification({
+        requestId: created.id,
+      });
+    } catch (notificationError) {
+      console.error(
+        `Failed to send PTO request submission email for request ${created.id}:`,
+        notificationError
+      );
+    }
+
     return NextResponse.json(created);
   } catch (error) {
+    if (isAuthorizationError(error)) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
     console.error("Failed to create PTO request:", error);
 
     return NextResponse.json(

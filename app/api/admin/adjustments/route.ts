@@ -1,18 +1,16 @@
+import { Prisma } from "@prisma/client";
+
 import { prisma } from "../../../../lib/db";
 import { NextResponse } from "next/server";
-import { canCurrentUserManageAdjustments, requireCurrentUser } from "../../../../lib/auth/access";
+import {
+  canCurrentUserAddCompTimeFor,
+  canCurrentUserManageAdjustments,
+  requireCurrentUser,
+} from "../../../../lib/auth/access";
+import { writeAuditLog } from "../../../../lib/server/audit/write-audit-log";
 
 export async function POST(request: Request) {
   try {
-    const allowed = await canCurrentUserManageAdjustments();
-
-    if (!allowed) {
-      return NextResponse.json(
-        { error: "You do not have permission to post adjustments." },
-        { status: 403 }
-      );
-    }
-
     const currentUser = await requireCurrentUser();
     const body = await request.json();
 
@@ -22,6 +20,23 @@ export async function POST(request: Request) {
     const hours = Number(body.hours);
     const effectiveDate = String(body.effectiveDate || "").trim();
     const reason = String(body.reason || "").trim();
+
+    const canManageAllAdjustments = await canCurrentUserManageAdjustments();
+    const canAddCompTimeForEmployee = employeeId
+      ? await canCurrentUserAddCompTimeFor(employeeId)
+      : false;
+
+    const isManagerScopedCompAdd =
+      bucket === "COMP" &&
+      adjustmentType === "MANUAL_ADD" &&
+      canAddCompTimeForEmployee;
+
+    if (!canManageAllAdjustments && !isManagerScopedCompAdd) {
+      return NextResponse.json(
+        { error: "You do not have permission to post this adjustment." },
+        { status: 403 }
+      );
+    }
 
     if (!employeeId || !bucket || !adjustmentType || !hours || !effectiveDate || !reason) {
       return NextResponse.json(
@@ -51,8 +66,18 @@ export async function POST(request: Request) {
       );
     }
 
+    const parsedEffectiveDate = new Date(effectiveDate);
+
+    if (Number.isNaN(parsedEffectiveDate.getTime())) {
+      return NextResponse.json(
+        { error: "Effective date is invalid." },
+        { status: 400 }
+      );
+    }
+
     const employee = await prisma.employee.findUnique({
       where: { id: employeeId },
+      select: { id: true },
     });
 
     if (!employee) {
@@ -62,58 +87,93 @@ export async function POST(request: Request) {
       );
     }
 
-    const latestLedger = await prisma.pTOLedger.findFirst({
-      where: {
-        employeeId,
-        bucket,
-      },
-      orderBy: [
-        { effectiveDate: "desc" },
-        { createdAt: "desc" },
-      ],
-    });
-
-    const currentBalance = latestLedger?.balance ?? 0;
     const signedHours = adjustmentType === "MANUAL_SUBTRACT" ? -hours : hours;
-    const newBalance = currentBalance + signedHours;
+    const duplicateThreshold = new Date(Date.now() - 2 * 60 * 1000);
 
-    const ledgerEntry = await prisma.pTOLedger.create({
-      data: {
-        employeeId,
-        bucket,
-        type: adjustmentType,
-        hours: signedHours,
-        balance: newBalance,
-        effectiveDate: new Date(effectiveDate),
-        notes: reason,
-      },
-    });
+    const result = await prisma.$transaction(async (tx) => {
+      const duplicateEntry = await tx.pTOLedger.findFirst({
+        where: {
+          employeeId,
+          bucket,
+          type: adjustmentType,
+          hours: signedHours,
+          effectiveDate: parsedEffectiveDate,
+          notes: reason,
+          createdAt: {
+            gte: duplicateThreshold,
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
 
-    await prisma.auditLog.create({
-      data: {
+      if (duplicateEntry) {
+        return {
+          ledgerEntry: duplicateEntry,
+          duplicate: true,
+        };
+      }
+
+      const latestLedger = await tx.pTOLedger.findFirst({
+        where: {
+          employeeId,
+          bucket,
+        },
+        orderBy: [
+          { effectiveDate: "desc" },
+          { createdAt: "desc" },
+        ],
+      });
+
+      const currentBalance = latestLedger?.balance ?? 0;
+      const newBalance = Number((currentBalance + signedHours).toFixed(2));
+
+      const ledgerEntry = await tx.pTOLedger.create({
+        data: {
+          employeeId,
+          bucket,
+          type: adjustmentType,
+          hours: signedHours,
+          balance: newBalance,
+          effectiveDate: parsedEffectiveDate,
+          notes: reason,
+        },
+      });
+
+      await writeAuditLog(tx, {
         userId: currentUser.id,
         action: "ADJUSTMENT_CREATE",
         entityType: "PTOLedger",
         entityId: ledgerEntry.id,
-        oldValue: JSON.stringify({
+        oldValue: {
           bucket,
           priorBalance: currentBalance,
-        }),
-        newValue: JSON.stringify({
+        },
+        newValue: {
           bucket,
           adjustmentType,
           hours: signedHours,
           newBalance,
           reason,
-        }),
-      },
+        },
+      });
+
+      return {
+        ledgerEntry,
+        duplicate: false,
+      };
+    }, {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
     });
 
     return NextResponse.json({
       success: true,
-      ledgerEntry,
+      ledgerEntry: result.ledgerEntry,
+      duplicate: result.duplicate,
     });
-  } catch {
+  } catch (error) {
+    console.error("Failed to post adjustment:", error);
     return NextResponse.json(
       { error: "Failed to post adjustment." },
       { status: 500 }

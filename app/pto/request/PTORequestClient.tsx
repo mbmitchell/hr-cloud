@@ -1,6 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import {
+  isBalanceTrackedLeaveType,
+  isCompLeaveType,
+  isPtoBucketLeaveType,
+  isWorkflowOnlyLeaveType,
+} from "../../../lib/pto/leave-types";
 
 type EmployeeOption = {
   id: string;
@@ -205,7 +211,7 @@ export default function PTORequestClient() {
 
   useEffect(() => {
     if (!startDate || !endDate) return;
-    if (leaveType === "COMP") return;
+    if (isCompLeaveType(leaveType)) return;
 
     const workdayCount = countWeekdaysInclusive(startDate, endDate);
     const calculatedHours = workdayCount * 8;
@@ -217,8 +223,10 @@ export default function PTORequestClient() {
 
   const requestedHours = useMemo(() => Number(hours || 0), [hours]);
 
-  const isPtoBucketRequest = leaveType === "PTO" || leaveType === "SICK";
-  const isCompRequest = leaveType === "COMP";
+  const isPtoBucketRequest = isPtoBucketLeaveType(leaveType);
+  const isCompRequest = isCompLeaveType(leaveType);
+  const isWorkflowOnlyRequest = isWorkflowOnlyLeaveType(leaveType);
+  const isBalanceTrackedRequest = isBalanceTrackedLeaveType(leaveType);
 
   const activeBalance = isCompRequest
     ? employeeBalance?.currentCompBalance ?? 0
@@ -228,7 +236,8 @@ export default function PTORequestClient() {
     employeeBalance?.ptoProjection?.projectedBalance ?? activeBalance;
 
   const displayAvailableBalance = isCompRequest ? activeBalance : projectedPtoBalance;
-  const projectedShortfall = requestedHours > displayAvailableBalance;
+  const projectedShortfall =
+    isBalanceTrackedRequest && requestedHours > displayAvailableBalance;
 
   const canRequestForOthers = currentUser?.canRequestForOthers ?? false;
 
@@ -261,7 +270,7 @@ export default function PTORequestClient() {
         setMessage(
           projectedShortfall
             ? "Request submitted. Warning: projected available hours may still be below the requested amount by the requested date."
-            : "PTO request submitted successfully."
+            : "Leave request submitted successfully."
         );
 
         setLeaveType("PTO");
@@ -348,6 +357,7 @@ export default function PTORequestClient() {
               <option value="PTO">PTO</option>
               <option value="SICK">SICK</option>
               <option value="COMP">COMP</option>
+              <option value="BEREAVEMENT">BEREAVEMENT</option>
             </select>
           </div>
 
@@ -381,6 +391,17 @@ export default function PTORequestClient() {
               </div>
               <div className="text-sm text-blue-800 mt-1">
                 No automatic accrual projection applies to COMP time.
+              </div>
+            </div>
+          )}
+
+          {isWorkflowOnlyRequest && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded p-4">
+              <div className="text-sm font-medium text-emerald-900">
+                Bereavement leave is workflow-only.
+              </div>
+              <div className="text-sm text-emerald-800 mt-1">
+                Approved bereavement requests do not reduce PTO or COMP balances and do not use accrual projections.
               </div>
             </div>
           )}

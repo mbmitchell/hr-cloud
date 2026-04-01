@@ -49,6 +49,35 @@ export async function canCurrentUserManageAdjustments() {
   ]);
 }
 
+export async function canCurrentUserAccessAdjustmentsPage() {
+  if (await canCurrentUserManageAdjustments()) {
+    return true;
+  }
+
+  return currentUserHasPermission("ADD_COMP_TIME");
+}
+
+export async function canCurrentUserAddCompTimeFor(employeeId: string) {
+  const user = await requireCurrentUser();
+
+  if (await canCurrentUserManageAdjustments()) {
+    return true;
+  }
+
+  const permissions = await getEmployeePermissions(user.id);
+
+  if (!permissions.includes("ADD_COMP_TIME")) {
+    return false;
+  }
+
+  if (user.id === employeeId) {
+    return true;
+  }
+
+  const directReportIds = await getDirectReportIds(user.id);
+  return directReportIds.includes(employeeId);
+}
+
 export async function canCurrentUserManageAccrualOverride() {
   return currentUserHasAnyRole([
     "SITE_ADMIN",
@@ -111,4 +140,3 @@ export async function getDirectReportIds(managerId: string) {
 
   return directReports.map((employee) => employee.id);
 }
-

@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 
+function isDevAuthEnabled() {
+  return process.env.AUTH_ENABLE_DEV_AUTH === "true";
+}
+
 export async function POST(request: Request) {
-  if (process.env.NODE_ENV === "production") {
+  if (!isDevAuthEnabled()) {
     return NextResponse.json(
-      { error: "Dev switcher is disabled in production." },
+      { error: "Dev switcher is disabled." },
       { status: 403 }
     );
   }

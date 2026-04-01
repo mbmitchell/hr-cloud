@@ -60,6 +60,7 @@ function eventClassName(event: CalendarItem) {
   if (leaveType === "PTO") base = "rbc-event-pto";
   if (leaveType === "SICK") base = "rbc-event-sick";
   if (leaveType === "COMP") base = "rbc-event-comp";
+  if (leaveType === "BEREAVEMENT") base = "rbc-event-bereavement";
 
   if (status === "PENDING") {
     base += " rbc-event-pending";
@@ -242,6 +243,10 @@ const todayEvents = useMemo(() => {
         <div className="flex items-center gap-2">
           <span className="inline-block h-3 w-3 rounded bg-purple-500" />
           <span>COMP</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="inline-block h-3 w-3 rounded bg-emerald-600" />
+          <span>BEREAVEMENT</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="inline-block h-3 w-3 rounded bg-gray-500" />

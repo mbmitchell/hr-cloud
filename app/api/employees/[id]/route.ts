@@ -2,15 +2,35 @@ import { prisma } from "../../../../lib/db";
 import { projectPtoBalance } from "../../../../lib/pto/accrual";
 import { getPolicySettings } from "../../../../lib/policy/settings";
 import { NextResponse } from "next/server";
+import {
+  assertCanViewEmployee,
+  isAuthorizationError,
+  requireActor,
+} from "../../../../lib/server/authorization";
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const actor = await requireActor();
     const { id } = await params;
     const { searchParams } = new URL(request.url);
     const requestStartDateParam = searchParams.get("requestStartDate");
+
+    const employeeExists = await prisma.employee.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!employeeExists) {
+      return NextResponse.json(
+        { error: "Employee not found." },
+        { status: 404 }
+      );
+    }
+
+    await assertCanViewEmployee(actor.id, id);
 
     const employee = await prisma.employee.findUnique({
       where: { id },
@@ -64,7 +84,14 @@ export async function GET(
       accrualOverrideReason: employee.accrualOverrideReason,
       ptoProjection,
     });
-  } catch {
+  } catch (error) {
+    if (isAuthorizationError(error)) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
     return NextResponse.json(
       { error: "Failed to load employee balances." },
       { status: 500 }

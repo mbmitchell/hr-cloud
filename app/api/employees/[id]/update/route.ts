@@ -4,6 +4,7 @@ import {
   currentUserHasAnyRole,
   requireCurrentUser,
 } from "../../../../../lib/auth/access";
+import { applyEmployeeUpdate } from "../../../../../lib/server/employees/apply-employee-update";
 
 export async function POST(
   request: Request,
@@ -103,60 +104,27 @@ export async function POST(
       );
     }
 
-    const updatedEmployee = await prisma.employee.update({
-      where: { id },
-      data: {
-        firstName,
-        lastName,
-        email,
-        department,
-        title,
-        status,
-        hireDate: parsedHireDate,
-        managerId,
-      },
-    });
-
-    let auditWarning: string | null = null;
-
-    try {
-      await prisma.auditLog.create({
-        data: {
-          userId: currentUser.id,
-          action: "EMPLOYEE_UPDATE",
-          entityType: "Employee",
-          entityId: updatedEmployee.id,
-          oldValue: JSON.stringify({
-            firstName: employee.firstName,
-            lastName: employee.lastName,
-            email: employee.email,
-            department: employee.department,
-            title: employee.title,
-            status: employee.status,
-            hireDate: employee.hireDate.toISOString(),
-            managerId: employee.managerId,
-          }),
-          newValue: JSON.stringify({
-            firstName: updatedEmployee.firstName,
-            lastName: updatedEmployee.lastName,
-            email: updatedEmployee.email,
-            department: updatedEmployee.department,
-            title: updatedEmployee.title,
-            status: updatedEmployee.status,
-            hireDate: updatedEmployee.hireDate.toISOString(),
-            managerId: updatedEmployee.managerId,
-          }),
+    const updatedEmployee = await prisma.$transaction(async (tx) => {
+      return applyEmployeeUpdate(tx, {
+        actorId: currentUser.id,
+        employeeId: id,
+        existingEmployee: employee,
+        update: {
+          firstName,
+          lastName,
+          email,
+          department,
+          title,
+          status,
+          hireDate: parsedHireDate,
+          managerId,
         },
       });
-    } catch (auditError) {
-      console.error("AUDIT LOG INSERT FAILED:", auditError);
-      auditWarning = "Employee updated, but audit log failed.";
-    }
+    });
 
     return NextResponse.json({
       success: true,
       employee: updatedEmployee,
-      auditWarning,
     });
   } catch (error) {
     console.error("Employee update failed:", error);

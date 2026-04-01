@@ -1,7 +1,18 @@
 import { prisma } from "../../../lib/db";
 import { getApprovalScope, getDirectReportIds } from "../../../lib/auth/access";
 import { projectPtoBalance } from "../../../lib/pto/accrual";
+import {
+  isCompLeaveType,
+  isPtoBucketLeaveType,
+  isWorkflowOnlyLeaveType,
+} from "../../../lib/pto/leave-types";
 import ManagerApprovalsClient from "./ManagerApprovalsClient";
+
+const emptyProjection = {
+  projectedBalance: 0,
+  monthlyRate: 0,
+  accrualCount: 0,
+};
 
 export default async function ManagerApprovalsPage() {
   const approvalAccess = await getApprovalScope();
@@ -69,17 +80,20 @@ const requests = await prisma.pTORequest.findMany({
       const currentCompBalance =
         employee.ledger.find((entry) => entry.bucket === "COMP")?.balance ?? 0;
 
-      const ptoProjection = projectPtoBalance({
-        currentBalance: currentPtoBalance,
-        hireDate: employee.hireDate,
-        requestStartDate: request.startDate,
-        monthlyAccrualOverride: employee.monthlyAccrualOverride,
-      });
+      const ptoProjection = isPtoBucketLeaveType(request.leaveType)
+        ? projectPtoBalance({
+            currentBalance: currentPtoBalance,
+            hireDate: employee.hireDate,
+            requestStartDate: request.startDate,
+            monthlyAccrualOverride: employee.monthlyAccrualOverride,
+          })
+        : emptyProjection;
 
-      const effectiveAvailableBalance =
-        request.leaveType === "COMP"
-          ? currentCompBalance
-          : ptoProjection.projectedBalance;
+      const effectiveAvailableBalance = isCompLeaveType(request.leaveType)
+        ? currentCompBalance
+        : isPtoBucketLeaveType(request.leaveType)
+          ? ptoProjection.projectedBalance
+          : null;
 
       const staffingConflicts = await prisma.pTORequest.findMany({
         where: {
@@ -128,6 +142,7 @@ const requests = await prisma.pTORequest.findMany({
         monthlyAccrualRate: ptoProjection.monthlyRate,
         accrualCount: ptoProjection.accrualCount,
         effectiveAvailableBalance,
+        isWorkflowOnly: isWorkflowOnlyLeaveType(request.leaveType),
         staffingConflictCount: staffingConflicts.length,
         staffingConflictEmployees: staffingConflicts.map((conflict) => ({
           id: conflict.id,

@@ -1,3 +1,5 @@
+import { Prisma } from "@prisma/client";
+
 import { prisma } from "../db";
 import { getPolicySettings } from "../policy/settings";
 
@@ -25,6 +27,10 @@ function rolloverLabel(date: Date) {
   return `Year-end PTO rollover ${date.getFullYear()}`;
 }
 
+function rolloverIdempotencyKey(employeeId: string, effectiveDate: Date) {
+  return `year-end-rollover:${employeeId}:${effectiveDate.toISOString()}`;
+}
+
 export async function runYearEndRollover(
   runDateInput?: Date
 ): Promise<RunRolloverResult> {
@@ -46,94 +52,136 @@ export async function runYearEndRollover(
 
   for (const employee of employees) {
     const employeeName = `${employee.firstName} ${employee.lastName}`;
+    const idempotencyKey = rolloverIdempotencyKey(employee.id, effectiveDate);
 
-    const existingRollover = await prisma.pTOLedger.findFirst({
-      where: {
-        employeeId: employee.id,
-        bucket: "PTO",
-        type: "FORFEITURE",
-        effectiveDate,
-      },
-    });
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        const existingRollover = await tx.pTOLedger.findFirst({
+          where: {
+            OR: [
+              { idempotencyKey },
+              {
+                employeeId: employee.id,
+                bucket: "PTO",
+                type: "FORFEITURE",
+                effectiveDate,
+              },
+            ],
+          },
+        });
 
-    if (existingRollover) {
-      skippedEmployees += 1;
-      details.push({
-        employeeId: employee.id,
-        employeeName,
-        status: "SKIPPED",
-        reason: "Rollover already processed for this year.",
-      });
-      continue;
-    }
+        if (existingRollover) {
+          return {
+            status: "SKIPPED" as const,
+            reason: "Rollover already processed for this year.",
+          };
+        }
 
-    const latestPtoLedger = await prisma.pTOLedger.findFirst({
-      where: {
-        employeeId: employee.id,
-        bucket: "PTO",
-      },
-      orderBy: [{ effectiveDate: "desc" }, { createdAt: "desc" }],
-    });
+        const latestPtoLedger = await tx.pTOLedger.findFirst({
+          where: {
+            employeeId: employee.id,
+            bucket: "PTO",
+          },
+          orderBy: [{ effectiveDate: "desc" }, { createdAt: "desc" }],
+        });
 
-    const currentBalance = latestPtoLedger?.balance ?? 0;
+        const currentBalance = latestPtoLedger?.balance ?? 0;
 
-    if (currentBalance <= policy.rolloverCapHours) {
-      skippedEmployees += 1;
-      details.push({
-        employeeId: employee.id,
-        employeeName,
-        status: "SKIPPED",
-        reason: `No forfeiture required. PTO balance is ${policy.rolloverCapHours} hours or less.`,
-        priorBalance: currentBalance,
-        newBalance: currentBalance,
-      });
-      continue;
-    }
+        if (currentBalance <= policy.rolloverCapHours) {
+          return {
+            status: "SKIPPED" as const,
+            reason: `No forfeiture required. PTO balance is ${policy.rolloverCapHours} hours or less.`,
+            priorBalance: currentBalance,
+            newBalance: currentBalance,
+          };
+        }
 
-    const forfeitedHours = Number((currentBalance - policy.rolloverCapHours).toFixed(2));
-    const newBalance = Number((currentBalance - forfeitedHours).toFixed(2));
+        const forfeitedHours = Number((currentBalance - policy.rolloverCapHours).toFixed(2));
+        const newBalance = Number((currentBalance - forfeitedHours).toFixed(2));
 
-    const ledgerEntry = await prisma.pTOLedger.create({
-      data: {
-        employeeId: employee.id,
-        bucket: "PTO",
-        type: "FORFEITURE",
-        hours: -forfeitedHours,
-        balance: newBalance,
-        effectiveDate,
-        notes: `${notesLabel} (${policy.rolloverCapHours} hour cap applied)`,
-      },
-    });
+        const ledgerEntry = await tx.pTOLedger.create({
+          data: {
+            employeeId: employee.id,
+            bucket: "PTO",
+            type: "FORFEITURE",
+            hours: -forfeitedHours,
+            balance: newBalance,
+            effectiveDate,
+            idempotencyKey,
+            notes: `${notesLabel} (${policy.rolloverCapHours} hour cap applied)`,
+          },
+        });
 
-    await prisma.auditLog.create({
-      data: {
-        userId: "system",
-        action: "YEAR_END_ROLLOVER_CREATE",
-        entityType: "PTOLedger",
-        entityId: ledgerEntry.id,
-        oldValue: JSON.stringify({
-          bucket: "PTO",
+        await tx.auditLog.create({
+          data: {
+            userId: "system",
+            action: "YEAR_END_ROLLOVER_CREATE",
+            entityType: "PTOLedger",
+            entityId: ledgerEntry.id,
+            oldValue: JSON.stringify({
+              bucket: "PTO",
+              priorBalance: currentBalance,
+            }),
+            newValue: JSON.stringify({
+              bucket: "PTO",
+              forfeitedHours,
+              newBalance,
+              effectiveDate: effectiveDate.toISOString(),
+            }),
+          },
+        });
+
+        return {
+          status: "CREATED" as const,
+          reason: "Rollover cap applied.",
           priorBalance: currentBalance,
-        }),
-        newValue: JSON.stringify({
-          bucket: "PTO",
           forfeitedHours,
           newBalance,
-          effectiveDate: effectiveDate.toISOString(),
-        }),
-      },
-    });
+        };
+      }, {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      });
 
-    createdEntries += 1;
-    details.push({
-      employeeId: employee.id,
-      employeeName,
-      status: "CREATED",
-      reason: "Rollover cap applied.",
-      priorBalance: currentBalance,
-      forfeitedHours,
-      newBalance,
-    });
+      if (result.status === "SKIPPED") {
+        skippedEmployees += 1;
+        details.push({
+          employeeId: employee.id,
+          employeeName,
+          status: result.status,
+          reason: result.reason,
+          priorBalance: result.priorBalance,
+          newBalance: result.newBalance,
+        });
+        continue;
+      }
+
+      createdEntries += 1;
+      details.push({
+        employeeId: employee.id,
+        employeeName,
+        status: result.status,
+        reason: result.reason,
+        priorBalance: result.priorBalance,
+        forfeitedHours: result.forfeitedHours,
+        newBalance: result.newBalance,
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        skippedEmployees += 1;
+        details.push({
+          employeeId: employee.id,
+          employeeName,
+          status: "SKIPPED",
+          reason: "Rollover already processed for this year.",
+        });
+        continue;
+      }
+
+      throw error;
+    }
   }
 
   return {

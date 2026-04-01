@@ -1,3 +1,5 @@
+import { Prisma } from "@prisma/client";
+
 import { prisma } from "../db";
 import { getMonthlyAccrualRate } from "./accrual";
 import { getPolicySettings } from "../policy/settings";
@@ -27,6 +29,10 @@ function accrualRunLabel(date: Date) {
   return `Monthly PTO accrual ${year}-${month}`;
 }
 
+function accrualIdempotencyKey(employeeId: string, effectiveDate: Date) {
+  return `monthly-accrual:${employeeId}:${effectiveDate.toISOString()}`;
+}
+
 export async function runMonthlyAccruals(
   runDateInput?: Date
 ): Promise<RunAccrualsResult> {
@@ -48,90 +54,133 @@ export async function runMonthlyAccruals(
 
   for (const employee of employees) {
     const employeeName = `${employee.firstName} ${employee.lastName}`;
+    const idempotencyKey = accrualIdempotencyKey(employee.id, effectiveDate);
 
-    const existingAccrual = await prisma.pTOLedger.findFirst({
-      where: {
-        employeeId: employee.id,
-        bucket: "PTO",
-        type: "ACCRUAL",
-        effectiveDate,
-      },
-    });
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        const existingAccrual = await tx.pTOLedger.findFirst({
+          where: {
+            OR: [
+              { idempotencyKey },
+              {
+                employeeId: employee.id,
+                bucket: "PTO",
+                type: "ACCRUAL",
+                effectiveDate,
+              },
+            ],
+          },
+        });
 
-    if (existingAccrual) {
-      skippedEmployees += 1;
+        if (existingAccrual) {
+          return {
+            status: "SKIPPED" as const,
+            reason: "Accrual already exists for this month.",
+          };
+        }
+
+        const latestPtoLedger = await tx.pTOLedger.findFirst({
+          where: {
+            employeeId: employee.id,
+            bucket: "PTO",
+          },
+          orderBy: [{ effectiveDate: "desc" }, { createdAt: "desc" }],
+        });
+
+        const currentBalance = latestPtoLedger?.balance ?? 0;
+        const monthlyRate = getMonthlyAccrualRate(
+          {
+            hireDate: employee.hireDate,
+            monthlyAccrualOverride: employee.monthlyAccrualOverride,
+          },
+          effectiveDate,
+          policy
+        );
+
+        const newBalance = Number((currentBalance + monthlyRate).toFixed(2));
+
+        const ledgerEntry = await tx.pTOLedger.create({
+          data: {
+            employeeId: employee.id,
+            bucket: "PTO",
+            type: "ACCRUAL",
+            hours: monthlyRate,
+            balance: newBalance,
+            effectiveDate,
+            idempotencyKey,
+            notes:
+              employee.monthlyAccrualOverride != null
+                ? `${notesLabel} (override applied)`
+                : notesLabel,
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            userId: "system",
+            action: "MONTHLY_ACCRUAL_CREATE",
+            entityType: "PTOLedger",
+            entityId: ledgerEntry.id,
+            oldValue: JSON.stringify({
+              bucket: "PTO",
+              priorBalance: currentBalance,
+            }),
+            newValue: JSON.stringify({
+              bucket: "PTO",
+              accrualHours: monthlyRate,
+              newBalance,
+              effectiveDate: effectiveDate.toISOString(),
+            }),
+          },
+        });
+
+        return {
+          status: "CREATED" as const,
+          reason: "Monthly accrual posted.",
+          hours: monthlyRate,
+          newBalance,
+        };
+      }, {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      });
+
+      if (result.status === "SKIPPED") {
+        skippedEmployees += 1;
+        details.push({
+          employeeId: employee.id,
+          employeeName,
+          status: result.status,
+          reason: result.reason,
+        });
+        continue;
+      }
+
+      createdEntries += 1;
       details.push({
         employeeId: employee.id,
         employeeName,
-        status: "SKIPPED",
-        reason: "Accrual already exists for this month.",
+        status: result.status,
+        reason: result.reason,
+        hours: result.hours,
+        newBalance: result.newBalance,
       });
-      continue;
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        skippedEmployees += 1;
+        details.push({
+          employeeId: employee.id,
+          employeeName,
+          status: "SKIPPED",
+          reason: "Accrual already exists for this month.",
+        });
+        continue;
+      }
+
+      throw error;
     }
-
-    const latestPtoLedger = await prisma.pTOLedger.findFirst({
-      where: {
-        employeeId: employee.id,
-        bucket: "PTO",
-      },
-      orderBy: [{ effectiveDate: "desc" }, { createdAt: "desc" }],
-    });
-
-    const currentBalance = latestPtoLedger?.balance ?? 0;
-    const monthlyRate = getMonthlyAccrualRate(
-      {
-        hireDate: employee.hireDate,
-        monthlyAccrualOverride: employee.monthlyAccrualOverride,
-      },
-      effectiveDate,
-      policy
-    );
-
-    const newBalance = Number((currentBalance + monthlyRate).toFixed(2));
-
-    const ledgerEntry = await prisma.pTOLedger.create({
-      data: {
-        employeeId: employee.id,
-        bucket: "PTO",
-        type: "ACCRUAL",
-        hours: monthlyRate,
-        balance: newBalance,
-        effectiveDate,
-        notes:
-          employee.monthlyAccrualOverride != null
-            ? `${notesLabel} (override applied)`
-            : notesLabel,
-      },
-    });
-
-    await prisma.auditLog.create({
-      data: {
-        userId: "system",
-        action: "MONTHLY_ACCRUAL_CREATE",
-        entityType: "PTOLedger",
-        entityId: ledgerEntry.id,
-        oldValue: JSON.stringify({
-          bucket: "PTO",
-          priorBalance: currentBalance,
-        }),
-        newValue: JSON.stringify({
-          bucket: "PTO",
-          accrualHours: monthlyRate,
-          newBalance,
-          effectiveDate: effectiveDate.toISOString(),
-        }),
-      },
-    });
-
-    createdEntries += 1;
-    details.push({
-      employeeId: employee.id,
-      employeeName,
-      status: "CREATED",
-      reason: "Monthly accrual posted.",
-      hours: monthlyRate,
-      newBalance,
-    });
   }
 
   return {
