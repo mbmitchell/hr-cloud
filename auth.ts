@@ -13,6 +13,12 @@ const allowMicrosoftEntraAuth = Boolean(
     process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET &&
     process.env.AUTH_MICROSOFT_ENTRA_ID_ISSUER
 );
+const devAuthEmailAllowlist = new Set(
+  (process.env.AUTH_DEV_AUTH_EMAIL_ALLOWLIST || "")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean)
+);
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: process.env.NEXTAUTH_SECRET,
@@ -47,6 +53,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!email || !password) return null;
 
         if (password !== process.env.AUTH_DEV_PASSWORD) return null;
+
+        if (
+          devAuthEmailAllowlist.size > 0 &&
+          !devAuthEmailAllowlist.has(email)
+        ) {
+          return null;
+        }
 
         const employee = await resolveAuthenticatedEmployeeByEmail(email);
 

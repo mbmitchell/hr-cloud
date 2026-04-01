@@ -10,8 +10,11 @@ export default async function Header() {
   const user = await getCurrentUser();
   const roles = user ? await getEmployeeRoles(user.id) : [];
   const isDev = process.env.NODE_ENV !== "production";
+  const allowDevUserSwitcher =
+    process.env.AUTH_ENABLE_DEV_AUTH === "true" &&
+    process.env.AUTH_ENABLE_DEV_USER_SWITCHER === "true";
 
-  const employees = isDev
+  const employees = isDev && allowDevUserSwitcher
     ? await prisma.employee.findMany({
         select: {
           id: true,
@@ -64,7 +67,7 @@ export default async function Header() {
           </Link>
         )}
 
-        {isDev && session?.user && (
+        {isDev && allowDevUserSwitcher && session?.user && (
           <DevUserSwitcher
             employees={employees}
             currentUserId={user?.id ?? null}
