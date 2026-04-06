@@ -1,25 +1,24 @@
 import { NextResponse } from "next/server";
+
 import { prisma } from "../../../../../lib/db";
 import {
-  currentUserHasAnyRole,
-  requireCurrentUser,
-} from "../../../../../lib/auth/access";
+  isAuthorizationError,
+  requireAdmin,
+} from "../../../../../lib/server/authorization";
+import { writeAuditLog } from "../../../../../lib/server/audit/write-audit-log";
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const allowed = await currentUserHasAnyRole(["SITE_ADMIN", "HR_ADMIN"]);
-
-    if (!allowed) {
-      return NextResponse.json(
-        { error: "You do not have permission to view role assignments." },
-        { status: 403 }
-      );
-    }
-
     const { id } = await params;
+
+    await requireAdmin({
+      attemptedAction: "EMPLOYEE_ROLE_VIEW",
+      entityType: "Employee",
+      entityId: id,
+    });
 
     const employee = await prisma.employee.findUnique({
       where: { id },
@@ -54,7 +53,14 @@ export async function GET(
         name: role.name,
       })),
     });
-  } catch {
+  } catch (error) {
+    if (isAuthorizationError(error)) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
     return NextResponse.json(
       { error: "Failed to load employee roles." },
       { status: 500 }
@@ -67,17 +73,12 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const allowed = await currentUserHasAnyRole(["SITE_ADMIN", "HR_ADMIN"]);
-
-    if (!allowed) {
-      return NextResponse.json(
-        { error: "You do not have permission to update role assignments." },
-        { status: 403 }
-      );
-    }
-
-    const currentUser = await requireCurrentUser();
     const { id } = await params;
+    const currentUser = await requireAdmin({
+      attemptedAction: "EMPLOYEE_ROLE_UPDATE",
+      entityType: "Employee",
+      entityId: id,
+    });
     const body = await request.json();
 
     const requestedRoleCodes = Array.isArray(body.roleCodes)
@@ -143,18 +144,16 @@ export async function POST(
         });
       }
 
-      await tx.auditLog.create({
-        data: {
-          userId: currentUser.id,
-          action: "EMPLOYEE_ROLE_UPDATE",
-          entityType: "Employee",
-          entityId: employee.id,
-          oldValue: JSON.stringify({
-            roles: currentRoleCodes,
-          }),
-          newValue: JSON.stringify({
-            roles: validRoleCodes,
-          }),
+      await writeAuditLog(tx, {
+        userId: currentUser.id,
+        action: "EMPLOYEE_ROLE_UPDATE",
+        entityType: "Employee",
+        entityId: employee.id,
+        oldValue: {
+          roles: currentRoleCodes,
+        },
+        newValue: {
+          roles: validRoleCodes,
         },
       });
     });
@@ -164,7 +163,14 @@ export async function POST(
       employeeId: employee.id,
       roleCodes: validRoleCodes,
     });
-  } catch {
+  } catch (error) {
+    if (isAuthorizationError(error)) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
     return NextResponse.json(
       { error: "Failed to update employee roles." },
       { status: 500 }

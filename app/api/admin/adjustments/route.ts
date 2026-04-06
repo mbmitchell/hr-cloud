@@ -1,17 +1,21 @@
 import { Prisma } from "@prisma/client";
+import { NextResponse } from "next/server";
 
 import { prisma } from "../../../../lib/db";
-import { NextResponse } from "next/server";
 import {
-  canCurrentUserAddCompTimeFor,
-  canCurrentUserManageAdjustments,
-  requireCurrentUser,
-} from "../../../../lib/auth/access";
+  isAuthorizationError,
+  requireAdmin,
+  requireAuthenticatedEmployee,
+  requireManagerOfEmployee,
+} from "../../../../lib/server/authorization";
 import { writeAuditLog } from "../../../../lib/server/audit/write-audit-log";
 
 export async function POST(request: Request) {
   try {
-    const currentUser = await requireCurrentUser();
+    const currentUser = await requireAuthenticatedEmployee({
+      attemptedAction: "PTOLedger_ADJUSTMENT_CREATE",
+      entityType: "PTOLedger",
+    });
     const body = await request.json();
 
     const employeeId = String(body.employeeId || "").trim();
@@ -20,23 +24,6 @@ export async function POST(request: Request) {
     const hours = Number(body.hours);
     const effectiveDate = String(body.effectiveDate || "").trim();
     const reason = String(body.reason || "").trim();
-
-    const canManageAllAdjustments = await canCurrentUserManageAdjustments();
-    const canAddCompTimeForEmployee = employeeId
-      ? await canCurrentUserAddCompTimeFor(employeeId)
-      : false;
-
-    const isManagerScopedCompAdd =
-      bucket === "COMP" &&
-      adjustmentType === "MANUAL_ADD" &&
-      canAddCompTimeForEmployee;
-
-    if (!canManageAllAdjustments && !isManagerScopedCompAdd) {
-      return NextResponse.json(
-        { error: "You do not have permission to post this adjustment." },
-        { status: 403 }
-      );
-    }
 
     if (!employeeId || !bucket || !adjustmentType || !hours || !effectiveDate || !reason) {
       return NextResponse.json(
@@ -73,6 +60,37 @@ export async function POST(request: Request) {
         { error: "Effective date is invalid." },
         { status: 400 }
       );
+    }
+
+    const canManageAllAdjustments = currentUser.roles.some((roleCode) =>
+      ["SITE_ADMIN", "HR_ADMIN"].includes(roleCode)
+    );
+    const isManagerScopedCompAdd =
+      bucket === "COMP" &&
+      adjustmentType === "MANUAL_ADD" &&
+      currentUser.permissions.includes("ADD_COMP_TIME");
+
+    if (canManageAllAdjustments) {
+      await requireAdmin({
+        attemptedAction: "PTOLedger_ADJUSTMENT_CREATE",
+        entityType: "PTOLedger",
+        entityId: employeeId,
+      });
+    } else if (isManagerScopedCompAdd) {
+      if (currentUser.id !== employeeId) {
+        // Manager-scoped COMP additions only apply to direct reports.
+        await requireManagerOfEmployee(currentUser.id, employeeId, {
+          attemptedAction: "COMP_TIME_ADD",
+          entityType: "Employee",
+          entityId: employeeId,
+        });
+      }
+    } else {
+      await requireAdmin({
+        attemptedAction: "PTOLedger_ADJUSTMENT_CREATE",
+        entityType: "PTOLedger",
+        entityId: employeeId,
+      });
     }
 
     const employee = await prisma.employee.findUnique({
@@ -173,6 +191,13 @@ export async function POST(request: Request) {
       duplicate: result.duplicate,
     });
   } catch (error) {
+    if (isAuthorizationError(error)) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
     console.error("Failed to post adjustment:", error);
     return NextResponse.json(
       { error: "Failed to post adjustment." },

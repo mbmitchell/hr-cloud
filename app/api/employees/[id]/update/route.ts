@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
+
 import { prisma } from "../../../../../lib/db";
 import {
-  currentUserHasAnyRole,
-  requireCurrentUser,
-} from "../../../../../lib/auth/access";
+  isAuthorizationError,
+  requireAdmin,
+} from "../../../../../lib/server/authorization";
 import { applyEmployeeUpdate } from "../../../../../lib/server/employees/apply-employee-update";
 
 export async function POST(
@@ -11,17 +12,12 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const allowed = await currentUserHasAnyRole(["SITE_ADMIN", "HR_ADMIN"]);
-
-    if (!allowed) {
-      return NextResponse.json(
-        { error: "You do not have permission to update employee information." },
-        { status: 403 }
-      );
-    }
-
-    const currentUser = await requireCurrentUser();
     const { id } = await params;
+    const currentUser = await requireAdmin({
+      attemptedAction: "EMPLOYEE_UPDATE",
+      entityType: "Employee",
+      entityId: id,
+    });
     const body = await request.json();
 
     const firstName = String(body.firstName || "").trim();
@@ -127,6 +123,13 @@ export async function POST(
       employee: updatedEmployee,
     });
   } catch (error) {
+    if (isAuthorizationError(error)) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
     console.error("Employee update failed:", error);
 
     return NextResponse.json(

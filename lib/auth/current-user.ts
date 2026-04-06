@@ -34,17 +34,5 @@ export async function getCurrentUser() {
     }
   }
 
-  const email = session?.user?.email?.trim().toLowerCase();
-
-  if (email) {
-    const sessionUser = await prisma.employee.findUnique({
-      where: { email },
-    });
-
-    if (sessionUser) {
-      return sessionUser;
-    }
-  }
-
   return null;
 }

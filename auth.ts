@@ -4,26 +4,89 @@ import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
 import { resolveAuthenticatedEmployeeByEmail } from "./lib/auth/resolve-authenticated-employee";
 import {
   authorizeMicrosoftEntraSignIn,
-  getEmailFromAuthInput,
+  normalizeEmail,
 } from "./lib/auth/microsoft-entra-sso";
+import { logSecurityEvent } from "./lib/server/audit/security-events";
+import {
+  AUTH_RATE_LIMITS,
+  buildCredentialsRateLimitKeys,
+  consumeAuthRateLimit,
+  getClientIpFromRequest,
+  resetAuthRateLimits,
+} from "./lib/server/security/auth-rate-limit";
+
+declare global {
+  // eslint-disable-next-line no-var
+  var __mfnAuthWarningsLogged: boolean | undefined;
+}
 
 const allowDevAuth = process.env.AUTH_ENABLE_DEV_AUTH === "true";
+const allowDevUserSwitcher =
+  process.env.AUTH_ENABLE_DEV_AUTH === "true" &&
+  process.env.AUTH_ENABLE_DEV_USER_SWITCHER === "true";
 const allowMicrosoftEntraAuth = Boolean(
   process.env.AUTH_MICROSOFT_ENTRA_ID_ID &&
     process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET &&
     process.env.AUTH_MICROSOFT_ENTRA_ID_ISSUER
 );
+const microsoftEntraClientId = process.env.AUTH_MICROSOFT_ENTRA_ID_ID || "";
+const microsoftEntraIssuer = process.env.AUTH_MICROSOFT_ENTRA_ID_ISSUER || "";
+const allowedMicrosoftEmailDomain =
+  process.env.AUTH_MICROSOFT_ENTRA_ID_EMAIL_DOMAIN || "";
 const devAuthEmailAllowlist = new Set(
   (process.env.AUTH_DEV_AUTH_EMAIL_ALLOWLIST || "")
     .split(",")
     .map((email) => email.trim().toLowerCase())
     .filter(Boolean)
 );
+const isDevelopment = process.env.NODE_ENV === "development";
+
+function stripSensitiveTokenFields(token: Record<string, unknown>) {
+  delete token.access_token;
+  delete token.refresh_token;
+  delete token.id_token;
+  delete token.scope;
+  delete token.token_type;
+  delete token.expires_at;
+  delete token.session_state;
+  delete token.ext_expires_in;
+  delete token.oid;
+  delete token.tid;
+}
+
+function logAuthStartupWarnings() {
+  if (globalThis.__mfnAuthWarningsLogged) {
+    return;
+  }
+
+  globalThis.__mfnAuthWarningsLogged = true;
+
+  if (!isDevelopment && allowDevAuth) {
+    console.warn(
+      "[auth] AUTH_ENABLE_DEV_AUTH=true outside development. This temporary break-glass login path should be disabled once Microsoft Entra sign-in is verified."
+    );
+  }
+
+  if (!isDevelopment && allowDevUserSwitcher) {
+    console.warn(
+      "[auth] AUTH_ENABLE_DEV_USER_SWITCHER=true outside development. The dev user switcher should remain disabled in deployed environments."
+    );
+  }
+
+  if (microsoftEntraClientId.startsWith("api://")) {
+    console.warn(
+      "[auth] AUTH_MICROSOFT_ENTRA_ID_ID looks like an Application ID URI (api://...). Use the Microsoft Entra Application (client) ID GUID for Auth.js web sign-in."
+    );
+  }
+}
+
+logAuthStartupWarnings();
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: process.env.NEXTAUTH_SECRET,
   session: {
     strategy: "jwt",
+    maxAge: 60 * 60 * 8,
   },
   pages: {
     signIn: "/login",
@@ -32,10 +95,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     ...(allowMicrosoftEntraAuth
       ? [
+          // Microsoft Entra ID is configured here as a confidential Web app
+          // authorization-code callback flow. The redirect URI registered in
+          // Entra must be:
+          //   <NEXTAUTH_URL>/api/auth/callback/microsoft-entra-id
+          //
+          // AUTH_MICROSOFT_ENTRA_ID_ID must be the Application (client) ID
+          // GUID from the app registration, not the api://... Application ID URI.
           MicrosoftEntraID({
-            clientId: process.env.AUTH_MICROSOFT_ENTRA_ID_ID,
+            clientId: microsoftEntraClientId,
             clientSecret: process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET,
-            issuer: process.env.AUTH_MICROSOFT_ENTRA_ID_ISSUER,
+            issuer: microsoftEntraIssuer,
+            authorization: {
+              params: {
+                scope: "openid profile email",
+              },
+            },
           }),
         ]
       : []),
@@ -46,24 +121,141 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
-        const email = String(credentials?.email || "").trim().toLowerCase();
+      async authorize(credentials, request) {
+        const email = normalizeEmail(credentials?.email);
         const password = String(credentials?.password || "");
+        const clientIp = getClientIpFromRequest(request);
+        const rateLimitKeys = buildCredentialsRateLimitKeys({
+          clientIp,
+          normalizedEmail: email,
+        });
 
-        if (!email || !password) return null;
+        for (const key of rateLimitKeys) {
+          const result = consumeAuthRateLimit(
+            key,
+            key.includes(":ip-email:")
+              ? AUTH_RATE_LIMITS.credentialsByIpAndEmail
+              : AUTH_RATE_LIMITS.credentialsByIp
+          );
 
-        if (password !== process.env.AUTH_DEV_PASSWORD) return null;
+          if (!result.allowed) {
+            await logSecurityEvent({
+              eventType: "AUTH_RATE_LIMITED",
+              provider: "credentials",
+              outcome: "denied",
+              normalizedEmail: email,
+              reasonCode: "too_many_requests",
+              entityType: "AuthSession",
+              entityId: email ?? clientIp,
+              metadata: {
+                clientIp,
+                retryAfterSeconds: result.retryAfterSeconds,
+              },
+            });
+            return null;
+          }
+        }
+
+        if (!email || !password) {
+          await logSecurityEvent({
+            eventType: "AUTH_DEV_CREDENTIALS_SIGN_IN_DENIED",
+            provider: "credentials",
+            outcome: "denied",
+            normalizedEmail: email,
+            reasonCode: "missing_credentials",
+            entityType: "AuthSession",
+            entityId: email ?? "unknown",
+            metadata: {
+              clientIp,
+            },
+          });
+          return null;
+        }
+
+        if (password !== process.env.AUTH_DEV_PASSWORD) {
+          await logSecurityEvent({
+            eventType: "AUTH_DEV_CREDENTIALS_SIGN_IN_DENIED",
+            provider: "credentials",
+            outcome: "denied",
+            normalizedEmail: email,
+            reasonCode: "invalid_credentials",
+            entityType: "AuthSession",
+            entityId: email,
+            metadata: {
+              clientIp,
+            },
+          });
+          return null;
+        }
 
         if (
           devAuthEmailAllowlist.size > 0 &&
           !devAuthEmailAllowlist.has(email)
         ) {
+          await logSecurityEvent({
+            eventType: "AUTH_DEV_CREDENTIALS_SIGN_IN_DENIED",
+            provider: "credentials",
+            outcome: "denied",
+            normalizedEmail: email,
+            reasonCode: "allowlist_denied",
+            entityType: "AuthSession",
+            entityId: email,
+            metadata: {
+              clientIp,
+            },
+          });
           return null;
         }
 
         const employee = await resolveAuthenticatedEmployeeByEmail(email);
 
-        if (!employee) return null;
+        if (!employee) {
+          await logSecurityEvent({
+            eventType: "AUTH_DEV_CREDENTIALS_SIGN_IN_DENIED",
+            provider: "credentials",
+            outcome: "denied",
+            normalizedEmail: email,
+            reasonCode: "no_employee_match",
+            entityType: "AuthSession",
+            entityId: email,
+            metadata: {
+              clientIp,
+            },
+          });
+          return null;
+        }
+
+        if (employee.status !== "ACTIVE") {
+          await logSecurityEvent({
+            eventType: "AUTH_DEV_CREDENTIALS_SIGN_IN_DENIED",
+            provider: "credentials",
+            outcome: "denied",
+            normalizedEmail: employee.email,
+            employeeId: employee.id,
+            reasonCode: "inactive_employee",
+            entityType: "Employee",
+            entityId: employee.id,
+            metadata: {
+              clientIp,
+            },
+          });
+          return null;
+        }
+
+        resetAuthRateLimits(rateLimitKeys);
+
+        await logSecurityEvent({
+          eventType: "AUTH_DEV_CREDENTIALS_SIGN_IN_SUCCESS",
+          provider: "credentials",
+          outcome: "success",
+          normalizedEmail: employee.email,
+          employeeId: employee.id,
+          entityType: "Employee",
+          entityId: employee.id,
+          metadata: {
+            clientIp,
+          },
+        });
 
         return {
           id: employee.id,
@@ -84,57 +276,146 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return false;
       }
 
-      const authenticatedUser = await authorizeMicrosoftEntraSignIn({
+      const result = await authorizeMicrosoftEntraSignIn({
         user,
         profile: (profile as Record<string, unknown> | null) ?? null,
+        issuer: process.env.AUTH_MICROSOFT_ENTRA_ID_ISSUER || "",
+        allowedEmailDomain: allowedMicrosoftEmailDomain,
       });
 
-      if (!authenticatedUser) {
+      if (!result.ok) {
+        const entityId =
+          result.claims.oid ||
+          result.claims.emailCandidates[0] ||
+          "unknown";
+
+        if (result.reason === "tenant_mismatch") {
+          await logSecurityEvent({
+            eventType: "AUTH_MICROSOFT_ENTRA_DENIED_TENANT_MISMATCH",
+            provider: "microsoft-entra-id",
+            outcome: "denied",
+            normalizedEmail: result.claims.emailCandidates[0] ?? null,
+            reasonCode: result.reason,
+            entityType: "AuthSession",
+            entityId,
+            metadata: {
+              tid: result.claims.tid,
+              oid: result.claims.oid,
+            },
+          });
+        } else if (
+          result.reason === "no_employee_match" ||
+          result.reason === "missing_company_email" ||
+          result.reason === "identity_conflict"
+        ) {
+          await logSecurityEvent({
+            eventType: "AUTH_MICROSOFT_ENTRA_DENIED_NO_EMPLOYEE_MATCH",
+            provider: "microsoft-entra-id",
+            outcome: "denied",
+            normalizedEmail: result.claims.emailCandidates[0] ?? null,
+            reasonCode: result.reason,
+            entityType: "AuthSession",
+            entityId,
+            metadata: {
+              tid: result.claims.tid,
+              oid: result.claims.oid,
+            },
+          });
+        } else if (result.reason === "inactive_employee") {
+          await logSecurityEvent({
+            eventType: "AUTH_MICROSOFT_ENTRA_DENIED_INACTIVE_EMPLOYEE",
+            provider: "microsoft-entra-id",
+            outcome: "denied",
+            normalizedEmail: result.claims.emailCandidates[0] ?? null,
+            reasonCode: result.reason,
+            entityType: "AuthSession",
+            entityId,
+            metadata: {
+              tid: result.claims.tid,
+              oid: result.claims.oid,
+            },
+          });
+        }
+
         return false;
       }
 
-      user.id = authenticatedUser.id;
-      user.email = authenticatedUser.email;
-      user.name = authenticatedUser.name;
+      if (result.bindingCreated) {
+        await logSecurityEvent({
+          eventType: "AUTH_MICROSOFT_ENTRA_IDENTITY_BOUND",
+          provider: "microsoft-entra-id",
+          outcome: "success",
+          normalizedEmail: result.authenticatedUser.email,
+          employeeId: result.authenticatedUser.employeeId,
+          entityType: "Employee",
+          entityId: result.authenticatedUser.employeeId,
+          metadata: {
+            entraOid: result.authenticatedUser.oid,
+            entraTid: result.authenticatedUser.tid,
+            matchedBy: result.matchedBy,
+          },
+        });
+      }
+
+      await logSecurityEvent({
+        eventType: "AUTH_MICROSOFT_ENTRA_SIGN_IN_SUCCESS",
+        provider: "microsoft-entra-id",
+        outcome: "success",
+        normalizedEmail: result.authenticatedUser.email,
+        employeeId: result.authenticatedUser.employeeId,
+        entityType: "Employee",
+        entityId: result.authenticatedUser.employeeId,
+        metadata: {
+          entraOid: result.authenticatedUser.oid,
+          entraTid: result.authenticatedUser.tid,
+          matchedBy: result.matchedBy,
+        },
+      });
+
+      user.id = result.authenticatedUser.employeeId;
+      user.email = result.authenticatedUser.email;
+      user.name = result.authenticatedUser.name;
       return true;
     },
-    async jwt({ token, user, account, profile }) {
+    async jwt({ token, user }) {
+      stripSensitiveTokenFields(token as Record<string, unknown>);
+
       if (user) {
         token.employeeId = user.id;
         token.email = user.email;
         token.name = user.name;
       }
 
+      // Microsoft Entra sign-ins must be tied to an internal employee record
+      // before we allow a JWT to exist. If that binding is missing, we fail
+      // closed here so the session cannot continue with a partial identity.
       if (
-        account?.provider === "microsoft-entra-id" &&
-        !token.employeeId
+        token.employeeId == null ||
+        String(token.employeeId).trim() === ""
       ) {
-        const email = getEmailFromAuthInput({
-          user: {
-            email:
-              typeof token.email === "string" ? token.email : null,
-          },
-          profile: (profile as Record<string, unknown> | null) ?? null,
-        });
-
-        if (email) {
-          const employee = await resolveAuthenticatedEmployeeByEmail(email);
-
-          if (employee) {
-            token.employeeId = employee.id;
-            token.email = employee.email;
-            token.name = `${employee.firstName} ${employee.lastName}`;
-          }
-        }
+        return null;
       }
+
       return token;
     },
     async session({ session, token }) {
-      if (session.user) {
-        session.user.email = String(token.email || session.user.email || "");
-        session.user.name = String(token.name || session.user.name || "");
-        session.user.employeeId = String(token.employeeId || "");
+      if (!session.user) {
+        return session;
       }
+
+      const employeeId = String(token.employeeId || "").trim();
+
+      if (!employeeId) {
+        return {
+          ...session,
+          user: undefined,
+        } as unknown as typeof session;
+      }
+
+      session.user.employeeId = employeeId;
+      session.user.email = String(token.email || "");
+      session.user.name = String(token.name || "");
+
       return session;
     },
   },

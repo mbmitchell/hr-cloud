@@ -115,9 +115,9 @@ export default function LoginForm({
               </form>
 
               <div className="text-xs text-slate-500">
-                Dev login uses an employee email and the shared dev password from your
-                environment. During rollout, you can further restrict access with an
-                email allowlist.
+                Dev login is a temporary break-glass option. It uses an employee
+                email and the shared dev password from your environment, and can be
+                further restricted with an email allowlist during rollout.
               </div>
             </>
           )}

@@ -1,20 +1,24 @@
-import { prisma } from "../../../../lib/db";
 import { NextResponse } from "next/server";
-import { canCurrentUserViewReports } from "../../../../lib/auth/access";
+
+import { prisma } from "../../../../lib/db";
 import { calculatePtoLiability } from "../../../../lib/finance/liability";
+import {
+  isAuthorizationError,
+  requireRole,
+} from "../../../../lib/server/authorization";
 
 type BalanceMap = Record<string, { PTO: number; COMP: number }>;
 
 export async function GET() {
   try {
-    const allowed = await canCurrentUserViewReports();
-
-    if (!allowed) {
-      return NextResponse.json(
-        { error: "You do not have access to financial reports." },
-        { status: 403 }
-      );
-    }
+    await requireRole(
+      ["SITE_ADMIN", "HR_ADMIN", "ACCOUNTING", "EXECUTIVE_READONLY"],
+      {
+        attemptedAction: "REPORT_SUMMARY_VIEW",
+        entityType: "Report",
+        entityId: "summary",
+      }
+    );
 
     const employees = await prisma.employee.findMany({
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
@@ -130,7 +134,14 @@ export async function GET() {
         status: request.status,
       })),
     });
-  } catch {
+  } catch (error) {
+    if (isAuthorizationError(error)) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
     return NextResponse.json(
       { error: "Failed to load report summary." },
       { status: 500 }

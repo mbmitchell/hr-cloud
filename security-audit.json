@@ -1,0 +1,98 @@
+{
+  "auditReportVersion": 2,
+  "vulnerabilities": {
+    "@auth/core": {
+      "name": "@auth/core",
+      "severity": "low",
+      "isDirect": false,
+      "via": [
+        "nodemailer"
+      ],
+      "effects": [
+        "next-auth"
+      ],
+      "range": "*",
+      "nodes": [
+        "node_modules/@auth/core"
+      ],
+      "fixAvailable": {
+        "name": "next-auth",
+        "version": "1.12.1",
+        "isSemVerMajor": true
+      }
+    },
+    "next-auth": {
+      "name": "next-auth",
+      "severity": "low",
+      "isDirect": true,
+      "via": [
+        "@auth/core",
+        "nodemailer"
+      ],
+      "effects": [],
+      "range": "<=0.0.0-semantically-released || 1.1.0 - 1.5.0 || >=2.0.0-beta.0",
+      "nodes": [
+        "node_modules/next-auth"
+      ],
+      "fixAvailable": {
+        "name": "next-auth",
+        "version": "1.12.1",
+        "isSemVerMajor": true
+      }
+    },
+    "nodemailer": {
+      "name": "nodemailer",
+      "severity": "low",
+      "isDirect": true,
+      "via": [
+        {
+          "source": 1115470,
+          "name": "nodemailer",
+          "dependency": "nodemailer",
+          "title": "Nodemailer has SMTP command injection due to unsanitized `envelope.size` parameter",
+          "url": "https://github.com/advisories/GHSA-c7w3-x93f-qmm8",
+          "severity": "low",
+          "cwe": [
+            "CWE-93"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": "<8.0.4"
+        }
+      ],
+      "effects": [
+        "@auth/core",
+        "next-auth"
+      ],
+      "range": "<8.0.4",
+      "nodes": [
+        "node_modules/nodemailer"
+      ],
+      "fixAvailable": {
+        "name": "nodemailer",
+        "version": "8.0.4",
+        "isSemVerMajor": true
+      }
+    }
+  },
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 3,
+      "moderate": 0,
+      "high": 0,
+      "critical": 0,
+      "total": 3
+    },
+    "dependencies": {
+      "prod": 65,
+      "dev": 74,
+      "optional": 86,
+      "peer": 0,
+      "peerOptional": 0,
+      "total": 175
+    }
+  }
+}

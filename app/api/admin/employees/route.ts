@@ -1,20 +1,19 @@
 import { NextResponse } from "next/server";
+
 import { prisma } from "../../../../lib/db";
 import {
-  currentUserHasAnyRole,
-  requireCurrentUser,
-} from "../../../../lib/auth/access";
+  isAuthorizationError,
+  requireAdmin,
+} from "../../../../lib/server/authorization";
+import { writeAuditLog } from "../../../../lib/server/audit/write-audit-log";
 
 export async function GET() {
   try {
-    const allowed = await currentUserHasAnyRole(["SITE_ADMIN", "HR_ADMIN"]);
-
-    if (!allowed) {
-      return NextResponse.json(
-        { error: "You do not have permission to view employee creation data." },
-        { status: 403 }
-      );
-    }
+    await requireAdmin({
+      attemptedAction: "EMPLOYEE_CREATE_FORM_VIEW",
+      entityType: "Employee",
+      entityId: "new",
+    });
 
     const [managers, roles] = await Promise.all([
       prisma.employee.findMany({
@@ -40,7 +39,14 @@ export async function GET() {
         name: role.name,
       })),
     });
-  } catch {
+  } catch (error) {
+    if (isAuthorizationError(error)) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
     return NextResponse.json(
       { error: "Failed to load employee creation data." },
       { status: 500 }
@@ -50,16 +56,11 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const allowed = await currentUserHasAnyRole(["SITE_ADMIN", "HR_ADMIN"]);
-
-    if (!allowed) {
-      return NextResponse.json(
-        { error: "You do not have permission to add employees." },
-        { status: 403 }
-      );
-    }
-
-    const currentUser = await requireCurrentUser();
+    const currentUser = await requireAdmin({
+      attemptedAction: "EMPLOYEE_CREATE",
+      entityType: "Employee",
+      entityId: "new",
+    });
     const body = await request.json();
 
     const firstName = String(body.firstName || "").trim();
@@ -233,28 +234,25 @@ export async function POST(request: Request) {
         });
       }
 
-      await tx.auditLog.create({
-        data: {
-          userId: currentUser.id,
-          action: "EMPLOYEE_CREATE",
-          entityType: "Employee",
-          entityId: employee.id,
-          oldValue: null,
-          newValue: JSON.stringify({
-            firstName: employee.firstName,
-            lastName: employee.lastName,
-            email: employee.email,
-            department: employee.department,
-            title: employee.title,
-            status: employee.status,
-            hireDate: employee.hireDate.toISOString(),
-            managerId: employee.managerId,
-            payType: employee.payType,
-            hourlyRate: employee.hourlyRate,
-            annualSalary: employee.annualSalary,
-            fte: employee.fte,
-            roles: validRoles.map((role) => role.code),
-          }),
+      await writeAuditLog(tx, {
+        userId: currentUser.id,
+        action: "EMPLOYEE_CREATE",
+        entityType: "Employee",
+        entityId: employee.id,
+        newValue: {
+          firstName: employee.firstName,
+          lastName: employee.lastName,
+          email: employee.email,
+          department: employee.department,
+          title: employee.title,
+          status: employee.status,
+          hireDate: employee.hireDate.toISOString(),
+          managerId: employee.managerId,
+          payType: employee.payType,
+          hourlyRate: employee.hourlyRate,
+          annualSalary: employee.annualSalary,
+          fte: employee.fte,
+          roles: validRoles.map((role) => role.code),
         },
       });
 
@@ -265,7 +263,14 @@ export async function POST(request: Request) {
       success: true,
       employee: result,
     });
-  } catch {
+  } catch (error) {
+    if (isAuthorizationError(error)) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
     return NextResponse.json(
       { error: "Failed to create employee." },
       { status: 500 }

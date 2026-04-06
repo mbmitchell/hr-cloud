@@ -1,22 +1,31 @@
-import { prisma } from "../../../../lib/db";
 import { NextResponse } from "next/server";
-import { requireCurrentUser, currentUserHasAnyRole } from "../../../../lib/auth/access";
+
+import { prisma } from "../../../../lib/db";
 import { getPolicySettings } from "../../../../lib/policy/settings";
+import {
+  isAuthorizationError,
+  requireAdmin,
+} from "../../../../lib/server/authorization";
+import { writeAuditLog } from "../../../../lib/server/audit/write-audit-log";
 
 export async function GET() {
   try {
-    const allowed = await currentUserHasAnyRole(["SITE_ADMIN", "HR_ADMIN"]);
-
-    if (!allowed) {
-      return NextResponse.json(
-        { error: "You do not have permission to view policy settings." },
-        { status: 403 }
-      );
-    }
+    await requireAdmin({
+      attemptedAction: "POLICY_VIEW",
+      entityType: "PolicySettings",
+      entityId: "singleton",
+    });
 
     const settings = await getPolicySettings();
     return NextResponse.json(settings);
-  } catch {
+  } catch (error) {
+    if (isAuthorizationError(error)) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
     return NextResponse.json(
       { error: "Failed to load policy settings." },
       { status: 500 }
@@ -26,16 +35,11 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const allowed = await currentUserHasAnyRole(["SITE_ADMIN", "HR_ADMIN"]);
-
-    if (!allowed) {
-      return NextResponse.json(
-        { error: "You do not have permission to update policy settings." },
-        { status: 403 }
-      );
-    }
-
-    const currentUser = await requireCurrentUser();
+    const currentUser = await requireAdmin({
+      attemptedAction: "POLICY_UPDATE",
+      entityType: "PolicySettings",
+      entityId: "singleton",
+    });
     const body = await request.json();
 
     const accrualRate0To5 = Number(body.accrualRate0To5);
@@ -56,29 +60,38 @@ export async function POST(request: Request) {
 
     const existing = await getPolicySettings();
 
-    const updated = await prisma.policySettings.update({
-      where: { id: existing.id },
-      data: {
-        accrualRate0To5,
-        accrualRate6To10,
-        accrualRateOver10,
-        rolloverCapHours,
-      },
-    });
+    const updated = await prisma.$transaction(async (tx) => {
+      const saved = await tx.policySettings.update({
+        where: { id: existing.id },
+        data: {
+          accrualRate0To5,
+          accrualRate6To10,
+          accrualRateOver10,
+          rolloverCapHours,
+        },
+      });
 
-    await prisma.auditLog.create({
-      data: {
+      await writeAuditLog(tx, {
         userId: currentUser.id,
         action: "POLICY_UPDATE",
         entityType: "PolicySettings",
-        entityId: updated.id,
-        oldValue: JSON.stringify(existing),
-        newValue: JSON.stringify(updated),
-      },
+        entityId: saved.id,
+        oldValue: existing,
+        newValue: saved,
+      });
+
+      return saved;
     });
 
     return NextResponse.json(updated);
-  } catch {
+  } catch (error) {
+    if (isAuthorizationError(error)) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
     return NextResponse.json(
       { error: "Failed to update policy settings." },
       { status: 500 }

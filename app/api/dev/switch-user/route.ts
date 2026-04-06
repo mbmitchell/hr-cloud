@@ -4,8 +4,15 @@ function isDevAuthEnabled() {
   return process.env.AUTH_ENABLE_DEV_AUTH === "true";
 }
 
+function isDevUserSwitcherEnabled() {
+  return (
+    process.env.AUTH_ENABLE_DEV_AUTH === "true" &&
+    process.env.AUTH_ENABLE_DEV_USER_SWITCHER === "true"
+  );
+}
+
 export async function POST(request: Request) {
-  if (!isDevAuthEnabled()) {
+  if (!isDevAuthEnabled() || !isDevUserSwitcherEnabled()) {
     return NextResponse.json(
       { error: "Dev switcher is disabled." },
       { status: 403 }
@@ -19,9 +26,11 @@ export async function POST(request: Request) {
     const response = NextResponse.json({ success: true });
 
     response.cookies.set("dev_employee_id", employeeId, {
-      httpOnly: false,
+      // The server reads this cookie; clients do not need script access.
+      httpOnly: true,
       sameSite: "lax",
       path: "/",
+      secure: process.env.NODE_ENV === "production",
     });
 
     return response;

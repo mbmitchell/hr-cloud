@@ -1,17 +1,18 @@
 import { NextResponse } from "next/server";
+
 import { runMonthlyAccruals } from "../../../../lib/pto/accrual-job";
-import { canCurrentUserRunAccruals } from "../../../../lib/auth/access";
+import {
+  isAuthorizationError,
+  requireRole,
+} from "../../../../lib/server/authorization";
 
 export async function POST(request: Request) {
   try {
-    const allowed = await canCurrentUserRunAccruals();
-
-    if (!allowed) {
-      return NextResponse.json(
-        { error: "You do not have permission to run monthly accruals." },
-        { status: 403 }
-      );
-    }
+    await requireRole(["SITE_ADMIN"], {
+      attemptedAction: "ACCRUAL_RUN",
+      entityType: "PTOLedger",
+      entityId: "monthly-accrual-job",
+    });
 
     const body = await request.json().catch(() => ({}));
     const runDateValue = body?.runDate ? new Date(String(body.runDate)) : new Date();
@@ -26,7 +27,14 @@ export async function POST(request: Request) {
     const result = await runMonthlyAccruals(runDateValue);
 
     return NextResponse.json(result);
-  } catch {
+  } catch (error) {
+    if (isAuthorizationError(error)) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
     return NextResponse.json(
       { error: "Failed to run monthly accruals." },
       { status: 500 }

@@ -1,4 +1,17 @@
-import type { Prisma } from "@prisma/client";
+type AuditLogClient = {
+  auditLog: {
+    create(args: {
+      data: {
+        userId: string;
+        action: string;
+        entityType: string;
+        entityId: string;
+        oldValue: string | null;
+        newValue: string | null;
+      };
+    }): Promise<unknown>;
+  };
+};
 
 type AuditLogInput = {
   userId: string;
@@ -10,7 +23,7 @@ type AuditLogInput = {
 };
 
 export async function writeAuditLog(
-  tx: Prisma.TransactionClient,
+  tx: AuditLogClient,
   input: AuditLogInput
 ) {
   await tx.auditLog.create({

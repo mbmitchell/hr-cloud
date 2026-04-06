@@ -1,22 +1,23 @@
-import { prisma } from "../../../../../lib/db";
 import { NextResponse } from "next/server";
-import { canCurrentUserManageCompensation } from "../../../../../lib/auth/access";
+
+import { prisma } from "../../../../../lib/db";
+import {
+  isAuthorizationError,
+  requireRole,
+} from "../../../../../lib/server/authorization";
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const allowed = await canCurrentUserManageCompensation();
-
-    if (!allowed) {
-      return NextResponse.json(
-        { error: "You do not have permission to view compensation." },
-        { status: 403 }
-      );
-    }
-
     const { id } = await params;
+
+    await requireRole(["SITE_ADMIN", "HR_ADMIN", "ACCOUNTING"], {
+      attemptedAction: "COMPENSATION_VIEW",
+      entityType: "Employee",
+      entityId: id,
+    });
 
     const employee = await prisma.employee.findUnique({
       where: { id },
@@ -39,7 +40,14 @@ export async function GET(
     }
 
     return NextResponse.json(employee);
-  } catch {
+  } catch (error) {
+    if (isAuthorizationError(error)) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
     return NextResponse.json(
       { error: "Failed to load compensation." },
       { status: 500 }

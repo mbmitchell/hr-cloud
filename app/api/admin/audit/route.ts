@@ -1,17 +1,18 @@
-import { prisma } from "../../../../lib/db";
 import { NextResponse } from "next/server";
-import { canCurrentUserViewAudit } from "../../../../lib/auth/access";
+
+import { prisma } from "../../../../lib/db";
+import {
+  isAuthorizationError,
+  requireRole,
+} from "../../../../lib/server/authorization";
 
 export async function GET(request: Request) {
   try {
-    const allowed = await canCurrentUserViewAudit();
-
-    if (!allowed) {
-      return NextResponse.json(
-        { error: "You do not have permission to view audit logs." },
-        { status: 403 }
-      );
-    }
+    await requireRole(["SITE_ADMIN", "HR_ADMIN", "AUDITOR"], {
+      attemptedAction: "AUDIT_LOG_VIEW",
+      entityType: "AuditLog",
+      entityId: "list",
+    });
 
     const { searchParams } = new URL(request.url);
     const action = searchParams.get("action");
@@ -48,7 +49,14 @@ export async function GET(request: Request) {
         entityTypes,
       },
     });
-  } catch {
+  } catch (error) {
+    if (isAuthorizationError(error)) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
     return NextResponse.json(
       { error: "Failed to load audit logs." },
       { status: 500 }

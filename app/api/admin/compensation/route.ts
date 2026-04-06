@@ -1,22 +1,21 @@
-import { prisma } from "../../../../lib/db";
 import { NextResponse } from "next/server";
+
+import { prisma } from "../../../../lib/db";
 import {
-  canCurrentUserManageCompensation,
-  requireCurrentUser,
-} from "../../../../lib/auth/access";
+  isAuthorizationError,
+  requireRole,
+} from "../../../../lib/server/authorization";
+import { writeAuditLog } from "../../../../lib/server/audit/write-audit-log";
 
 export async function POST(request: Request) {
   try {
-    const allowed = await canCurrentUserManageCompensation();
-
-    if (!allowed) {
-      return NextResponse.json(
-        { error: "You do not have permission to manage compensation." },
-        { status: 403 }
-      );
-    }
-
-    const currentUser = await requireCurrentUser();
+    const currentUser = await requireRole(
+      ["SITE_ADMIN", "HR_ADMIN", "ACCOUNTING"],
+      {
+        attemptedAction: "COMPENSATION_UPDATE",
+        entityType: "Employee",
+      }
+    );
     const body = await request.json();
 
     const employeeId = String(body.employeeId || "").trim();
@@ -94,42 +93,51 @@ export async function POST(request: Request) {
       );
     }
 
-    const updatedEmployee = await prisma.employee.update({
-      where: { id: employeeId },
-      data: {
-        payType,
-        hourlyRate: payType === "HOURLY" ? hourlyRate : null,
-        annualSalary: payType === "SALARY" ? annualSalary : null,
-        fte,
-      },
-    });
+    const updatedEmployee = await prisma.$transaction(async (tx) => {
+      const saved = await tx.employee.update({
+        where: { id: employeeId },
+        data: {
+          payType,
+          hourlyRate: payType === "HOURLY" ? hourlyRate : null,
+          annualSalary: payType === "SALARY" ? annualSalary : null,
+          fte,
+        },
+      });
 
-    await prisma.auditLog.create({
-      data: {
+      await writeAuditLog(tx, {
         userId: currentUser.id,
         action: "COMPENSATION_UPDATE",
         entityType: "Employee",
-        entityId: updatedEmployee.id,
-        oldValue: JSON.stringify({
+        entityId: saved.id,
+        oldValue: {
           payType: employee.payType,
           hourlyRate: employee.hourlyRate,
           annualSalary: employee.annualSalary,
           fte: employee.fte,
-        }),
-        newValue: JSON.stringify({
-          payType: updatedEmployee.payType,
-          hourlyRate: updatedEmployee.hourlyRate,
-          annualSalary: updatedEmployee.annualSalary,
-          fte: updatedEmployee.fte,
-        }),
-      },
+        },
+        newValue: {
+          payType: saved.payType,
+          hourlyRate: saved.hourlyRate,
+          annualSalary: saved.annualSalary,
+          fte: saved.fte,
+        },
+      });
+
+      return saved;
     });
 
     return NextResponse.json({
       success: true,
       employee: updatedEmployee,
     });
-  } catch {
+  } catch (error) {
+    if (isAuthorizationError(error)) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
     return NextResponse.json(
       { error: "Failed to update compensation." },
       { status: 500 }

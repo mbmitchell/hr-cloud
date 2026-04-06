@@ -30,6 +30,7 @@ export default async function Sidebar() {
 
   const canSeePolicy = isSiteAdmin || isHrAdmin;
   const canAddEmployees = isSiteAdmin || isHrAdmin;
+  const canSeeAuthDiagnostics = isSiteAdmin || isHrAdmin;
 
   return (
     <aside className="w-64 bg-slate-900 text-white min-h-screen p-6">
@@ -133,6 +134,12 @@ export default async function Sidebar() {
         {canSeeAudit && (
           <Link href="/admin/audit" className="block hover:text-slate-300">
             Audit Log
+          </Link>
+        )}
+
+        {canSeeAuthDiagnostics && (
+          <Link href="/admin/auth" className="block hover:text-slate-300">
+            Auth Diagnostics
           </Link>
         )}
       </nav>

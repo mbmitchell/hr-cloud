@@ -1,22 +1,18 @@
-import { prisma } from "../../../../lib/db";
 import { NextResponse } from "next/server";
+
+import { prisma } from "../../../../lib/db";
 import {
-  canCurrentUserManageAccrualOverride,
-  requireCurrentUser,
-} from "../../../../lib/auth/access";
+  isAuthorizationError,
+  requireAdmin,
+} from "../../../../lib/server/authorization";
+import { writeAuditLog } from "../../../../lib/server/audit/write-audit-log";
 
 export async function POST(request: Request) {
   try {
-    const allowed = await canCurrentUserManageAccrualOverride();
-
-    if (!allowed) {
-      return NextResponse.json(
-        { error: "You do not have permission to manage accrual overrides." },
-        { status: 403 }
-      );
-    }
-
-    const currentUser = await requireCurrentUser();
+    const currentUser = await requireAdmin({
+      attemptedAction: "ACCRUAL_OVERRIDE_UPDATE",
+      entityType: "Employee",
+    });
     const body = await request.json();
 
     const employeeId = String(body.employeeId || "").trim();
@@ -57,36 +53,45 @@ export async function POST(request: Request) {
       );
     }
 
-    const updatedEmployee = await prisma.employee.update({
-      where: { id: employeeId },
-      data: {
-        monthlyAccrualOverride,
-        accrualOverrideReason,
-      },
-    });
+    const updatedEmployee = await prisma.$transaction(async (tx) => {
+      const saved = await tx.employee.update({
+        where: { id: employeeId },
+        data: {
+          monthlyAccrualOverride,
+          accrualOverrideReason,
+        },
+      });
 
-    await prisma.auditLog.create({
-      data: {
+      await writeAuditLog(tx, {
         userId: currentUser.id,
         action: "ACCRUAL_OVERRIDE_UPDATE",
         entityType: "Employee",
-        entityId: updatedEmployee.id,
-        oldValue: JSON.stringify({
+        entityId: saved.id,
+        oldValue: {
           monthlyAccrualOverride: employee.monthlyAccrualOverride,
           accrualOverrideReason: employee.accrualOverrideReason,
-        }),
-        newValue: JSON.stringify({
-          monthlyAccrualOverride: updatedEmployee.monthlyAccrualOverride,
-          accrualOverrideReason: updatedEmployee.accrualOverrideReason,
-        }),
-      },
+        },
+        newValue: {
+          monthlyAccrualOverride: saved.monthlyAccrualOverride,
+          accrualOverrideReason: saved.accrualOverrideReason,
+        },
+      });
+
+      return saved;
     });
 
     return NextResponse.json({
       success: true,
       employee: updatedEmployee,
     });
-  } catch {
+  } catch (error) {
+    if (isAuthorizationError(error)) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
     return NextResponse.json(
       { error: "Failed to save accrual override." },
       { status: 500 }

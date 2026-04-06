@@ -2,6 +2,16 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "../../../lib/auth/current-user";
 import { getEmployeeRoles } from "../../../lib/auth/permissions";
 
+const allowDevAuth = process.env.AUTH_ENABLE_DEV_AUTH === "true";
+const allowDevUserSwitcher =
+  process.env.AUTH_ENABLE_DEV_AUTH === "true" &&
+  process.env.AUTH_ENABLE_DEV_USER_SWITCHER === "true";
+const allowMicrosoft365Auth = Boolean(
+  process.env.AUTH_MICROSOFT_ENTRA_ID_ID &&
+    process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET &&
+    process.env.AUTH_MICROSOFT_ENTRA_ID_ISSUER
+);
+
 export async function GET() {
   try {
     const user = await getCurrentUser();
@@ -23,6 +33,11 @@ export async function GET() {
       roles,
       canRequestForOthers:
         roles.includes("SITE_ADMIN") || roles.includes("HR_ADMIN"),
+      enabledAuthProviders: {
+        microsoft365: allowMicrosoft365Auth,
+        devCredentials: allowDevAuth,
+        devUserSwitcher: allowDevUserSwitcher,
+      },
     });
   } catch {
     return NextResponse.json(

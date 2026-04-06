@@ -1,17 +1,18 @@
 import { NextResponse } from "next/server";
+
 import { runYearEndRollover } from "../../../../lib/pto/rollover-job";
-import { canCurrentUserRunRollover } from "../../../../lib/auth/access";
+import {
+  isAuthorizationError,
+  requireRole,
+} from "../../../../lib/server/authorization";
 
 export async function POST(request: Request) {
   try {
-    const allowed = await canCurrentUserRunRollover();
-
-    if (!allowed) {
-      return NextResponse.json(
-        { error: "You do not have permission to run year-end rollover." },
-        { status: 403 }
-      );
-    }
+    await requireRole(["SITE_ADMIN"], {
+      attemptedAction: "ROLLOVER_RUN",
+      entityType: "PTOLedger",
+      entityId: "year-end-rollover-job",
+    });
 
     const body = await request.json().catch(() => ({}));
     const runDateValue = body?.runDate ? new Date(String(body.runDate)) : new Date();
@@ -26,7 +27,14 @@ export async function POST(request: Request) {
     const result = await runYearEndRollover(runDateValue);
 
     return NextResponse.json(result);
-  } catch {
+  } catch (error) {
+    if (isAuthorizationError(error)) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
     return NextResponse.json(
       { error: "Failed to run year-end rollover." },
       { status: 500 }

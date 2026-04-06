@@ -15,6 +15,8 @@ function createEmployeeUpdateTx() {
     firstName: "Taylor",
     lastName: "Jordan",
     email: "taylor.updated@example.com",
+    entraOid: null,
+    entraTid: null,
     department: "Operations",
     title: "HR Generalist",
     status: "ACTIVE",

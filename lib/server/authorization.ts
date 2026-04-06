@@ -11,6 +11,7 @@ import {
   getEmployeeRoles,
   isManagerOf,
 } from "../auth/permissions";
+import { logSecurityEvent } from "./audit/security-events";
 
 export class AuthorizationError extends Error {
   readonly status: number;
@@ -50,6 +51,13 @@ type RequestCreationRuleInput = {
   actorRoles: string[];
 };
 
+type AuthorizationContext = {
+  attemptedAction: string;
+  entityType: string;
+  entityId?: string;
+  details?: Record<string, unknown>;
+};
+
 function unauthorized(message = "You must be logged in.") {
   return new AuthorizationError(message, {
     status: 401,
@@ -62,6 +70,38 @@ function forbidden(message = "You do not have permission to perform this action.
     status: 403,
     code: "FORBIDDEN",
   });
+}
+
+async function auditAuthorizationFailure(
+  context: AuthorizationContext | undefined,
+  input: {
+    actorId?: string | null;
+    status: 401 | 403;
+    reason: string;
+  }
+) {
+  if (!context) {
+    return;
+  }
+
+  try {
+    await logSecurityEvent({
+      eventType: "AUTHORIZATION_DENIED",
+      provider: "internal",
+      outcome: "denied",
+      employeeId: input.actorId,
+      reasonCode: input.reason,
+      entityType: context.entityType,
+      entityId: context.entityId ?? "unknown",
+      metadata: {
+        attemptedAction: context.attemptedAction,
+        status: input.status,
+        ...context.details,
+      },
+    });
+  } catch (error) {
+    console.error("Failed to write authorization audit log:", error);
+  }
 }
 
 export function isAuthorizationError(
@@ -155,6 +195,85 @@ export async function requireActor(): Promise<AuthorizationActor> {
   };
 }
 
+export async function requireAuthenticatedEmployee(
+  context?: AuthorizationContext
+): Promise<AuthorizationActor> {
+  try {
+    return await requireActor();
+  } catch (error) {
+    if (isAuthorizationError(error)) {
+      await auditAuthorizationFailure(context, {
+        actorId: null,
+        status: error.status === 401 ? 401 : 403,
+        reason: error.message,
+      });
+    }
+
+    throw error;
+  }
+}
+
+export async function requireRole(
+  roleCodes: string[],
+  context?: AuthorizationContext
+): Promise<AuthorizationActor> {
+  const actor = await requireAuthenticatedEmployee(context);
+
+  if (actorHasAnyRole(actor, roleCodes)) {
+    return actor;
+  }
+
+  await auditAuthorizationFailure(context, {
+    actorId: actor.id,
+    status: 403,
+    reason: `Missing required role. Expected one of: ${roleCodes.join(", ")}`,
+  });
+
+  throw forbidden("You do not have permission to perform this action.");
+}
+
+export async function requireAdmin(
+  context?: AuthorizationContext
+): Promise<AuthorizationActor> {
+  return requireRole(["SITE_ADMIN", "HR_ADMIN"], context);
+}
+
+export async function requireManagerOfEmployee(
+  actorId: string,
+  employeeId: string,
+  context?: AuthorizationContext,
+  options?: { allowAdmin?: boolean }
+): Promise<AuthorizationActor> {
+  const actor = await requireAuthenticatedEmployee(context);
+
+  if (actor.id !== actorId) {
+    await auditAuthorizationFailure(context, {
+      actorId: actor.id,
+      status: 401,
+      reason: "Actor mismatch while checking manager relationship.",
+    });
+    throw unauthorized();
+  }
+
+  if (options?.allowAdmin && actorHasAnyRole(actor, ["SITE_ADMIN", "HR_ADMIN"])) {
+    return actor;
+  }
+
+  const managesEmployee = await isManagerOf(actor.id, employeeId);
+
+  if (managesEmployee) {
+    return actor;
+  }
+
+  await auditAuthorizationFailure(context, {
+    actorId: actor.id,
+    status: 403,
+    reason: "Actor does not manage the target employee.",
+  });
+
+  throw forbidden("You do not have permission to act for this employee.");
+}
+
 export async function assertCanViewEmployee(
   actorId: string,
   employeeId: string
@@ -200,7 +319,22 @@ export async function assertCanApproveRequest(
   actorId: string,
   requestId: string
 ) {
-  const actor = await getActorById(actorId);
+  const context: AuthorizationContext = {
+    attemptedAction: "PTO_REQUEST_APPROVE",
+    entityType: "PTORequest",
+    entityId: requestId,
+  };
+  const actor = await requireAuthenticatedEmployee(context);
+
+  if (actor.id !== actorId) {
+    await auditAuthorizationFailure(context, {
+      actorId: actor.id,
+      status: 401,
+      reason: "Actor mismatch while checking request approval access.",
+    });
+    throw unauthorized();
+  }
+
   const request = await prisma.pTORequest.findUnique({
     where: { id: requestId },
     select: {
@@ -210,16 +344,31 @@ export async function assertCanApproveRequest(
   });
 
   if (!request) {
+    await auditAuthorizationFailure(context, {
+      actorId: actor.id,
+      status: 403,
+      reason: "Approval target request not found.",
+    });
     throw forbidden("PTO request not found.");
   }
 
   const approvalScope = await getApprovalScope();
 
   if (approvalScope.user.id !== actor.id) {
+    await auditAuthorizationFailure(context, {
+      actorId: actor.id,
+      status: 401,
+      reason: "Approval scope resolved for a different actor.",
+    });
     throw unauthorized();
   }
 
   if (!approvalScope.allowed) {
+    await auditAuthorizationFailure(context, {
+      actorId: actor.id,
+      status: 403,
+      reason: "Actor does not have request approval permission.",
+    });
     throw forbidden("You do not have permission to approve requests.");
   }
 
@@ -235,12 +384,22 @@ export async function assertCanApproveRequest(
   const directReportIds = await getDirectReportIds(actor.id);
 
   if (directReportIds.length === 0) {
+    await auditAuthorizationFailure(context, {
+      actorId: actor.id,
+      status: 403,
+      reason: "Actor has no direct reports to approve for.",
+    });
     throw forbidden("You do not have permission to approve this request.");
   }
 
   const canApprove = await isRequestForDirectReport(actor.id, request.employeeId);
 
   if (!canApprove) {
+    await auditAuthorizationFailure(context, {
+      actorId: actor.id,
+      status: 403,
+      reason: "Actor attempted to approve a request for a non-direct-report employee.",
+    });
     throw forbidden("You can only approve requests for your direct reports.");
   }
 
