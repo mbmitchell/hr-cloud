@@ -105,7 +105,7 @@ export default function AdminAdjustmentsPage() {
 
   return (
     <div className="max-w-3xl space-y-6">
-      <h2 className="text-2xl font-bold">Admin Adjustments</h2>
+      <h2 className="text-2xl font-bold">PTO Adjustments</h2>
       {isManagerOnly && (
         <div className="bg-blue-50 border border-blue-200 rounded p-4 text-sm text-blue-900">
           Managers can add COMP time for themselves and their direct reports only.

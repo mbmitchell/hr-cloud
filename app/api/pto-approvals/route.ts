@@ -13,6 +13,8 @@ import {
   sendPtoRequestApprovedNotification,
   sendPtoRequestDeniedNotification,
 } from "../../../lib/notifications/email/workflows";
+import { dispatchCalendarSyncInBackground } from "../../../lib/notifications/calendar/dispatch";
+import { createApprovedPtoCalendarEvent } from "../../../lib/notifications/calendar/create-event";
 
 export async function POST(request: Request) {
   try {
@@ -80,6 +82,12 @@ export async function POST(request: Request) {
         await sendPtoRequestDeniedNotification({ requestId });
       }
     });
+
+    if (status === "APPROVED") {
+      dispatchCalendarSyncInBackground(async () => {
+        await createApprovedPtoCalendarEvent({ requestId });
+      });
+    }
 
     return NextResponse.json(result);
   } catch (error) {

@@ -121,7 +121,7 @@ if (!session?.user) {
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold">Employee Directory</h2>
+          <h2 className="text-2xl font-bold">Employees</h2>
           <p className="text-sm text-slate-600 mt-1">
             Search, filter, and review employee PTO information.
           </p>

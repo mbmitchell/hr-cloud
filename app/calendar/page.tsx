@@ -36,7 +36,7 @@ export default async function CalendarPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold">Company Leave Calendar</h2>
+        <h2 className="text-2xl font-bold">PTO Calendar</h2>
         <p className="text-sm text-slate-600 mt-1">
           Shows approved and pending requests for all employees.
         </p>

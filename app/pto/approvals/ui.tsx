@@ -65,7 +65,7 @@ export default function ApprovalsClient({
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-6">PTO Approvals</h2>
+      <h2 className="text-2xl font-bold mb-6">Approval Queue</h2>
 
       {message && <div className="mb-4 text-sm text-slate-700">{message}</div>}
 

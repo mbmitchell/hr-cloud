@@ -51,6 +51,7 @@ model PTORequest {
   hours           Float
   status          String
   approverId      String?
+  graphCalendarEventId String? @unique
   notes           String?
   approvalComment String?
   decisionAt      DateTime?
