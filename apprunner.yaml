@@ -40,7 +40,5 @@ run:
       value: "SET_IN_APP_RUNNER"
     - name: AUTH_MICROSOFT_ENTRA_ID_ISSUER
       value: "https://login.microsoftonline.com/YOUR_TENANT_ID/v2.0"
-    - name: AUTH_MICROSOFT_ENTRA_ID_EMAIL_DOMAIN
-      value: "managedfinancialnetworks.com"
     - name: NEXTAUTH_URL
       value: "https://your-app.example.com"

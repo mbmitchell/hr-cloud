@@ -91,8 +91,8 @@ export default async function AuthDiagnosticsPage() {
             value={diagnostics.entra.issuerTenantId}
           />
           <StatusRow
-            label="Email domain configured"
-            value={diagnostics.entra.emailDomainConfigured}
+            label="Allowed Microsoft email domain"
+            value={diagnostics.entra.allowedEmailDomain}
           />
           <StatusRow
             label="Client ID looks like api:// URI"

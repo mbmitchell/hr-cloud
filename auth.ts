@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
 import { resolveAuthenticatedEmployeeByEmail } from "./lib/auth/resolve-authenticated-employee";
 import {
+  allowedMicrosoftEmailDomain,
   authorizeMicrosoftEntraSignIn,
   normalizeEmail,
 } from "./lib/auth/microsoft-entra-sso";
@@ -31,8 +32,6 @@ const allowMicrosoftEntraAuth = Boolean(
 );
 const microsoftEntraClientId = process.env.AUTH_MICROSOFT_ENTRA_ID_ID || "";
 const microsoftEntraIssuer = process.env.AUTH_MICROSOFT_ENTRA_ID_ISSUER || "";
-const allowedMicrosoftEmailDomain =
-  process.env.AUTH_MICROSOFT_ENTRA_ID_EMAIL_DOMAIN || "";
 const devAuthEmailAllowlist = new Set(
   (process.env.AUTH_DEV_AUTH_EMAIL_ALLOWLIST || "")
     .split(",")
@@ -280,7 +279,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         user,
         profile: (profile as Record<string, unknown> | null) ?? null,
         issuer: process.env.AUTH_MICROSOFT_ENTRA_ID_ISSUER || "",
-        allowedEmailDomain: allowedMicrosoftEmailDomain,
       });
 
       if (!result.ok) {
@@ -319,6 +317,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             metadata: {
               tid: result.claims.tid,
               oid: result.claims.oid,
+              requiredEmailDomain: allowedMicrosoftEmailDomain,
             },
           });
         } else if (result.reason === "inactive_employee") {

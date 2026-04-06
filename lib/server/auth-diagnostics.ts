@@ -1,4 +1,7 @@
-import { getConfiguredTenantIdFromIssuer } from "../auth/microsoft-entra-sso";
+import {
+  allowedMicrosoftEmailDomain,
+  getConfiguredTenantIdFromIssuer,
+} from "../auth/microsoft-entra-sso";
 
 type AuthDiagnosticsEnv = Record<string, string | undefined>;
 
@@ -38,7 +41,7 @@ export function buildAuthDiagnostics(env: AuthDiagnosticsEnv = process.env) {
     entra: {
       envPresence: entraEnvPresence,
       issuerTenantId: issuer ? getConfiguredTenantIdFromIssuer(issuer) : null,
-      emailDomainConfigured: isPresent(env.AUTH_MICROSOFT_ENTRA_ID_EMAIL_DOMAIN),
+      allowedEmailDomain: allowedMicrosoftEmailDomain,
       clientIdLooksLikeApplicationIdUri:
         typeof clientId === "string" && clientId.startsWith("api://"),
       callbackUrl: getMicrosoftCallbackUrl(nextAuthUrl),

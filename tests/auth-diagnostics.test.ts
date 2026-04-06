@@ -9,7 +9,6 @@ test("auth diagnostics reports presence-only Entra and dev-auth state", () => {
     AUTH_MICROSOFT_ENTRA_ID_SECRET: "super-secret",
     AUTH_MICROSOFT_ENTRA_ID_ISSUER:
       "https://login.microsoftonline.com/12345678-1234-1234-1234-123456789abc/v2.0",
-    AUTH_MICROSOFT_ENTRA_ID_EMAIL_DOMAIN: "managedfinancialnetworks.com",
     NEXTAUTH_URL: "https://hr.internal.example.com",
     AUTH_ENABLE_DEV_AUTH: "false",
     AUTH_ENABLE_DEV_USER_SWITCHER: "false",
@@ -32,6 +31,7 @@ test("auth diagnostics reports presence-only Entra and dev-auth state", () => {
     diagnostics.entra.callbackUrl,
     "https://hr.internal.example.com/api/auth/callback/microsoft-entra-id"
   );
+  assert.equal(diagnostics.entra.allowedEmailDomain, "mfncuso.com");
   assert.equal(diagnostics.entra.clientIdLooksLikeApplicationIdUri, false);
   assert.equal(diagnostics.devAuth.passwordConfigured, true);
 });

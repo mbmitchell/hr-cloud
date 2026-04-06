@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  allowedMicrosoftEmailDomain,
   authorizeMicrosoftEntraSignIn,
   extractEmailCandidates,
   extractMicrosoftEntraClaims,
@@ -55,15 +56,20 @@ test("email candidates are normalized and deduplicated", () => {
   );
 });
 
-test("email domain validation requires the configured company domain", () => {
+test("email domain validation requires the fixed @mfncuso.com domain", () => {
   assert.equal(
-    isAllowedEmailDomain("employee@managedfinancialnetworks.com", "managedfinancialnetworks.com"),
+    isAllowedEmailDomain("employee@mfncuso.com"),
     true
   );
   assert.equal(
-    isAllowedEmailDomain("employee@external.com", "managedfinancialnetworks.com"),
+    isAllowedEmailDomain("employee@external.com"),
     false
   );
+  assert.equal(
+    isAllowedEmailDomain("employee@managedfinancialnetworks.com"),
+    false
+  );
+  assert.equal(allowedMicrosoftEmailDomain, "mfncuso.com");
 });
 
 test("entra sign-in requires matching tenant and matching employee record", async () => {
@@ -80,7 +86,7 @@ test("entra sign-in requires matching tenant and matching employee record", asyn
     ) {
       return {
         id: "emp-1",
-        email: "employee@managedfinancialnetworks.com",
+        email: "employee@mfncuso.com",
         status: "ACTIVE",
         entraOid,
         entraTid,
@@ -93,10 +99,10 @@ test("entra sign-in requires matching tenant and matching employee record", asyn
   };
 
   const resolveEmployeeByEmail = async (email: string) => {
-    if (email === "employee@managedfinancialnetworks.com") {
+    if (email === "employee@mfncuso.com") {
       return {
         id: "emp-1",
-        email: "employee@managedfinancialnetworks.com",
+        email: "employee@mfncuso.com",
         status: "ACTIVE",
         entraOid: null,
         entraTid: null,
@@ -127,16 +133,15 @@ test("entra sign-in requires matching tenant and matching employee record", asyn
   });
 
   const allowedUser = await authorizeMicrosoftEntraSignIn({
-    user: { email: "employee@managedfinancialnetworks.com", name: "Taylor Jordan" },
+    user: { email: "employee@mfncuso.com", name: "Taylor Jordan" },
     profile: {
       oid: "oid-123",
       tid: "12345678-1234-1234-1234-123456789abc",
-      preferred_username: "employee@managedfinancialnetworks.com",
+      preferred_username: "employee@mfncuso.com",
       name: "Taylor Jordan",
     },
     issuer:
       "https://login.microsoftonline.com/12345678-1234-1234-1234-123456789abc/v2.0",
-    allowedEmailDomain: "managedfinancialnetworks.com",
     resolveEmployeeByEntraIdentity,
     resolveEmployeeByEmail,
     bindEmployeeToEntraIdentity,
@@ -146,7 +151,7 @@ test("entra sign-in requires matching tenant and matching employee record", asyn
   if (allowedUser.ok) {
     assert.deepEqual(allowedUser.authenticatedUser, {
       employeeId: "emp-1",
-      email: "employee@managedfinancialnetworks.com",
+      email: "employee@mfncuso.com",
       name: "Taylor Jordan",
       oid: "oid-123",
       tid: "12345678-1234-1234-1234-123456789abc",
@@ -156,14 +161,13 @@ test("entra sign-in requires matching tenant and matching employee record", asyn
   }
 
   const deniedUser = await authorizeMicrosoftEntraSignIn({
-    user: { email: "employee@managedfinancialnetworks.com" },
+    user: { email: "employee@mfncuso.com" },
     profile: {
       tid: "wrong-tenant",
-      preferred_username: "employee@managedfinancialnetworks.com",
+      preferred_username: "employee@mfncuso.com",
     },
     issuer:
       "https://login.microsoftonline.com/12345678-1234-1234-1234-123456789abc/v2.0",
-    allowedEmailDomain: "managedfinancialnetworks.com",
     resolveEmployeeByEntraIdentity,
     resolveEmployeeByEmail,
     bindEmployeeToEntraIdentity,
@@ -175,7 +179,7 @@ test("entra sign-in requires matching tenant and matching employee record", asyn
     claims: {
       oid: null,
       tid: "wrong-tenant",
-      emailCandidates: ["employee@managedfinancialnetworks.com"],
+      emailCandidates: ["employee@mfncuso.com"],
       displayName: null,
     },
     matchedBy: null,
@@ -187,18 +191,17 @@ test("entra sign-in bootstraps identity binding from email when no oid/tid mappi
   let boundIdentity: { employeeId: string; entraOid: string; entraTid: string } | null = null;
 
   const result = await authorizeMicrosoftEntraSignIn({
-    user: { email: "employee@managedfinancialnetworks.com" },
+    user: { email: "employee@mfncuso.com" },
     profile: {
       oid: "oid-bootstrap",
       tid: "12345678-1234-1234-1234-123456789abc",
-      preferred_username: "employee@managedfinancialnetworks.com",
+      preferred_username: "employee@mfncuso.com",
     },
     issuer:
       "https://login.microsoftonline.com/12345678-1234-1234-1234-123456789abc/v2.0",
-    allowedEmailDomain: "managedfinancialnetworks.com",
     resolveEmployeeByEntraIdentity: async () => null,
     resolveEmployeeByEmail: async (email: string) =>
-      email === "employee@managedfinancialnetworks.com"
+      email === "employee@mfncuso.com"
         ? {
             id: "emp-2",
             email,
@@ -213,7 +216,7 @@ test("entra sign-in bootstraps identity binding from email when no oid/tid mappi
       boundIdentity = input;
       return {
         id: input.employeeId,
-        email: "employee@managedfinancialnetworks.com",
+        email: "employee@mfncuso.com",
         status: "ACTIVE",
         entraOid: input.entraOid,
         entraTid: input.entraTid,
@@ -237,19 +240,18 @@ test("entra sign-in bootstraps identity binding from email when no oid/tid mappi
 
 test("entra sign-in refuses email fallback when employee is already bound to another identity", async () => {
   const result = await authorizeMicrosoftEntraSignIn({
-    user: { email: "employee@managedfinancialnetworks.com" },
+    user: { email: "employee@mfncuso.com" },
     profile: {
       oid: "oid-new",
       tid: "12345678-1234-1234-1234-123456789abc",
-      preferred_username: "employee@managedfinancialnetworks.com",
+      preferred_username: "employee@mfncuso.com",
     },
     issuer:
       "https://login.microsoftonline.com/12345678-1234-1234-1234-123456789abc/v2.0",
-    allowedEmailDomain: "managedfinancialnetworks.com",
     resolveEmployeeByEntraIdentity: async () => null,
     resolveEmployeeByEmail: async () => ({
       id: "emp-3",
-      email: "employee@managedfinancialnetworks.com",
+      email: "employee@mfncuso.com",
       status: "ACTIVE",
       entraOid: "oid-existing",
       entraTid: "12345678-1234-1234-1234-123456789abc",
@@ -269,18 +271,17 @@ test("entra sign-in refuses email fallback when employee is already bound to ano
 
 test("entra sign-in denies inactive employees even when identity matches", async () => {
   const result = await authorizeMicrosoftEntraSignIn({
-    user: { email: "inactive@managedfinancialnetworks.com" },
+    user: { email: "inactive@mfncuso.com" },
     profile: {
       oid: "oid-inactive",
       tid: "12345678-1234-1234-1234-123456789abc",
-      preferred_username: "inactive@managedfinancialnetworks.com",
+      preferred_username: "inactive@mfncuso.com",
     },
     issuer:
       "https://login.microsoftonline.com/12345678-1234-1234-1234-123456789abc/v2.0",
-    allowedEmailDomain: "managedfinancialnetworks.com",
     resolveEmployeeByEntraIdentity: async () => ({
       id: "emp-inactive",
-      email: "inactive@managedfinancialnetworks.com",
+      email: "inactive@mfncuso.com",
       status: "INACTIVE",
       entraOid: "oid-inactive",
       entraTid: "12345678-1234-1234-1234-123456789abc",

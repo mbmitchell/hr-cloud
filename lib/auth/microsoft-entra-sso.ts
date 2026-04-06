@@ -24,6 +24,8 @@ export type MicrosoftEntraClaims = {
   displayName: string | null;
 };
 
+export const allowedMicrosoftEmailDomain = "mfncuso.com";
+
 export type InternalAuthenticatedUser = {
   employeeId: string;
   email: string;
@@ -37,7 +39,6 @@ export type MicrosoftEntraSignInFailureReason =
   | "missing_tid"
   | "tenant_mismatch"
   | "missing_oid"
-  | "missing_allowed_email_domain"
   | "missing_company_email"
   | "no_employee_match"
   | "inactive_employee"
@@ -153,22 +154,20 @@ export function getConfiguredTenantIdFromIssuer(issuer: string) {
   }
 }
 
-export function isAllowedEmailDomain(email: string, allowedDomain: string) {
+export function isAllowedEmailDomain(email: string) {
   const normalizedEmail = normalizeEmail(email);
-  const normalizedAllowedDomain = normalizeString(allowedDomain).toLowerCase();
 
-  if (!normalizedEmail || !normalizedAllowedDomain) {
+  if (!normalizedEmail) {
     return false;
   }
 
-  return normalizedEmail.endsWith(`@${normalizedAllowedDomain}`);
+  return normalizedEmail.endsWith(`@${allowedMicrosoftEmailDomain}`);
 }
 
 export async function authorizeMicrosoftEntraSignIn(input: {
   user: AuthUser;
   profile?: AuthProfile;
   issuer: string;
-  allowedEmailDomain: string;
   resolveEmployeeByEntraIdentity?: (input: {
     entraOid: string;
     entraTid: string;
@@ -263,20 +262,8 @@ export async function authorizeMicrosoftEntraSignIn(input: {
     };
   }
 
-  const allowedEmailDomain = normalizeString(input.allowedEmailDomain).toLowerCase();
-
-  if (!allowedEmailDomain) {
-    return {
-      ok: false,
-      reason: "missing_allowed_email_domain",
-      claims,
-      matchedBy: null,
-      bindingCreated: false,
-    };
-  }
-
   const email = claims.emailCandidates.find((candidate) =>
-    isAllowedEmailDomain(candidate, allowedEmailDomain)
+    isAllowedEmailDomain(candidate)
   );
 
   if (!email) {
