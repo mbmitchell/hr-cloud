@@ -9,6 +9,10 @@ import {
   requireManagerOfEmployee,
 } from "../../../../lib/server/authorization";
 import { writeAuditLog } from "../../../../lib/server/audit/write-audit-log";
+import { dispatchEmailInBackground } from "../../../../lib/notifications/email/dispatch";
+import {
+  sendPtoAdjustmentPostedNotification,
+} from "../../../../lib/notifications/email/workflows";
 
 export async function POST(request: Request) {
   try {
@@ -183,6 +187,12 @@ export async function POST(request: Request) {
       };
     }, {
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    });
+
+    dispatchEmailInBackground(async () => {
+      await sendPtoAdjustmentPostedNotification({
+        ledgerEntryId: result.ledgerEntry.id,
+      });
     });
 
     return NextResponse.json({

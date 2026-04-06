@@ -7,7 +7,10 @@ import {
 } from "../../../lib/server/authorization";
 import { writeAuditLog } from "../../../lib/server/audit/write-audit-log";
 import { isLeaveType } from "../../../lib/pto/leave-types";
-import { sendPtoRequestSubmittedNotification } from "../../../lib/server/notifications/request-notifications";
+import { dispatchEmailInBackground } from "../../../lib/notifications/email/dispatch";
+import {
+  sendPtoRequestSubmittedNotification,
+} from "../../../lib/notifications/email/workflows";
 
 export async function POST(request: Request) {
   try {
@@ -114,16 +117,11 @@ export async function POST(request: Request) {
       return requestRecord;
     });
 
-    try {
+    dispatchEmailInBackground(async () => {
       await sendPtoRequestSubmittedNotification({
         requestId: created.id,
       });
-    } catch (notificationError) {
-      console.error(
-        `Failed to send PTO request submission email for request ${created.id}:`,
-        notificationError
-      );
-    }
+    });
 
     return NextResponse.json(created);
   } catch (error) {

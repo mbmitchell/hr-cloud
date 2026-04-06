@@ -8,10 +8,11 @@ import {
   isAuthorizationError,
   requireActor,
 } from "../../../lib/server/authorization";
+import { dispatchEmailInBackground } from "../../../lib/notifications/email/dispatch";
 import {
   sendPtoRequestApprovedNotification,
   sendPtoRequestDeniedNotification,
-} from "../../../lib/server/notifications/request-notifications";
+} from "../../../lib/notifications/email/workflows";
 
 export async function POST(request: Request) {
   try {
@@ -72,18 +73,13 @@ export async function POST(request: Request) {
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
     });
 
-    try {
+    dispatchEmailInBackground(async () => {
       if (status === "APPROVED") {
         await sendPtoRequestApprovedNotification({ requestId });
       } else {
         await sendPtoRequestDeniedNotification({ requestId });
       }
-    } catch (notificationError) {
-      console.error(
-        `Failed to send PTO request ${status.toLowerCase()} email for request ${requestId}:`,
-        notificationError
-      );
-    }
+    });
 
     return NextResponse.json(result);
   } catch (error) {
