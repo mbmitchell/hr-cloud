@@ -6,6 +6,7 @@ import {
   requireAdmin,
 } from "../../../../lib/server/authorization";
 import { writeAuditLog } from "../../../../lib/server/audit/write-audit-log";
+import { parseEmployeeInput } from "../../../../lib/server/employees/employee-input";
 
 export async function GET() {
   try {
@@ -62,108 +63,35 @@ export async function POST(request: Request) {
       entityId: "new",
     });
     const body = await request.json();
-
-    const firstName = String(body.firstName || "").trim();
-    const lastName = String(body.lastName || "").trim();
-    const email = String(body.email || "").trim().toLowerCase();
-    const department =
-      body.department == null || String(body.department).trim() === ""
-        ? null
-        : String(body.department).trim();
-    const title =
-      body.title == null || String(body.title).trim() === ""
-        ? null
-        : String(body.title).trim();
-    const status = String(body.status || "").trim();
-    const hireDate = String(body.hireDate || "").trim();
-    const managerId =
-      body.managerId == null || String(body.managerId).trim() === ""
-        ? null
-        : String(body.managerId).trim();
-
-    const payType =
-      body.payType == null || String(body.payType).trim() === ""
-        ? null
-        : String(body.payType).trim();
-
-    const hourlyRate =
-      body.hourlyRate == null || body.hourlyRate === ""
-        ? null
-        : Number(body.hourlyRate);
-
-    const annualSalary =
-      body.annualSalary == null || body.annualSalary === ""
-        ? null
-        : Number(body.annualSalary);
-
-    const fte =
-      body.fte == null || body.fte === ""
-        ? 1
-        : Number(body.fte);
-
     const roleCodes = Array.isArray(body.roleCodes)
       ? body.roleCodes.map((value: unknown) => String(value).trim()).filter(Boolean)
       : ["EMPLOYEE"];
+    const parsedInput = parseEmployeeInput(body as Record<string, unknown>, {
+      normalizeEmail: true,
+      includeCompensation: true,
+    });
 
-    if (!firstName || !lastName || !email || !status || !hireDate) {
+    if (!parsedInput.ok) {
       return NextResponse.json(
-        {
-          error:
-            "First name, last name, email, status, and hire date are required.",
-        },
+        { error: parsedInput.error },
         { status: 400 }
       );
     }
 
-    const parsedHireDate = new Date(hireDate);
-    if (Number.isNaN(parsedHireDate.getTime())) {
-      return NextResponse.json(
-        { error: "Hire date is invalid." },
-        { status: 400 }
-      );
-    }
-
-    if (payType && !["HOURLY", "SALARY"].includes(payType)) {
-      return NextResponse.json(
-        { error: "Invalid pay type." },
-        { status: 400 }
-      );
-    }
-
-    if (hourlyRate != null && (Number.isNaN(hourlyRate) || hourlyRate < 0)) {
-      return NextResponse.json(
-        { error: "Hourly rate must be zero or greater." },
-        { status: 400 }
-      );
-    }
-
-    if (annualSalary != null && (Number.isNaN(annualSalary) || annualSalary < 0)) {
-      return NextResponse.json(
-        { error: "Annual salary must be zero or greater." },
-        { status: 400 }
-      );
-    }
-
-    if (Number.isNaN(fte) || fte <= 0) {
-      return NextResponse.json(
-        { error: "FTE must be greater than zero." },
-        { status: 400 }
-      );
-    }
-
-    if (payType === "HOURLY" && hourlyRate == null) {
-      return NextResponse.json(
-        { error: "Hourly employees require an hourly rate." },
-        { status: 400 }
-      );
-    }
-
-    if (payType === "SALARY" && annualSalary == null) {
-      return NextResponse.json(
-        { error: "Salary employees require an annual salary." },
-        { status: 400 }
-      );
-    }
+    const {
+      firstName,
+      lastName,
+      email,
+      department,
+      title,
+      status,
+      hireDate,
+      managerId,
+      payType,
+      hourlyRate,
+      annualSalary,
+      fte,
+    } = parsedInput.data;
 
     const existingEmployee = await prisma.employee.findUnique({
       where: { email },
@@ -214,7 +142,7 @@ export async function POST(request: Request) {
           department,
           title,
           status,
-          hireDate: parsedHireDate,
+          hireDate,
           managerId,
           payType,
           hourlyRate: payType === "HOURLY" ? hourlyRate : null,

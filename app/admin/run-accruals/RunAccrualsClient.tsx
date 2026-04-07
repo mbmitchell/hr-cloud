@@ -67,14 +67,14 @@ export default function RunAccrualsClient() {
         </p>
       </div>
 
-      <div className="bg-white rounded shadow p-6 space-y-5 max-w-3xl">
+      <div className="max-w-3xl space-y-5 rounded bg-white p-4 shadow sm:p-6">
         <div>
           <label className="block text-sm font-medium mb-2">Run Date</label>
           <input
             type="date"
             value={runDate}
             onChange={(e) => setRunDate(e.target.value)}
-            className="border rounded px-3 py-2"
+            className="w-full rounded border px-3 py-2 sm:w-auto"
           />
           <p className="text-xs text-slate-500 mt-2">
             The job uses the first day of the selected month as the accrual effective date.
@@ -84,7 +84,7 @@ export default function RunAccrualsClient() {
         <button
           onClick={handleRun}
           disabled={loading}
-          className="bg-slate-900 text-white px-4 py-2 rounded hover:bg-slate-800 disabled:opacity-50"
+          className="w-full rounded bg-slate-900 px-4 py-2.5 text-white hover:bg-slate-800 disabled:opacity-50 sm:w-auto"
         >
           {loading ? "Running..." : "Run Monthly Accruals"}
         </button>
@@ -117,7 +117,7 @@ export default function RunAccrualsClient() {
             </div>
           </div>
 
-          <div className="bg-white rounded shadow overflow-hidden">
+          <div className="hidden overflow-hidden rounded bg-white shadow md:block">
             <div className="p-4 border-b">
               <h3 className="font-semibold">
                 Accrual Run Details for{" "}
@@ -151,6 +151,39 @@ export default function RunAccrualsClient() {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          <div className="space-y-4 md:hidden">
+            {result.details.map((detail) => (
+              <div key={detail.employeeId} className="rounded-xl bg-white p-4 shadow">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="text-base font-semibold text-slate-900">
+                    {detail.employeeName}
+                  </div>
+                  <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                    {detail.status}
+                  </div>
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <div className="text-slate-500">Hours</div>
+                    <div className="font-medium text-slate-900">
+                      {detail.hours != null ? detail.hours.toFixed(2) : "-"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500">New Balance</div>
+                    <div className="font-medium text-slate-900">
+                      {detail.newBalance != null ? detail.newBalance.toFixed(2) : "-"}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-3 text-sm">
+                  <div className="text-slate-500">Reason</div>
+                  <div className="break-words text-slate-900">{detail.reason}</div>
+                </div>
+              </div>
+            ))}
           </div>
         </>
       )}

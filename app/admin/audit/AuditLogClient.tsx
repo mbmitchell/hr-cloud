@@ -122,7 +122,7 @@ export default function AuditLogClient() {
         <div className="text-red-600">{message}</div>
       ) : (
         <>
-          <div className="bg-white rounded shadow overflow-hidden">
+          <div className="hidden overflow-hidden rounded bg-white shadow md:block">
             <table className="w-full">
               <thead className="bg-slate-100 text-left">
                 <tr>
@@ -166,13 +166,57 @@ export default function AuditLogClient() {
             </table>
           </div>
 
+          <div className="space-y-4 md:hidden">
+            {logs.length === 0 ? (
+              <div className="rounded-xl bg-white p-4 text-sm text-slate-500 shadow">
+                No audit entries found.
+              </div>
+            ) : (
+              logs.map((log) => (
+                <div key={log.id} className="rounded-xl bg-white p-4 shadow">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="break-words text-sm font-semibold text-slate-900">
+                        {log.action}
+                      </div>
+                      <div className="break-words text-xs text-slate-500">
+                        {new Date(log.createdAt).toLocaleString()}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setSelectedLog(log)}
+                      className="shrink-0 text-sm font-medium text-blue-600 hover:underline"
+                    >
+                      View
+                    </button>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 gap-3 text-sm">
+                    <div>
+                      <div className="text-slate-500">User</div>
+                      <div className="break-words text-slate-900">{log.userId}</div>
+                    </div>
+                    <div>
+                      <div className="text-slate-500">Entity Type</div>
+                      <div className="text-slate-900">{log.entityType}</div>
+                    </div>
+                    <div>
+                      <div className="text-slate-500">Entity ID</div>
+                      <div className="break-all text-slate-900">{log.entityId}</div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
           {selectedLog && (
-            <div className="bg-white rounded shadow p-6 space-y-4">
-              <div className="flex items-center justify-between">
+            <div className="bg-white rounded shadow p-4 space-y-4 sm:p-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="text-lg font-semibold">Audit Entry Details</h3>
                 <button
                   onClick={() => setSelectedLog(null)}
-                  className="border border-slate-300 px-3 py-1 rounded hover:bg-slate-50"
+                  className="inline-flex w-full items-center justify-center rounded border border-slate-300 px-3 py-2 hover:bg-slate-50 sm:w-auto"
                 >
                   Close
                 </button>
@@ -199,14 +243,14 @@ export default function AuditLogClient() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <div className="font-medium mb-2">Old Value</div>
-                  <pre className="bg-slate-50 border rounded p-3 text-xs overflow-auto whitespace-pre-wrap">
+                  <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded border bg-slate-50 p-3 text-xs">
                     {prettyJson(selectedLog.oldValue)}
                   </pre>
                 </div>
 
                 <div>
                   <div className="font-medium mb-2">New Value</div>
-                  <pre className="bg-slate-50 border rounded p-3 text-xs overflow-auto whitespace-pre-wrap">
+                  <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded border bg-slate-50 p-3 text-xs">
                     {prettyJson(selectedLog.newValue)}
                   </pre>
                 </div>

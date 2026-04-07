@@ -69,7 +69,7 @@ export default function ApprovalsClient({
 
       {message && <div className="mb-4 text-sm text-slate-700">{message}</div>}
 
-      <div className="bg-white rounded shadow overflow-hidden">
+      <div className="hidden overflow-hidden rounded bg-white shadow md:block">
         <table className="w-full">
           <thead className="bg-slate-100 text-left">
             <tr>
@@ -134,6 +134,87 @@ export default function ApprovalsClient({
             )}
           </tbody>
         </table>
+      </div>
+
+      <div className="space-y-4 md:hidden">
+        {requests.length === 0 ? (
+          <div className="rounded-xl bg-white p-4 text-sm text-slate-500 shadow">
+            No pending PTO requests.
+          </div>
+        ) : (
+          requests.map((request) => (
+            <div key={request.id} className="rounded-xl bg-white p-4 shadow">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-base font-semibold text-slate-900">
+                    {request.employeeName}
+                  </div>
+                  <div className="text-sm text-slate-600">
+                    {request.leaveType}
+                  </div>
+                </div>
+                <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                  {request.status}
+                </div>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <div className="text-slate-500">Dates</div>
+                  <div className="font-medium text-slate-900">
+                    {new Date(request.startDate).toLocaleDateString()} -{" "}
+                    {new Date(request.endDate).toLocaleDateString()}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-slate-500">Hours</div>
+                  <div className="font-medium text-slate-900">{request.hours}</div>
+                </div>
+              </div>
+
+              <div className="mt-4 text-sm">
+                <div className="text-slate-500">Request Notes</div>
+                <div className="break-words text-slate-900">
+                  {request.notes || "-"}
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <label className="mb-2 block text-sm font-medium">
+                  Approval Comment / Deny Reason
+                </label>
+                <textarea
+                  value={comments[request.id] ?? ""}
+                  onChange={(e) =>
+                    setComments((prev) => ({
+                      ...prev,
+                      [request.id]: e.target.value,
+                    }))
+                  }
+                  className="min-h-24 w-full rounded border px-3 py-2"
+                  placeholder="Optional approval comment. Required for denial."
+                />
+              </div>
+
+              <div className="mt-4 space-y-2">
+                <button
+                  onClick={() => handleDecision(request.id, "APPROVED")}
+                  disabled={loadingId === request.id}
+                  className="block w-full rounded bg-green-600 px-3 py-2.5 text-white hover:bg-green-500 disabled:opacity-50"
+                >
+                  {loadingId === request.id ? "Working..." : "Approve"}
+                </button>
+                <button
+                  onClick={() => handleDecision(request.id, "DENIED")}
+                  disabled={loadingId === request.id}
+                  className="block w-full rounded bg-red-600 px-3 py-2.5 text-white hover:bg-red-500 disabled:opacity-50"
+                >
+                  {loadingId === request.id ? "Working..." : "Deny"}
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

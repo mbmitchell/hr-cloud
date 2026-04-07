@@ -7,6 +7,7 @@ import { applyEmployeeUpdate } from "../lib/server/employees/apply-employee-upda
 function createEmployeeUpdateTx() {
   const state = {
     employeeUpdates: [] as unknown[],
+    statusHistoryCreates: [] as unknown[],
     auditCreates: [] as unknown[],
   };
 
@@ -37,6 +38,12 @@ function createEmployeeUpdateTx() {
       async update(args: unknown) {
         state.employeeUpdates.push(args);
         return updatedEmployee;
+      },
+    },
+    employeeStatusHistory: {
+      async create(args: unknown) {
+        state.statusHistoryCreates.push(args);
+        return args;
       },
     },
     auditLog: {
@@ -77,6 +84,7 @@ test("employee update writes an audit log entry with before and after values", a
 
   assert.equal(result.email, "taylor.updated@example.com");
   assert.equal(state.employeeUpdates.length, 1);
+  assert.equal(state.statusHistoryCreates.length, 0);
   assert.equal(state.auditCreates.length, 1);
 
   const auditCreate = state.auditCreates[0] as {
@@ -102,4 +110,45 @@ test("employee update writes an audit log entry with before and after values", a
   assert.equal(newValue.email, "taylor.updated@example.com");
   assert.equal(oldValue.title, "HR Coordinator");
   assert.equal(newValue.title, "HR Generalist");
+});
+
+test("employee update writes status history only when the status changes", async () => {
+  const { tx, state, updatedEmployee } = createEmployeeUpdateTx();
+
+  const existingEmployee = {
+    ...updatedEmployee,
+    status: "INACTIVE",
+  };
+
+  await applyEmployeeUpdate(tx as never, {
+    actorId: "admin-1",
+    employeeId: "emp-1",
+    existingEmployee,
+    update: {
+      firstName: updatedEmployee.firstName,
+      lastName: updatedEmployee.lastName,
+      email: updatedEmployee.email,
+      department: updatedEmployee.department,
+      title: updatedEmployee.title,
+      status: updatedEmployee.status,
+      hireDate: updatedEmployee.hireDate,
+      managerId: updatedEmployee.managerId,
+    },
+  });
+
+  assert.equal(state.statusHistoryCreates.length, 1);
+
+  const statusHistoryCreate = state.statusHistoryCreates[0] as {
+    data: {
+      employeeId: string;
+      previousStatus: string;
+      newStatus: string;
+      changedByEmployeeId: string;
+    };
+  };
+
+  assert.equal(statusHistoryCreate.data.employeeId, "emp-1");
+  assert.equal(statusHistoryCreate.data.previousStatus, "INACTIVE");
+  assert.equal(statusHistoryCreate.data.newStatus, "ACTIVE");
+  assert.equal(statusHistoryCreate.data.changedByEmployeeId, "admin-1");
 });

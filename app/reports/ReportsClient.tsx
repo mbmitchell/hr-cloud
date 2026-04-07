@@ -115,13 +115,13 @@ export default function ReportsClient() {
           <h2 className="text-2xl font-bold">Reports</h2>
         </div>
 
-        <div className="flex flex-col md:flex-row gap-4 md:items-end">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end">
           <div>
             <label className="block text-sm font-medium mb-2">Department</label>
             <select
               value={departmentFilter}
               onChange={(e) => setDepartmentFilter(e.target.value)}
-              className="border rounded px-3 py-2 bg-white"
+              className="w-full rounded border bg-white px-3 py-2 md:w-auto"
             >
               <option value="ALL">All</option>
               {departments.map((department) => (
@@ -134,7 +134,7 @@ export default function ReportsClient() {
 
           <a
             href="/api/reports/liability-export"
-            className="border border-slate-300 px-4 py-2 rounded hover:bg-slate-50 text-sm"
+            className="inline-flex w-full items-center justify-center rounded border border-slate-300 px-4 py-2.5 text-sm hover:bg-slate-50 md:w-auto"
           >
             Export Liability CSV
           </a>
@@ -180,7 +180,7 @@ export default function ReportsClient() {
             </div>
           </div>
 
-          <div className="bg-white rounded shadow overflow-hidden">
+          <div className="hidden overflow-hidden rounded bg-white shadow md:block">
             <div className="p-4 border-b">
               <h3 className="text-lg font-semibold">Employee Balances</h3>
             </div>
@@ -221,6 +221,55 @@ export default function ReportsClient() {
             </table>
           </div>
 
+          <div className="space-y-4 md:hidden">
+            <div className="rounded-xl bg-white p-4 shadow">
+              <h3 className="text-lg font-semibold">Employee Balances</h3>
+            </div>
+            {filteredEmployees.length === 0 ? (
+              <div className="rounded-xl bg-white p-4 text-sm text-slate-500 shadow">
+                No employees matched your filters.
+              </div>
+            ) : (
+              filteredEmployees.map((employee) => (
+                <div key={employee.id} className="rounded-xl bg-white p-4 shadow">
+                  <div className="text-base font-semibold text-slate-900">
+                    {employee.name}
+                  </div>
+                  <div className="mt-1 text-sm text-slate-500">
+                    {employee.department ?? "-"} • {employee.title ?? "-"}
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <div className="text-slate-500">PTO</div>
+                      <div className="font-medium text-slate-900">
+                        {employee.ptoBalance.toFixed(2)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-slate-500">COMP</div>
+                      <div className="font-medium text-slate-900">
+                        {employee.compBalance.toFixed(2)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-slate-500">Hourly Rate</div>
+                      <div className="font-medium text-slate-900">
+                        ${employee.effectiveHourlyRate.toFixed(2)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-slate-500">PTO Liability</div>
+                      <div className="font-medium text-slate-900">
+                        ${employee.ptoLiability.toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             <div className="bg-white rounded shadow overflow-hidden">
               <div className="p-4 border-b">
@@ -236,7 +285,7 @@ export default function ReportsClient() {
                   filteredPendingRequests.map((request) => (
                     <div
                       key={request.id}
-                      className="border rounded p-3 flex items-center justify-between gap-4"
+                      className="border rounded p-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
                     >
                       <div>
                         <div className="font-medium">{request.employeeName}</div>
@@ -246,7 +295,7 @@ export default function ReportsClient() {
                           {new Date(request.endDate).toLocaleDateString()}
                         </div>
                       </div>
-                      <div className="text-sm">{request.hours.toFixed(2)} hrs</div>
+                      <div className="text-sm font-medium">{request.hours.toFixed(2)} hrs</div>
                     </div>
                   ))
                 )}
@@ -267,7 +316,7 @@ export default function ReportsClient() {
                   filteredUpcomingApproved.map((request) => (
                     <div
                       key={request.id}
-                      className="border rounded p-3 flex items-center justify-between gap-4"
+                      className="border rounded p-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
                     >
                       <div>
                         <div className="font-medium">{request.employeeName}</div>
@@ -277,7 +326,7 @@ export default function ReportsClient() {
                           {new Date(request.endDate).toLocaleDateString()}
                         </div>
                       </div>
-                      <div className="text-sm">{request.hours.toFixed(2)} hrs</div>
+                      <div className="text-sm font-medium">{request.hours.toFixed(2)} hrs</div>
                     </div>
                   ))
                 )}

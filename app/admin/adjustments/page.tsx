@@ -112,7 +112,7 @@ export default function AdminAdjustmentsPage() {
         </div>
       )}
 
-      <div className="bg-white rounded shadow p-6">
+      <div className="bg-white rounded shadow p-4 sm:p-6">
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="block text-sm font-medium mb-2">Employee</label>
@@ -203,7 +203,7 @@ export default function AdminAdjustmentsPage() {
           <button
             type="submit"
             disabled={loading}
-            className="bg-slate-900 text-white px-4 py-2 rounded hover:bg-slate-800 disabled:opacity-50"
+            className="w-full rounded bg-slate-900 px-4 py-2.5 text-white hover:bg-slate-800 disabled:opacity-50 sm:w-auto"
           >
             {loading ? "Posting..." : "Post Adjustment"}
           </button>

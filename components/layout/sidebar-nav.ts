@@ -35,8 +35,13 @@ function item(
 }
 
 type BuildSidebarSectionsInput = {
+  canSeeMyDocuments: boolean;
   canSeeApprovals: boolean;
   canAddEmployees: boolean;
+  canSeeOnboarding: boolean;
+  canSeeOffboarding: boolean;
+  canManageOnboardingTemplates: boolean;
+  canManageOffboardingTemplates: boolean;
   canSeeAdjustments: boolean;
   canSeePolicy: boolean;
   canSeeCompensation: boolean;
@@ -62,6 +67,9 @@ export function buildSidebarSections(
         item("/pto/request", "Request Time Off", "request"),
         item("/pto/requests", "My Requests", "checklist"),
         item("/calendar", "PTO Calendar", "calendar"),
+        ...(input.canSeeMyDocuments
+          ? [item("/my-documents", "My Documents", "checklist")]
+          : []),
       ],
     },
     {
@@ -85,6 +93,12 @@ export function buildSidebarSections(
       title: "People",
       items: [
         item("/employees", "Employees", "people"),
+        ...(input.canSeeOnboarding
+          ? [item("/onboarding", "Onboarding", "checklist")]
+          : []),
+        ...(input.canSeeOffboarding
+          ? [item("/offboarding", "Offboarding", "checklist")]
+          : []),
         ...(input.canAddEmployees
           ? [item("/admin/employees/new", "Add Employee", "userPlus")]
           : []),
@@ -99,6 +113,12 @@ export function buildSidebarSections(
           : []),
         ...(input.canSeePolicy
           ? [item("/admin/policy", "Settings", "settings")]
+          : []),
+        ...(input.canManageOnboardingTemplates
+          ? [item("/admin/onboarding/templates", "Onboarding Templates", "checklist")]
+          : []),
+        ...(input.canManageOffboardingTemplates
+          ? [item("/admin/offboarding/templates", "Offboarding Templates", "checklist")]
           : []),
         ...(input.canSeeAdjustments
           ? [item("/admin/accrual-override", "Accrual Settings", "clock")]

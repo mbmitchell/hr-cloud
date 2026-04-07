@@ -129,7 +129,7 @@ export default function AddEmployeeClient() {
         </p>
       </div>
 
-      <div className="bg-white rounded shadow p-6">
+      <div className="bg-white rounded shadow p-4 sm:p-6">
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -315,7 +315,7 @@ export default function AddEmployeeClient() {
           <button
             type="submit"
             disabled={saving}
-            className="bg-slate-900 text-white px-4 py-2 rounded hover:bg-slate-800 disabled:opacity-50"
+            className="w-full rounded bg-slate-900 px-4 py-2.5 text-white hover:bg-slate-800 disabled:opacity-50 sm:w-auto"
           >
             {saving ? "Creating..." : "Create Employee"}
           </button>

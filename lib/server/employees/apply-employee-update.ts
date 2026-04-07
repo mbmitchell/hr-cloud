@@ -1,4 +1,4 @@
-import type { Employee, Prisma } from "@prisma/client";
+import type { Employee } from "@prisma/client";
 
 import { writeAuditLog } from "../audit/write-audit-log";
 
@@ -15,6 +15,40 @@ type EmployeeUpdateInput = {
     status: string;
     hireDate: Date;
     managerId: string | null;
+  };
+};
+
+type EmployeeUpdateTx = {
+  employee: {
+    update(args: {
+      where: { id: string };
+      data: EmployeeUpdateInput["update"];
+    }): Promise<Employee>;
+  };
+  auditLog: {
+    create(args: {
+      data: {
+        userId: string;
+        action: string;
+        entityType: string;
+        entityId: string;
+        oldValue: string | null;
+        newValue: string | null;
+      };
+    }): Promise<unknown>;
+  };
+};
+
+type EmployeeStatusHistoryWriter = {
+  employeeStatusHistory: {
+    create(args: {
+      data: {
+        employeeId: string;
+        previousStatus: string;
+        newStatus: string;
+        changedByEmployeeId: string;
+      };
+    }): Promise<unknown>;
   };
 };
 
@@ -41,13 +75,24 @@ function serializeEmployee(employee: {
 }
 
 export async function applyEmployeeUpdate(
-  tx: Prisma.TransactionClient,
+  tx: EmployeeUpdateTx,
   input: EmployeeUpdateInput
 ) {
   const updated = await tx.employee.update({
     where: { id: input.employeeId },
     data: input.update,
   });
+
+  if (input.existingEmployee.status !== updated.status) {
+    await (tx as EmployeeUpdateTx & EmployeeStatusHistoryWriter).employeeStatusHistory.create({
+      data: {
+        employeeId: updated.id,
+        previousStatus: input.existingEmployee.status,
+        newStatus: updated.status,
+        changedByEmployeeId: input.actorId,
+      },
+    });
+  }
 
   await writeAuditLog(tx, {
     userId: input.actorId,

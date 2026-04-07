@@ -31,31 +31,42 @@ model Employee {
   manager       Employee?  @relation("ManagerToReports", fields: [managerId], references: [id])
   directReports Employee[] @relation("ManagerToReports")
 
-  requests        PTORequest[]
-  ledger          PTOLedger[]
-  roleAssignments EmployeeRoleAssignment[]
+  requests                                 PTORequest[]
+  ledger                                   PTOLedger[]
+  statusHistory                            EmployeeStatusHistory[]
+  documents                                EmployeeDocument[]                          @relation("EmployeeDocuments")
+  uploadedDocuments                        EmployeeDocument[]                          @relation("UploadedEmployeeDocuments")
+  linkedOnboardingTaskDocumentRequirements EmployeeOnboardingTaskDocumentRequirement[] @relation("LinkedOnboardingTaskDocumentRequirements")
+  onboarding                               EmployeeOnboarding?
+  onboardingTasks                          EmployeeOnboardingTask[]                    @relation("EmployeeOnboardingTasks")
+  offboardings                             EmployeeOffboarding[]                       @relation("EmployeeOffboardings")
+  createdOffboardings                      EmployeeOffboarding[]                       @relation("CreatedEmployeeOffboardings")
+  offboardingTasks                         EmployeeOffboardingTask[]                   @relation("EmployeeOffboardingTasks")
+  assignedOffboardingTasks                 EmployeeOffboardingTask[]                   @relation("AssignedEmployeeOffboardingTasks")
+  completedOffboardingTasks                EmployeeOffboardingTask[]                   @relation("CompletedEmployeeOffboardingTasks")
+  roleAssignments                          EmployeeRoleAssignment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([managerId])
   @@unique([entraTid, entraOid])
+  @@index([managerId])
 }
 
 model PTORequest {
-  id              String    @id @default(uuid())
-  employeeId      String
-  leaveType       String
-  startDate       DateTime
-  endDate         DateTime
-  hours           Float
-  status          String
-  approverId      String?
-  graphCalendarEventId String? @unique
-  notes           String?
-  approvalComment String?
-  decisionAt      DateTime?
-  decidedBy       String?
+  id                   String    @id @default(uuid())
+  employeeId           String
+  leaveType            String
+  startDate            DateTime
+  endDate              DateTime
+  hours                Float
+  status               String
+  approverId           String?
+  graphCalendarEventId String?   @unique
+  notes                String?
+  approvalComment      String?
+  decisionAt           DateTime?
+  decidedBy            String?
 
   employee Employee           @relation(fields: [employeeId], references: [id])
   actions  PTORequestAction[]
@@ -80,16 +91,16 @@ model PTORequestAction {
 }
 
 model PTOLedger {
-  id            String   @id @default(uuid())
-  employeeId    String
-  bucket        String
-  type          String
-  hours         Float
-  balance       Float
-  effectiveDate DateTime
-  notes         String?
-  sourceRequestId String? @unique
-  idempotencyKey  String? @unique
+  id              String   @id @default(uuid())
+  employeeId      String
+  bucket          String
+  type            String
+  hours           Float
+  balance         Float
+  effectiveDate   DateTime
+  notes           String?
+  sourceRequestId String?  @unique
+  idempotencyKey  String?  @unique
 
   employee Employee @relation(fields: [employeeId], references: [id])
 
@@ -112,6 +123,238 @@ model AuditLog {
   @@index([action])
   @@index([entityType])
   @@index([createdAt])
+}
+
+model EmployeeStatusHistory {
+  id                  String   @id @default(uuid())
+  employeeId          String
+  previousStatus      String
+  newStatus           String
+  changedByEmployeeId String
+  changedAt           DateTime @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId, changedAt])
+  @@index([changedByEmployeeId])
+}
+
+model EmployeeDocument {
+  id                   String   @id @default(uuid())
+  employeeId           String
+  category             String
+  originalFileName     String
+  storedFileName       String
+  storageKey           String
+  mimeType             String
+  fileSizeBytes        Int
+  description          String?  @db.Text
+  status               String   @default("ACTIVE")
+  uploadedByEmployeeId String
+  uploadedAt           DateTime @default(now())
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  employee                         Employee                                    @relation("EmployeeDocuments", fields: [employeeId], references: [id])
+  uploadedBy                       Employee                                    @relation("UploadedEmployeeDocuments", fields: [uploadedByEmployeeId], references: [id])
+  linkedOnboardingTaskRequirements EmployeeOnboardingTaskDocumentRequirement[] @relation("LinkedEmployeeDocuments")
+
+  @@index([employeeId, category, createdAt])
+  @@index([uploadedByEmployeeId])
+}
+
+model OnboardingTemplate {
+  id          String                   @id @default(uuid())
+  name        String
+  isActive    Boolean                  @default(true)
+  tasks       OnboardingTemplateTask[]
+  onboardings EmployeeOnboarding[]
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+}
+
+model OnboardingTemplateTask {
+  id            String  @id @default(uuid())
+  templateId    String
+  title         String
+  description   String? @db.Text
+  assigneeType  String
+  dueOffsetDays Int?
+  sortOrder     Int
+  isRequired    Boolean @default(true)
+
+  template             OnboardingTemplate                          @relation(fields: [templateId], references: [id])
+  onboardingTasks      EmployeeOnboardingTask[]
+  documentRequirements OnboardingTemplateTaskDocumentRequirement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([templateId, sortOrder])
+}
+
+model OnboardingTemplateTaskDocumentRequirement {
+  id               String   @id @default(uuid())
+  templateTaskId   String
+  label            String
+  documentCategory String
+  isRequired       Boolean  @default(true)
+  sortOrder        Int
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  templateTask OnboardingTemplateTask @relation(fields: [templateTaskId], references: [id])
+
+  @@index([templateTaskId, sortOrder])
+  @@index([documentCategory])
+}
+
+model EmployeeOnboarding {
+  id                   String    @id @default(uuid())
+  employeeId           String    @unique
+  templateId           String?
+  status               String
+  startDate            DateTime?
+  targetCompletionDate DateTime?
+  completedAt          DateTime?
+  createdByEmployeeId  String
+
+  employee Employee                 @relation(fields: [employeeId], references: [id])
+  template OnboardingTemplate?      @relation(fields: [templateId], references: [id])
+  tasks    EmployeeOnboardingTask[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdByEmployeeId])
+}
+
+model EmployeeOnboardingTask {
+  id                    String    @id @default(uuid())
+  employeeOnboardingId  String
+  employeeId            String
+  title                 String
+  description           String?   @db.Text
+  assigneeType          String
+  assignedEmployeeId    String?
+  dueDate               DateTime?
+  status                String
+  completedAt           DateTime?
+  completedByEmployeeId String?
+  sortOrder             Int
+  sourceTemplateTaskId  String?
+
+  employeeOnboarding   EmployeeOnboarding                          @relation(fields: [employeeOnboardingId], references: [id])
+  employee             Employee                                    @relation("EmployeeOnboardingTasks", fields: [employeeId], references: [id])
+  sourceTemplateTask   OnboardingTemplateTask?                     @relation(fields: [sourceTemplateTaskId], references: [id])
+  documentRequirements EmployeeOnboardingTaskDocumentRequirement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeOnboardingId, sortOrder])
+  @@index([assigneeType, status])
+  @@index([assignedEmployeeId, status])
+}
+
+model EmployeeOnboardingTaskDocumentRequirement {
+  id                       String    @id @default(uuid())
+  employeeOnboardingTaskId String
+  label                    String
+  documentCategory         String
+  isRequired               Boolean   @default(true)
+  linkedEmployeeDocumentId String?
+  linkedAt                 DateTime?
+  linkedByEmployeeId       String?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  employeeOnboardingTask EmployeeOnboardingTask @relation(fields: [employeeOnboardingTaskId], references: [id])
+  linkedEmployeeDocument EmployeeDocument?      @relation("LinkedEmployeeDocuments", fields: [linkedEmployeeDocumentId], references: [id])
+  linkedByEmployee       Employee?              @relation("LinkedOnboardingTaskDocumentRequirements", fields: [linkedByEmployeeId], references: [id])
+
+  @@index([employeeOnboardingTaskId])
+  @@index([documentCategory])
+}
+
+model OffboardingTemplate {
+  id           String                    @id @default(uuid())
+  name         String
+  isActive     Boolean                   @default(true)
+  tasks        OffboardingTemplateTask[]
+  offboardings EmployeeOffboarding[]
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+}
+
+model OffboardingTemplateTask {
+  id            String   @id @default(uuid())
+  templateId    String
+  title         String
+  description   String?  @db.Text
+  assigneeType  String
+  dueOffsetDays Int?
+  sortOrder     Int
+  isRequired    Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  template         OffboardingTemplate       @relation(fields: [templateId], references: [id])
+  offboardingTasks EmployeeOffboardingTask[]
+
+  @@index([templateId, sortOrder])
+}
+
+model EmployeeOffboarding {
+  id                  String    @id @default(uuid())
+  employeeId          String
+  templateId          String?
+  status              String
+  separationType      String
+  terminationDate     DateTime
+  lastWorkingDate     DateTime?
+  eligibleForRehire   Boolean?
+  notes               String?   @db.Text
+  createdByEmployeeId String
+  completedAt         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  employee  Employee                  @relation("EmployeeOffboardings", fields: [employeeId], references: [id])
+  template  OffboardingTemplate?      @relation(fields: [templateId], references: [id])
+  createdBy Employee                  @relation("CreatedEmployeeOffboardings", fields: [createdByEmployeeId], references: [id])
+  tasks     EmployeeOffboardingTask[]
+
+  @@index([status])
+  @@index([terminationDate])
+}
+
+model EmployeeOffboardingTask {
+  id                    String    @id @default(uuid())
+  employeeOffboardingId String
+  employeeId            String
+  title                 String
+  description           String?   @db.Text
+  assigneeType          String
+  assignedEmployeeId    String?
+  dueDate               DateTime?
+  status                String
+  completedAt           DateTime?
+  completedByEmployeeId String?
+  sortOrder             Int
+  sourceTemplateTaskId  String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  employeeOffboarding EmployeeOffboarding      @relation(fields: [employeeOffboardingId], references: [id])
+  employee            Employee                 @relation("EmployeeOffboardingTasks", fields: [employeeId], references: [id])
+  assignedEmployee    Employee?                @relation("AssignedEmployeeOffboardingTasks", fields: [assignedEmployeeId], references: [id])
+  completedByEmployee Employee?                @relation("CompletedEmployeeOffboardingTasks", fields: [completedByEmployeeId], references: [id])
+  sourceTemplateTask  OffboardingTemplateTask? @relation(fields: [sourceTemplateTaskId], references: [id])
+
+  @@index([employeeOffboardingId, sortOrder])
+  @@index([assigneeType, status])
 }
 
 model Role {

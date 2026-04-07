@@ -6,6 +6,7 @@ import {
   requireAdmin,
 } from "../../../../../lib/server/authorization";
 import { applyEmployeeUpdate } from "../../../../../lib/server/employees/apply-employee-update";
+import { parseEmployeeInput } from "../../../../../lib/server/employees/employee-input";
 
 export async function POST(
   request: Request,
@@ -19,42 +20,25 @@ export async function POST(
       entityId: id,
     });
     const body = await request.json();
+    const parsedInput = parseEmployeeInput(body as Record<string, unknown>);
 
-    const firstName = String(body.firstName || "").trim();
-    const lastName = String(body.lastName || "").trim();
-    const email = String(body.email || "").trim();
-    const department =
-      body.department == null || String(body.department).trim() === ""
-        ? null
-        : String(body.department).trim();
-    const title =
-      body.title == null || String(body.title).trim() === ""
-        ? null
-        : String(body.title).trim();
-    const status = String(body.status || "").trim();
-    const hireDate = String(body.hireDate || "").trim();
-    const managerId =
-      body.managerId == null || String(body.managerId).trim() === ""
-        ? null
-        : String(body.managerId).trim();
-
-    if (!firstName || !lastName || !email || !status || !hireDate) {
+    if (!parsedInput.ok) {
       return NextResponse.json(
-        {
-          error:
-            "First name, last name, email, status, and hire date are required.",
-        },
+        { error: parsedInput.error },
         { status: 400 }
       );
     }
 
-    const parsedHireDate = new Date(hireDate);
-    if (Number.isNaN(parsedHireDate.getTime())) {
-      return NextResponse.json(
-        { error: "Hire date is invalid." },
-        { status: 400 }
-      );
-    }
+    const {
+      firstName,
+      lastName,
+      email,
+      department,
+      title,
+      status,
+      hireDate,
+      managerId,
+    } = parsedInput.data;
 
     const employee = await prisma.employee.findUnique({
       where: { id },
@@ -112,7 +96,7 @@ export async function POST(
           department,
           title,
           status,
-          hireDate: parsedHireDate,
+          hireDate,
           managerId,
         },
       });

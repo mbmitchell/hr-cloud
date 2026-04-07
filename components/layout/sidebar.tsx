@@ -35,10 +35,20 @@ export default async function Sidebar({
   const canSeePolicy = isSiteAdmin || isHrAdmin;
   const canAddEmployees = isSiteAdmin || isHrAdmin;
   const canSeeAuthDiagnostics = isSiteAdmin || isHrAdmin;
+  const canSeeOnboarding = !!user;
+  const canSeeOffboarding =
+    isSiteAdmin || isHrAdmin || isManager || roles.includes("IT") || roles.includes("IT_ADMIN");
+  const canManageOnboardingTemplates = isSiteAdmin || isHrAdmin;
+  const canManageOffboardingTemplates = isSiteAdmin || isHrAdmin;
 
   const sections = buildSidebarSections({
+    canSeeMyDocuments: !!user,
     canSeeApprovals,
     canAddEmployees,
+    canSeeOnboarding,
+    canSeeOffboarding,
+    canManageOnboardingTemplates,
+    canManageOffboardingTemplates,
     canSeeAdjustments,
     canSeePolicy,
     canSeeCompensation,

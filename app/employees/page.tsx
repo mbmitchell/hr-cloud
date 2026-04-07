@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { prisma } from "../../lib/db";
 import { getCurrentUser } from "../../lib/auth/current-user";
-import { getEmployeeRoles, isManagerOf } from "../../lib/auth/permissions";
+import { getEmployeeRoles } from "../../lib/auth/permissions";
+import { getEmployeeDirectoryEmployees } from "../../lib/server/employees/employee-queries";
 
 import { auth } from "../../auth"; // adjust path as needed
 import { redirect } from "next/navigation";
@@ -43,36 +43,10 @@ if (!session?.user) {
     roles.includes("EXECUTIVE_READONLY") ||
     roles.includes("AUDITOR");
 
-  const isManager = roles.includes("MANAGER");
-
     const canAddEmployees =
     roles.includes("SITE_ADMIN") || roles.includes("HR_ADMIN");
 
-  const employees = await prisma.employee.findMany({
-    include: {
-      manager: true,
-      ledger: {
-        orderBy: [{ effectiveDate: "desc" }, { createdAt: "desc" }],
-      },
-    },
-    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-  });
-
-  const visibleEmployees = [];
-
-  for (const employee of employees) {
-    if (isAdmin || employee.id === currentUser.id) {
-      visibleEmployees.push(employee);
-      continue;
-    }
-
-    if (isManager) {
-      const manages = await isManagerOf(currentUser.id, employee.id);
-      if (manages) {
-        visibleEmployees.push(employee);
-      }
-    }
-  }
+  const visibleEmployees = await getEmployeeDirectoryEmployees(currentUser.id);
 
   const departments = Array.from(
     new Set(
@@ -118,8 +92,7 @@ if (!session?.user) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="text-2xl font-bold">Employees</h2>
           <p className="text-sm text-slate-600 mt-1">
@@ -127,23 +100,24 @@ if (!session?.user) {
           </p>
         </div>
 
-        {canAddEmployees && (
-          <Link
-            href="/admin/employees/new"
-            className="border border-slate-300 px-4 py-2 rounded hover:bg-slate-50 text-sm"
-          >
-            Add Employee
-          </Link>
-        )}
-      </div>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          {canAddEmployees && (
+            <Link
+              href="/admin/employees/new"
+              className="inline-flex w-full items-center justify-center rounded border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50 sm:w-auto"
+            >
+              Add Employee
+            </Link>
+          )}
 
-  <a
-    href="/api/employees/export"
-    className="border border-slate-300 px-4 py-2 rounded hover:bg-slate-50 text-sm"
-  >
-    Export CSV
-  </a>
-</div>
+          <a
+            href="/api/employees/export"
+            className="inline-flex w-full items-center justify-center rounded border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50 sm:w-auto"
+          >
+            Export CSV
+          </a>
+        </div>
+      </div>
 
       <div className="bg-white rounded shadow p-4">
         <form className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -190,17 +164,17 @@ if (!session?.user) {
             </select>
           </div>
 
-          <div className="md:col-span-4 flex gap-3">
+          <div className="md:col-span-4 flex flex-col gap-3 sm:flex-row">
             <button
               type="submit"
-              className="bg-slate-900 text-white px-4 py-2 rounded hover:bg-slate-800"
+              className="w-full rounded bg-slate-900 px-4 py-2.5 text-white hover:bg-slate-800 sm:w-auto"
             >
               Apply Filters
             </button>
 
             <Link
               href="/employees"
-              className="border border-slate-300 px-4 py-2 rounded hover:bg-slate-50"
+              className="inline-flex w-full items-center justify-center rounded border border-slate-300 px-4 py-2.5 hover:bg-slate-50 sm:w-auto"
             >
               Clear
             </Link>
@@ -208,7 +182,7 @@ if (!session?.user) {
         </form>
       </div>
 
-      <div className="bg-white rounded shadow overflow-hidden">
+      <div className="hidden overflow-hidden rounded bg-white shadow md:block">
         <table className="w-full">
           <thead className="bg-slate-100 text-left">
             <tr>
@@ -274,6 +248,82 @@ if (!session?.user) {
             )}
           </tbody>
         </table>
+      </div>
+
+      <div className="space-y-4 md:hidden">
+        {filteredEmployees.length === 0 ? (
+          <div className="rounded-xl bg-white p-4 text-sm text-slate-500 shadow">
+            No employees matched your search or filters.
+          </div>
+        ) : (
+          filteredEmployees.map((employee) => {
+            const ptoBalance =
+              employee.ledger.find((l) => l.bucket === "PTO")?.balance ?? 0;
+
+            const compBalance =
+              employee.ledger.find((l) => l.bucket === "COMP")?.balance ?? 0;
+
+            return (
+              <div key={employee.id} className="rounded-xl bg-white p-4 shadow">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-base font-semibold text-slate-900">
+                      {employee.firstName} {employee.lastName}
+                    </div>
+                    <div className="break-words text-sm text-slate-500">
+                      {employee.email}
+                    </div>
+                  </div>
+                  <Link
+                    href={`/employees/${employee.id}`}
+                    className="text-sm font-medium text-blue-600 hover:underline"
+                  >
+                    View
+                  </Link>
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <div className="text-slate-500">Department</div>
+                    <div className="font-medium text-slate-900">
+                      {employee.department ?? "-"}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-slate-500">Title</div>
+                    <div className="font-medium text-slate-900">
+                      {employee.title ?? "-"}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-slate-500">PTO Balance</div>
+                    <div className="font-medium text-slate-900">
+                      {ptoBalance.toFixed(2)}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-slate-500">COMP Balance</div>
+                    <div className="font-medium text-slate-900">
+                      {compBalance.toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3 text-sm">
+                  <div className="text-slate-500">Manager</div>
+                  <div className="font-medium text-slate-900">
+                    {employee.manager
+                      ? `${employee.manager.firstName} ${employee.manager.lastName}`
+                      : "-"}
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
     </div>
   );

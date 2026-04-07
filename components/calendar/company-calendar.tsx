@@ -104,6 +104,9 @@ export default function CompanyCalendar({
 
   useEffect(() => {
     setMounted(true);
+    if (window.innerWidth < 768) {
+      setView("agenda");
+    }
   }, []);
 
  const mappedEvents = useMemo<CalendarItem[]>(() => {
@@ -256,7 +259,7 @@ const todayEvents = useMemo(() => {
 
       {message && <div className="mb-4 text-sm text-slate-700">{message}</div>}
 
-      <div style={{ height: 750 }}>
+      <div className="h-[560px] md:h-[750px]">
         {mounted ? (
           <Calendar
             key="company-calendar-mounted"
@@ -308,7 +311,7 @@ const todayEvents = useMemo(() => {
           id="calendar-request-details"
           className="mt-6 bg-white border rounded shadow p-6 space-y-4"
         >
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="text-lg font-semibold">Request Details</h3>
             <button
               onClick={() => {
@@ -359,11 +362,11 @@ const todayEvents = useMemo(() => {
                 />
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row">
                 <button
                   onClick={() => handleDecision("APPROVED")}
                   disabled={actionLoading}
-                  className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-500 disabled:opacity-50"
+                  className="w-full rounded bg-green-600 px-4 py-2.5 text-white hover:bg-green-500 disabled:opacity-50 sm:w-auto"
                 >
                   {actionLoading ? "Working..." : "Approve"}
                 </button>
@@ -371,7 +374,7 @@ const todayEvents = useMemo(() => {
                 <button
                   onClick={() => handleDecision("DENIED")}
                   disabled={actionLoading}
-                  className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-500 disabled:opacity-50"
+                  className="w-full rounded bg-red-600 px-4 py-2.5 text-white hover:bg-red-500 disabled:opacity-50 sm:w-auto"
                 >
                   {actionLoading ? "Working..." : "Deny"}
                 </button>

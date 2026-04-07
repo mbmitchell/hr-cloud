@@ -165,10 +165,10 @@ export default function ManagerApprovalsClient({
                 <div className="border-b p-4 flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                   <div>
                     <h3 className="text-lg font-semibold">{request.employeeName}</h3>
-                    <div className="text-sm text-slate-600">
+                    <div className="break-words text-sm text-slate-600">
                       {request.leaveType} • {fmtDate(request.startDate)} - {fmtDate(request.endDate)} • {request.hours.toFixed(2)} hours
                     </div>
-                    <div className="text-xs text-slate-500 mt-1">
+                    <div className="mt-1 break-words text-xs text-slate-500">
                       Department: {request.department ?? "-"} • Manager: {request.managerName ?? "-"}
                     </div>
                   </div>
@@ -210,7 +210,7 @@ export default function ManagerApprovalsClient({
                           {request.staffingConflictCount} overlapping request(s) in{" "}
                           {request.department ?? "this department"}.
                         </div>
-                        <div className="space-y-1 text-sm text-amber-700">
+                        <div className="space-y-1 break-words text-sm text-amber-700">
                           {request.staffingConflictEmployees.slice(0, 5).map((conflict) => (
                             <div key={conflict.id}>
                               {conflict.employeeName} • {conflict.leaveType} • {conflict.status}
@@ -283,24 +283,24 @@ export default function ManagerApprovalsClient({
                       />
                     </div>
 
-                    <div className="flex gap-3">
+                    <div className="flex flex-col gap-3 sm:flex-row">
                       <button
                         onClick={() => handleDecision(request.id, "APPROVED")}
                         disabled={loadingId === request.id}
-                        className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-500 disabled:opacity-50"
+                        className="w-full rounded bg-green-600 px-4 py-2.5 text-white hover:bg-green-500 disabled:opacity-50 sm:w-auto"
                       >
                         {loadingId === request.id ? "Working..." : "Approve"}
                       </button>
 
-                     <button
-  onClick={() => handleDecision(request.id, "DENIED")}
-  disabled={
-    loadingId === request.id || !(comments[request.id]?.trim())
-  }
-  className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-500 disabled:opacity-50"
->
-  {loadingId === request.id ? "Working..." : "Deny"}
-</button>
+                      <button
+                        onClick={() => handleDecision(request.id, "DENIED")}
+                        disabled={
+                          loadingId === request.id || !(comments[request.id]?.trim())
+                        }
+                        className="w-full rounded bg-red-600 px-4 py-2.5 text-white hover:bg-red-500 disabled:opacity-50 sm:w-auto"
+                      >
+                        {loadingId === request.id ? "Working..." : "Deny"}
+                      </button>
                     </div>
                   </div>
 
