@@ -2,26 +2,19 @@ import { prisma } from "../../../lib/db";
 import { auth } from "../../../auth";
 import { redirect } from "next/navigation";
 import PTORequestsClient from "./PTORequestsClient";
+import { getCurrentUser } from "../../../lib/auth/current-user";
 
 export default async function PTORequestsPage() {
   const session = await auth();
 
-  if (!session?.user?.email) {
+  if (!session?.user) {
     redirect("/login");
   }
 
-  const employee = await prisma.employee.findUnique({
-    where: {
-      email: session.user.email,
-    },
-  });
+  const employee = await getCurrentUser();
 
   if (!employee) {
-    return (
-      <div className="text-red-600">
-        No employee record is linked to your account.
-      </div>
-    );
+    redirect("/login");
   }
 
   const requests = await prisma.pTORequest.findMany({
