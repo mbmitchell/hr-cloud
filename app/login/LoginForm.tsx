@@ -56,9 +56,9 @@ export default function LoginForm({
         : "");
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-100 p-6">
-      <div className="bg-white rounded shadow p-6 w-full max-w-md">
-        <h1 className="text-2xl font-bold mb-4">Sign In</h1>
+    <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-6 sm:p-6">
+      <div className="w-full max-w-md rounded-xl bg-white p-5 shadow sm:p-6">
+        <h1 className="mb-4 text-2xl font-bold">Sign In</h1>
 
         <div className="space-y-4">
           {allowMicrosoft365Auth && (
@@ -66,7 +66,7 @@ export default function LoginForm({
               type="button"
               onClick={handleMicrosoftSignIn}
               disabled={loading}
-              className="bg-slate-900 text-white px-4 py-2 rounded hover:bg-slate-800 disabled:opacity-50 w-full"
+              className="w-full rounded bg-slate-900 px-4 py-3 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
             >
               {loading ? "Signing In..." : "Sign in with Microsoft 365"}
             </button>
@@ -89,7 +89,7 @@ export default function LoginForm({
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full border rounded px-3 py-2"
+                    className="w-full rounded border px-3 py-2.5 text-base"
                     required
                   />
                 </div>
@@ -100,7 +100,7 @@ export default function LoginForm({
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full border rounded px-3 py-2"
+                    className="w-full rounded border px-3 py-2.5 text-base"
                     required
                   />
                 </div>
@@ -108,7 +108,7 @@ export default function LoginForm({
                 <button
                   type="submit"
                   disabled={loading}
-                  className="border border-slate-300 px-4 py-2 rounded hover:bg-slate-50 disabled:opacity-50 w-full"
+                  className="w-full rounded border border-slate-300 px-4 py-3 text-sm font-medium hover:bg-slate-50 disabled:opacity-50"
                 >
                   {loading ? "Signing In..." : "Sign In with Dev Credentials"}
                 </button>
@@ -128,7 +128,7 @@ export default function LoginForm({
             </div>
           )}
 
-          {errorMessage && <div className="text-sm text-red-600">{errorMessage}</div>}
+          {errorMessage && <div className="text-sm leading-6 text-red-600">{errorMessage}</div>}
         </div>
       </div>
     </div>

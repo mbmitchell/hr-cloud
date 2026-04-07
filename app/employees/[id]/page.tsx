@@ -129,7 +129,7 @@ export default async function EmployeeProfilePage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold">
             {employee.firstName} {employee.lastName}
@@ -141,14 +141,14 @@ export default async function EmployeeProfilePage({
 
         <Link
           href="/employees"
-          className="border border-slate-300 px-3 py-2 rounded hover:bg-slate-50 text-sm"
+          className="inline-flex w-full items-center justify-center rounded border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50 sm:w-auto"
         >
           Back to Employees
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
-        <div className="bg-white rounded shadow p-5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-xl bg-white p-4 shadow sm:p-5">
           <div className="text-sm text-slate-500">PTO Balance</div>
           <div className="text-3xl font-semibold mt-2">
             {currentPtoBalance.toFixed(2)}
@@ -156,7 +156,7 @@ export default async function EmployeeProfilePage({
           <div className="text-sm text-slate-500 mt-1">hours</div>
         </div>
 
-        <div className="bg-white rounded shadow p-5">
+        <div className="rounded-xl bg-white p-4 shadow sm:p-5">
           <div className="text-sm text-slate-500">COMP Balance</div>
           <div className="text-3xl font-semibold mt-2">
             {currentCompBalance.toFixed(2)}
@@ -164,7 +164,7 @@ export default async function EmployeeProfilePage({
           <div className="text-sm text-slate-500 mt-1">hours</div>
         </div>
 
-        <div className="bg-white rounded shadow p-5">
+        <div className="rounded-xl bg-white p-4 shadow sm:p-5">
           <div className="text-sm text-slate-500">Monthly Accrual Rate</div>
           <div className="text-3xl font-semibold mt-2">
             {monthlyAccrualRate.toFixed(2)}
@@ -172,7 +172,7 @@ export default async function EmployeeProfilePage({
           <div className="text-sm text-slate-500 mt-1">hours / month</div>
         </div>
 
-        <div className="bg-white rounded shadow p-5">
+        <div className="rounded-xl bg-white p-4 shadow sm:p-5">
           <div className="text-sm text-slate-500">Manager</div>
           <div className="text-xl font-semibold mt-2">
             {employee.manager
@@ -214,8 +214,8 @@ export default async function EmployeeProfilePage({
         />
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <div className="bg-white rounded shadow p-6">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <div className="rounded-xl bg-white p-5 shadow sm:p-6">
           <h3 className="text-lg font-semibold mb-4">Employee Summary</h3>
 
           <div className="space-y-2 text-sm">
@@ -246,7 +246,7 @@ export default async function EmployeeProfilePage({
           </div>
         </div>
 
-        <div className="bg-white rounded shadow p-6">
+        <div className="rounded-xl bg-white p-5 shadow sm:p-6">
           <h3 className="text-lg font-semibold mb-4">Accrual Settings</h3>
 
           <div className="space-y-2 text-sm">
@@ -275,7 +275,7 @@ export default async function EmployeeProfilePage({
         </div>
       </div>
 
-      <div className="bg-white rounded shadow overflow-hidden">
+      <div className="hidden overflow-hidden rounded-xl bg-white shadow md:block">
         <div className="p-4 border-b">
           <h3 className="text-lg font-semibold">Recent Ledger Activity</h3>
         </div>
@@ -313,7 +313,49 @@ export default async function EmployeeProfilePage({
         </table>
       </div>
 
-      <div className="bg-white rounded shadow overflow-hidden">
+      <div className="space-y-4 md:hidden">
+        <div className="rounded-xl bg-white p-4 shadow">
+          <h3 className="text-lg font-semibold">Recent Ledger Activity</h3>
+        </div>
+        {visibleLedger.length === 0 ? (
+          <div className="rounded-xl bg-white p-4 text-sm text-slate-500 shadow">
+            No ledger activity found.
+          </div>
+        ) : (
+          visibleLedger.map((entry) => (
+            <div key={entry.id} className="rounded-xl bg-white p-4 shadow">
+              <div className="flex items-start justify-between gap-3">
+                <div className="text-sm font-semibold text-slate-900">
+                  {entry.bucket} • {entry.type}
+                </div>
+                <div className="text-xs text-slate-500">
+                  {formatDate(entry.effectiveDate)}
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <div className="text-slate-500">Hours</div>
+                  <div className="font-medium text-slate-900">
+                    {entry.hours.toFixed(2)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-slate-500">Balance</div>
+                  <div className="font-medium text-slate-900">
+                    {entry.balance.toFixed(2)}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-3 text-sm">
+                <div className="text-slate-500">Notes</div>
+                <div className="break-words text-slate-900">{entry.notes ?? "-"}</div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="hidden overflow-hidden rounded-xl bg-white shadow md:block">
         <div className="p-4 border-b">
           <h3 className="text-lg font-semibold">Recent Requests</h3>
         </div>
@@ -353,6 +395,57 @@ export default async function EmployeeProfilePage({
             )}
           </tbody>
         </table>
+      </div>
+
+      <div className="space-y-4 md:hidden">
+        <div className="rounded-xl bg-white p-4 shadow">
+          <h3 className="text-lg font-semibold">Recent Requests</h3>
+        </div>
+        {visibleRequests.length === 0 ? (
+          <div className="rounded-xl bg-white p-4 text-sm text-slate-500 shadow">
+            No requests found.
+          </div>
+        ) : (
+          visibleRequests.map((request) => (
+            <div key={request.id} className="rounded-xl bg-white p-4 shadow">
+              <div className="flex items-start justify-between gap-3">
+                <div className="text-sm font-semibold text-slate-900">
+                  {request.leaveType}
+                </div>
+                <div className="text-xs uppercase tracking-wide text-slate-500">
+                  {request.status}
+                </div>
+              </div>
+              <div className="mt-2 text-sm text-slate-600">
+                {formatDate(request.startDate)} - {formatDate(request.endDate)}
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <div className="text-slate-500">Created</div>
+                  <div className="font-medium text-slate-900">
+                    {formatDate(request.createdAt)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-slate-500">Hours</div>
+                  <div className="font-medium text-slate-900">
+                    {request.hours.toFixed(2)}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-3 text-sm">
+                <div className="text-slate-500">Request Notes</div>
+                <div className="break-words text-slate-900">{request.notes ?? "-"}</div>
+              </div>
+              <div className="mt-3 text-sm">
+                <div className="text-slate-500">Decision Comment</div>
+                <div className="break-words text-slate-900">
+                  {request.approvalComment ?? "-"}
+                </div>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

@@ -38,31 +38,28 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-
       <h1 className="text-2xl font-bold">
         HR Dashboard
       </h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-
-        <div className="bg-white rounded shadow p-5">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="rounded-xl bg-white p-4 shadow sm:p-5">
           <div className="text-sm text-slate-500">Active Employees</div>
           <div className="text-3xl font-semibold mt-2">{employeeCount}</div>
         </div>
 
-        <div className="bg-white rounded shadow p-5">
+        <div className="rounded-xl bg-white p-4 shadow sm:p-5">
           <div className="text-sm text-slate-500">Pending Requests</div>
           <div className="text-3xl font-semibold mt-2">{pendingRequests}</div>
         </div>
 
-        <div className="bg-white rounded shadow p-5">
+        <div className="rounded-xl bg-white p-4 shadow sm:p-5">
           <div className="text-sm text-slate-500">Employees Out Today</div>
           <div className="text-3xl font-semibold mt-2">{employeesOnLeaveToday}</div>
         </div>
-
       </div>
 
-      <div className="bg-white rounded shadow p-6">
+      <div className="rounded-xl bg-white p-5 shadow sm:p-6">
         <h2 className="text-lg font-semibold mb-2">
           Welcome back
         </h2>

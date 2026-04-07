@@ -291,14 +291,14 @@ export default function PTORequestClient() {
     <div className="max-w-3xl space-y-6">
       <h2 className="text-2xl font-bold">Submit Time-Off Request</h2>
 
-      <div className="bg-white rounded shadow p-6">
+      <div className="rounded-xl bg-white p-4 shadow sm:p-6">
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="block text-sm font-medium mb-2">Employee</label>
             <select
               value={employeeId}
               onChange={(e) => setEmployeeId(e.target.value)}
-              className="w-full border rounded px-3 py-2"
+              className="w-full rounded border px-3 py-2.5 text-base"
               disabled={
                 loadingEmployees || employees.length === 0 || !canRequestForOthers
               }
@@ -319,8 +319,8 @@ export default function PTORequestClient() {
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-slate-50 border rounded p-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="rounded border bg-slate-50 p-4">
               <div className="text-sm font-medium text-slate-700 mb-1">
                 Current PTO Balance
               </div>
@@ -333,7 +333,7 @@ export default function PTORequestClient() {
               )}
             </div>
 
-            <div className="bg-slate-50 border rounded p-4">
+            <div className="rounded border bg-slate-50 p-4">
               <div className="text-sm font-medium text-slate-700 mb-1">
                 Current COMP Balance
               </div>
@@ -352,7 +352,7 @@ export default function PTORequestClient() {
             <select
               value={leaveType}
               onChange={(e) => setLeaveType(e.target.value)}
-              className="w-full border rounded px-3 py-2"
+              className="w-full rounded border px-3 py-2.5 text-base"
             >
               <option value="PTO">PTO</option>
               <option value="SICK">SICK</option>
@@ -406,7 +406,7 @@ export default function PTORequestClient() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div>
               <label className="block text-sm font-medium mb-2">Start Date</label>
 <input
@@ -420,7 +420,7 @@ export default function PTORequestClient() {
       setEndDate(newStartDate);
     }
   }}
-  className="w-full border rounded px-3 py-2"
+  className="w-full rounded border px-3 py-2.5 text-base"
   required
 />
             </div>
@@ -432,7 +432,7 @@ export default function PTORequestClient() {
   value={endDate}
   min={startDate || undefined}
   onChange={(e) => setEndDate(e.target.value)}
-  className="w-full border rounded px-3 py-2"
+  className="w-full rounded border px-3 py-2.5 text-base"
   required
 />
             </div>
@@ -445,7 +445,7 @@ export default function PTORequestClient() {
                 step="0.5"
                 value={hours}
                 onChange={(e) => setHours(e.target.value)}
-                className="w-full border rounded px-3 py-2"
+                className="w-full rounded border px-3 py-2.5 text-base"
                 required
               />
               <p className="text-xs text-slate-500 mt-1">
@@ -493,7 +493,7 @@ export default function PTORequestClient() {
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full border rounded px-3 py-2 min-h-28"
+              className="min-h-28 w-full rounded border px-3 py-2.5 text-base"
               placeholder="Optional notes"
             />
           </div>
@@ -501,7 +501,7 @@ export default function PTORequestClient() {
           <button
             type="submit"
             disabled={loading || loadingEmployees || employees.length === 0}
-            className="bg-slate-900 text-white px-4 py-2 rounded hover:bg-slate-800 disabled:opacity-50"
+            className="w-full rounded bg-slate-900 px-4 py-3 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50 sm:w-auto"
           >
             {loading ? "Submitting..." : "Submit Request"}
           </button>

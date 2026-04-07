@@ -7,6 +7,20 @@ body {
   background: #f8fafc;
   color: #0f172a;
   font-family: Arial, sans-serif;
+  overflow-x: hidden;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+button,
+input,
+select,
+textarea {
+  max-width: 100%;
 }
 .rbc-calendar {
   font-family: Arial, sans-serif;

@@ -1,6 +1,7 @@
 import "./globals.css";
 import Sidebar from "../components/layout/sidebar";
 import Header from "../components/layout/header";
+import AppShell from "../components/layout/app-shell";
 import { auth } from "../auth";
 
 export default async function RootLayout({
@@ -15,13 +16,13 @@ export default async function RootLayout({
     <html lang="en">
       <body className="bg-slate-100">
         {isSignedIn ? (
-          <div className="flex min-h-screen">
-            <Sidebar />
-            <div className="flex-1">
-              <Header />
-              <main className="p-6">{children}</main>
-            </div>
-          </div>
+          <AppShell
+            desktopSidebar={<Sidebar />}
+            mobileSidebar={<Sidebar mobile />}
+            header={<Header />}
+          >
+            {children}
+          </AppShell>
         ) : (
           <main>{children}</main>
         )}
