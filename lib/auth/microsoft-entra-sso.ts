@@ -1,3 +1,20 @@
+/**
+ * Microsoft Entra Sign-In Resolution
+ *
+ * Converts Auth.js Microsoft provider data into the app's internal employee
+ * identity model.
+ *
+ * Responsibilities:
+ * - Extract stable Entra identifiers (`oid` + `tid`)
+ * - Validate the configured tenant
+ * - Restrict email bootstrap fallback to MFN-managed accounts
+ * - Resolve or bind the matching Employee record
+ *
+ * Security considerations:
+ * - Email is only a bootstrap fallback, not the long-term identity anchor
+ * - Sign-in fails closed if tenant, oid, employee status, or identity binding
+ *   checks fail
+ */
 import {
   bindEmployeeToEntraIdentity,
   resolveAuthenticatedEmployeeByEmail,
@@ -164,6 +181,16 @@ export function isAllowedEmailDomain(email: string) {
   return normalizedEmail.endsWith(`@${allowedMicrosoftEmailDomain}`);
 }
 
+/**
+ * Resolves a Microsoft Entra sign-in into an internal authenticated user.
+ *
+ * Validation order is intentionally strict:
+ * 1. Validate issuer and tenant
+ * 2. Require a stable Entra object id
+ * 3. Resolve by stored `entraOid + entraTid`
+ * 4. Fall back to company email only for first-time binding
+ * 5. Reject inactive employees and conflicting identity mappings
+ */
 export async function authorizeMicrosoftEntraSignIn(input: {
   user: AuthUser;
   profile?: AuthProfile;
@@ -234,6 +261,8 @@ export async function authorizeMicrosoftEntraSignIn(input: {
     entraTid: claims.tid,
   });
 
+  // Once an employee has been bound to Entra identity, future sign-ins should
+  // resolve by oid + tid instead of mutable email-style claims.
   if (boundEmployee) {
     if (boundEmployee.status !== "ACTIVE") {
       return {
@@ -266,6 +295,8 @@ export async function authorizeMicrosoftEntraSignIn(input: {
     isAllowedEmailDomain(candidate)
   );
 
+  // Email is only used for initial binding when a stable oid/tid mapping does
+  // not exist yet. The fallback remains restricted to the MFN company domain.
   if (!email) {
     return {
       ok: false,

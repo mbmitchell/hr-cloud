@@ -1,3 +1,20 @@
+/**
+ * HR Email Notification Workflows
+ *
+ * Builds and delivers workflow-specific emails after PTO and adjustment
+ * mutations succeed.
+ *
+ * Responsibilities:
+ * - Resolve notification recipients from internal employee/role data
+ * - Build small professional email templates
+ * - Send through the centralized transport selector
+ * - Log notification success, failure, and skips
+ *
+ * Security considerations:
+ * - Notifications are intentionally post-transaction and best-effort
+ * - Emails link users back into the authenticated app instead of containing
+ *   unnecessary sensitive detail
+ */
 import { prisma } from "../../db";
 import { logEmailNotificationEvent } from "./logger";
 import { getEmailRuntimeConfig, sendEmail } from "./send-email";
@@ -44,6 +61,9 @@ async function getFallbackApproverEmails() {
   );
 }
 
+/**
+ * Sends a workflow email and records a structured delivery outcome.
+ */
 async function deliverWorkflowEmail(input: {
   eventType: string;
   relatedEntityType: string;
@@ -153,6 +173,8 @@ export async function sendPtoRequestSubmittedNotification(
     return;
   }
 
+  // Manager is the primary approver notification target. HR/Site Admin fallback
+  // keeps the workflow moving if the reporting line is incomplete in data.
   const recipients = request.employee.manager?.email
     ? [request.employee.manager.email.trim().toLowerCase()]
     : await getFallbackApproverEmails();

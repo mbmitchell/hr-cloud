@@ -1,3 +1,20 @@
+/**
+ * Server-Side Authorization Helpers
+ *
+ * Central entry point for authorization checks used by API routes and server
+ * code throughout the MFN HR platform.
+ *
+ * Responsibilities:
+ * - Resolve the authenticated internal employee ("actor")
+ * - Enforce role-, permission-, and relationship-based access checks
+ * - Provide consistent unauthorized/forbidden error handling
+ * - Audit denied privileged actions
+ *
+ * Security considerations:
+ * - Authorization is always enforced server-side
+ * - Employee relationships such as manager/direct-report are verified from the
+ *   database rather than trusting client state
+ */
 import type { Employee } from "@prisma/client";
 
 import { prisma } from "../db";
@@ -195,6 +212,10 @@ export async function requireActor(): Promise<AuthorizationActor> {
   };
 }
 
+/**
+ * Resolves the currently authenticated employee and records denied access when
+ * a route explicitly requires an authenticated internal user.
+ */
 export async function requireAuthenticatedEmployee(
   context?: AuthorizationContext
 ): Promise<AuthorizationActor> {
@@ -213,6 +234,9 @@ export async function requireAuthenticatedEmployee(
   }
 }
 
+/**
+ * Enforces that the current actor has at least one of the required role codes.
+ */
 export async function requireRole(
   roleCodes: string[],
   context?: AuthorizationContext
@@ -238,6 +262,11 @@ export async function requireAdmin(
   return requireRole(["SITE_ADMIN", "HR_ADMIN"], context);
 }
 
+/**
+ * Enforces a direct-report relationship for manager-scoped actions.
+ *
+ * Admin bypass is optional so routes can keep tighter scoping where needed.
+ */
 export async function requireManagerOfEmployee(
   actorId: string,
   employeeId: string,
@@ -296,6 +325,11 @@ export async function assertCanViewEmployee(
   throw forbidden("You do not have permission to view this employee.");
 }
 
+/**
+ * Validates whether the current actor can submit a PTO request for the target
+ * employee. Self-service is allowed; acting for others currently requires
+ * elevated HR/admin roles.
+ */
 export async function assertCanCreateRequestFor(
   actorId: string,
   employeeId: string
@@ -315,6 +349,12 @@ export async function assertCanCreateRequestFor(
   throw forbidden("You do not have permission to create a request for this employee.");
 }
 
+/**
+ * Ensures the current actor can approve or deny the target PTO request.
+ *
+ * Approval rules come from internal role/permission data plus the direct
+ * reporting chain; the route should not duplicate that logic.
+ */
 export async function assertCanApproveRequest(
   actorId: string,
   requestId: string

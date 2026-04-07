@@ -1,3 +1,14 @@
+/**
+ * Microsoft Graph Email Transport
+ *
+ * Sends internal HR notifications through Microsoft Graph using the dedicated
+ * mailbox configured for the application.
+ *
+ * Security considerations:
+ * - Uses app-only credentials server-side
+ * - Never exposes Graph tokens or secrets to the client
+ * - Requires the dedicated mailbox configuration to be present
+ */
 import {
   graphApiRequest,
   hasRequiredGraphConfig,
@@ -20,6 +31,9 @@ export async function sendWithGraphTransport(
 
   const recipients = Array.isArray(message.to) ? message.to : [message.to];
 
+  // Microsoft 365 delivery is performed through the configured shared mailbox
+  // so notifications and PTO calendar events come from the same operational
+  // identity.
   const response = await graphApiRequest(
     config,
     `/users/${encodeURIComponent(config.graphMailboxUserId)}/sendMail`,

@@ -1,3 +1,19 @@
+/**
+ * PTO Adjustment API Route
+ *
+ * Creates manual PTO/COMP ledger adjustments for privileged workflows.
+ *
+ * Responsibilities:
+ * - Validate adjustment payloads
+ * - Enforce admin or manager-scoped COMP authorization
+ * - Append a ledger entry and audit record transactionally
+ * - Trigger post-commit employee notification
+ *
+ * Security considerations:
+ * - Only admins can make broad balance changes
+ * - Managers are limited to COMP additions for themselves/direct reports
+ * - Duplicate detection reduces accidental double-posting on retries
+ */
 import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 
@@ -74,6 +90,9 @@ export async function POST(request: Request) {
       adjustmentType === "MANUAL_ADD" &&
       currentUser.permissions.includes("ADD_COMP_TIME");
 
+    // COMP time is intentionally narrower than full balance administration:
+    // managers may grant COMP time, but that does not imply general PTO
+    // adjustment rights.
     if (canManageAllAdjustments) {
       await requireAdmin({
         attemptedAction: "PTOLedger_ADJUSTMENT_CREATE",
@@ -113,6 +132,8 @@ export async function POST(request: Request) {
     const duplicateThreshold = new Date(Date.now() - 2 * 60 * 1000);
 
     const result = await prisma.$transaction(async (tx) => {
+      // Phase 1 duplicate protection: catch rapid exact retries before another
+      // balance mutation is posted. This is not a full idempotency key model.
       const duplicateEntry = await tx.pTOLedger.findFirst({
         where: {
           employeeId,
@@ -189,6 +210,9 @@ export async function POST(request: Request) {
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
     });
 
+    // EMAIL DELIVERY
+    // The employee notification is best-effort after the ledger write
+    // succeeds; mail failures must not roll back the balance adjustment.
     dispatchEmailInBackground(async () => {
       await sendPtoAdjustmentPostedNotification({
         ledgerEntryId: result.ledgerEntry.id,

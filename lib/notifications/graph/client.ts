@@ -1,3 +1,18 @@
+/**
+ * Microsoft Graph Client Helper
+ *
+ * Provides a small app-only Microsoft Graph client for server-side HR
+ * integrations such as email delivery and approved PTO calendar events.
+ *
+ * Responsibilities:
+ * - Validate the minimum Graph configuration
+ * - Acquire and cache an app-only access token
+ * - Perform authenticated requests against Microsoft Graph
+ *
+ * Security considerations:
+ * - Tokens remain server-side only
+ * - Cached tokens are short-lived and refreshed before expiry
+ */
 type GraphClientConfig = {
   graphTenantId: string;
   graphClientId: string;
@@ -21,6 +36,9 @@ export function hasRequiredGraphConfig(config: GraphClientConfig) {
   );
 }
 
+/**
+ * Acquires a Microsoft Graph app-only token via client credentials flow.
+ */
 export async function getGraphAccessToken(config: GraphClientConfig) {
   const now = Date.now();
 
@@ -66,6 +84,9 @@ export async function getGraphAccessToken(config: GraphClientConfig) {
   return accessToken;
 }
 
+/**
+ * Executes a Microsoft Graph API request using the cached app-only token.
+ */
 export async function graphApiRequest(
   config: GraphClientConfig,
   path: string,

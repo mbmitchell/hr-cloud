@@ -1,3 +1,22 @@
+/**
+ * Approved PTO Calendar Sync
+ *
+ * Creates Outlook calendar events for approved PTO requests in the dedicated
+ * Microsoft 365 mailbox used by the HR platform.
+ *
+ * Responsibilities:
+ * - Translate approved PTO data into Outlook event details
+ * - Preserve duplicate protection using the stored Graph event id
+ * - Log sync outcomes without affecting the approval transaction
+ *
+ * Business rules:
+ * - Only approved requests create Outlook events
+ * - Full-day requests are created as all-day events with an exclusive end date
+ * - Partial single-day requests become timed events
+ *
+ * TODO: Add safe update/delete handling when approved requests are later
+ * changed or canceled.
+ */
 import { prisma } from "../../db";
 import { getEmailRuntimeConfig } from "../email/send-email";
 import { createGraphCalendarEvent } from "./graph-calendar-transport";
@@ -55,6 +74,9 @@ export function buildApprovedPtoCalendarEventDetails(input: {
   const workdayCount = countWeekdaysInclusive(input.startDate, input.endDate);
   const expectedFullDayHours = workdayCount * 8;
   const isSingleDay = startDateOnly === endDateOnly;
+  // PTO requests store hours and date span, not a detailed per-day schedule.
+  // We treat a request as all-day only when the approved hours match the full
+  // weekday span implied by the request dates.
   const isAllDay =
     expectedFullDayHours > 0 &&
     Math.abs(input.hours - expectedFullDayHours) < 0.01;
@@ -156,6 +178,8 @@ export async function createApprovedPtoCalendarEvent(input: {
     return;
   }
 
+  // Duplicate protection: once a PTO request has been linked to a Graph event,
+  // retries should skip rather than create another Outlook entry.
   if (requestWithEmployee.graphCalendarEventId) {
     await logCalendarNotificationEvent({
       eventType: "PTO_APPROVED_CALENDAR_SYNC",

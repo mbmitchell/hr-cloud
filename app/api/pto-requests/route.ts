@@ -1,3 +1,19 @@
+/**
+ * PTO Request API Route
+ *
+ * Handles creation of employee leave requests.
+ *
+ * Responsibilities:
+ * - Validate request payloads
+ * - Derive the acting employee from the authenticated session
+ * - Persist the request, request history, and audit record transactionally
+ * - Trigger post-commit notification delivery
+ *
+ * Security considerations:
+ * - Only authenticated employees may create requests
+ * - Employee identity must come from the session plus authorization rules,
+ *   never directly from the client body
+ */
 import { prisma } from "../../../lib/db";
 import { NextResponse } from "next/server";
 import {
@@ -59,6 +75,10 @@ export async function POST(request: Request) {
       );
     }
 
+    // SECURITY:
+    // The target employee is validated against the authenticated actor here so
+    // the client cannot submit requests on behalf of another employee unless
+    // the server-side authorization policy explicitly allows it.
     await assertCanCreateRequestFor(actor.id, employeeId);
 
     const employee = await prisma.employee.findUnique({
@@ -117,6 +137,9 @@ export async function POST(request: Request) {
       return requestRecord;
     });
 
+    // EMAIL DELIVERY
+    // Notifications are intentionally non-blocking. A request should remain
+    // successfully created even if downstream mail delivery fails.
     dispatchEmailInBackground(async () => {
       await sendPtoRequestSubmittedNotification({
         requestId: created.id,

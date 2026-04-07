@@ -1,3 +1,25 @@
+/**
+ * Auth.js Configuration
+ *
+ * Centralizes authentication for the MFN HR platform.
+ *
+ * Responsibilities:
+ * - Configure Microsoft Entra web sign-in for production use
+ * - Keep the temporary dev credentials flow safely gated behind env flags
+ * - Bind authenticated identities to internal Employee records
+ * - Shape JWT and session payloads for the rest of the app
+ *
+ * Important dependencies:
+ * - Auth.js / NextAuth providers
+ * - Internal employee resolvers and Entra identity binding helpers
+ * - Audit/security event logging
+ * - Lightweight auth rate limiting
+ *
+ * Security considerations:
+ * - Entra sign-in must resolve to an internal active Employee
+ * - Session identity is reduced to internal app fields only
+ * - Dev auth is break-glass only and should remain disabled in production
+ */
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
@@ -53,6 +75,10 @@ function stripSensitiveTokenFields(token: Record<string, unknown>) {
   delete token.tid;
 }
 
+/**
+ * Emits one-time startup warnings for auth settings that are safe in local
+ * development but risky in a deployed internal HR system.
+ */
 function logAuthStartupWarnings() {
   if (globalThis.__mfnAuthWarningsLogged) {
     return;
@@ -121,6 +147,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials, request) {
+        // SECURITY:
+        // The dev credentials flow is intentionally generic. We never reveal
+        // whether an email exists, and we rate limit by IP and IP+email even
+        // though upstream controls already exist at Nginx and Fail2Ban.
         const email = normalizeEmail(credentials?.email);
         const password = String(credentials?.password || "");
         const clientIp = getClientIpFromRequest(request);
@@ -275,6 +305,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return false;
       }
 
+      // SECURITY:
+      // Microsoft sign-in is accepted only after the external identity is
+      // mapped to an internal active Employee. Email is only a bootstrap
+      // path; steady-state identity is anchored on Entra oid + tid.
       const result = await authorizeMicrosoftEntraSignIn({
         user,
         profile: (profile as Record<string, unknown> | null) ?? null,
@@ -385,6 +419,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.name = user.name;
       }
 
+      // SECURITY:
       // Microsoft Entra sign-ins must be tied to an internal employee record
       // before we allow a JWT to exist. If that binding is missing, we fail
       // closed here so the session cannot continue with a partial identity.
@@ -398,6 +433,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return token;
     },
     async session({ session, token }) {
+      // Keep the client session intentionally minimal. Authorization is
+      // enforced server-side from internal employee/role data rather than a
+      // broad client-visible auth payload.
       if (!session.user) {
         return session;
       }

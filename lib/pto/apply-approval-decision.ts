@@ -1,3 +1,20 @@
+/**
+ * PTO Approval Mutation Helper
+ *
+ * Applies the database-side effects of approving or denying a PTO request
+ * inside a caller-managed transaction.
+ *
+ * Responsibilities:
+ * - Transition request status from PENDING to APPROVED/DENIED
+ * - Record request action history
+ * - Post PTO/COMP ledger usage when the leave type consumes balance
+ * - Write an audit record describing the decision
+ *
+ * Business rules:
+ * - Workflow-only leave such as bereavement is approved normally but never
+ *   deducts PTO or COMP balance
+ * - PTO/COMP usage deductions are tied to the request for duplicate protection
+ */
 import {
   getLedgerBucketForLeaveType,
   isWorkflowOnlyLeaveType,
@@ -42,6 +59,11 @@ export async function applyApprovalDecision(
     existingRequest: PTORequestRecord;
   }
 ) {
+  /**
+   * Duplicate protection for balance-affecting approvals. If a request already
+   * created a usage ledger row, a retry should fail instead of deducting time
+   * twice.
+   */
   const duplicateLedgerEntry = await tx.pTOLedger.findUnique({
     where: { sourceRequestId: params.requestId },
   });
@@ -86,6 +108,8 @@ export async function applyApprovalDecision(
   });
 
   if (params.status === "APPROVED" && !isWorkflowOnlyLeaveType(params.existingRequest.leaveType)) {
+    // Only leave types that consume a tracked balance should touch the PTO
+    // ledger. Workflow-only leave remains status/history/audit only.
     const bucket = getLedgerBucketForLeaveType(params.existingRequest.leaveType);
 
     const latestLedger = await tx.pTOLedger.findFirst({

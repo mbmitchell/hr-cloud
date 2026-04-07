@@ -1,3 +1,17 @@
+/**
+ * Audit Log Writer
+ *
+ * Minimal shared helper for writing structured audit rows from both routes and
+ * transactional service helpers.
+ *
+ * Responsibilities:
+ * - Normalize before/after payload serialization
+ * - Keep audit writes consistent across Prisma client and transaction clients
+ *
+ * Security considerations:
+ * - Audit payloads should contain safe business context only
+ * - Callers should avoid storing secrets, tokens, or raw provider payloads
+ */
 type AuditLogClient = {
   auditLog: {
     create(args: {

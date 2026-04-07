@@ -1,3 +1,18 @@
+/**
+ * Email Transport Selector
+ *
+ * Centralizes notification runtime configuration and chooses the correct email
+ * transport for the current environment.
+ *
+ * Responsibilities:
+ * - Resolve production vs development transport
+ * - Read environment-driven mail configuration
+ * - Route outbound email to the appropriate transport implementation
+ *
+ * Infrastructure notes:
+ * - Development uses a safe non-delivery transport
+ * - Production uses Microsoft Graph app-only mail delivery
+ */
 import { sendWithDevTransport } from "./transports/dev-transport";
 import { sendWithGraphTransport } from "./transports/graph-transport";
 import type {
@@ -23,6 +38,9 @@ export function resolveEmailTransportKind(
   return env.NODE_ENV === "production" ? "graph" : "dev";
 }
 
+/**
+ * Reads runtime email configuration from environment variables.
+ */
 export function getEmailRuntimeConfig(
   env: Record<string, string | undefined> = process.env
 ): EmailRuntimeConfig {
@@ -38,6 +56,9 @@ export function getEmailRuntimeConfig(
   };
 }
 
+/**
+ * Sends a single email message through the selected transport.
+ */
 export async function sendEmail(
   message: EmailMessage
 ): Promise<EmailSendResult> {
