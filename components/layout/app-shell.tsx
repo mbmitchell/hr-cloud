@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 function MenuIcon() {
   return (
@@ -43,7 +44,25 @@ export default function AppShell({
   header: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!mobileNavOpen) {
+      document.body.style.overflow = "";
+      return;
+    }
+
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileNavOpen]);
 
   return (
     <div className="min-h-screen md:flex">
@@ -58,7 +77,15 @@ export default function AppShell({
             onClick={() => setMobileNavOpen(false)}
           />
 
-          <div className="absolute inset-y-0 left-0 w-[min(18rem,85vw)] shadow-2xl">
+          <div
+            className="absolute inset-y-0 left-0 w-[min(18rem,85vw)] shadow-2xl"
+            onClick={(event) => {
+              const target = event.target as HTMLElement;
+              if (target.closest("a[href]")) {
+                setMobileNavOpen(false);
+              }
+            }}
+          >
             <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900 px-4 py-3 text-white">
               <div className="text-sm font-semibold tracking-wide">
                 Navigation
