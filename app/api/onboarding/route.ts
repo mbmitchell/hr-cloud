@@ -74,7 +74,10 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: error.message }, { status: 404 });
       }
 
-      if (error.message === "An onboarding record already exists for this employee.") {
+      if (
+        error.message === "An onboarding record already exists for this employee." ||
+        error.message.startsWith('Assignable document "')
+      ) {
         return NextResponse.json({ error: error.message }, { status: 400 });
       }
     }

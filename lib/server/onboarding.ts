@@ -9,6 +9,8 @@ import type {
 import { prisma } from "../db";
 import { getDirectReportIds } from "../auth/access";
 import { isManagerOf } from "../auth/permissions";
+import { createEmployeeDocumentAssignmentRecord } from "./document-acknowledgements/assign";
+import { dispatchDocumentAssignmentNotificationOutboxEntries } from "./document-acknowledgements/notifications";
 import {
   type AuthorizationActor,
   AuthorizationError,
@@ -223,6 +225,34 @@ export async function listVisibleOnboardings(actor: AuthorizationActor) {
               },
             },
           },
+          acknowledgementRequirements: {
+            orderBy: [{ createdAt: "asc" }],
+            include: {
+              assignableDocument: {
+                select: {
+                  id: true,
+                  title: true,
+                  category: true,
+                },
+              },
+              assignedDocumentVersion: {
+                select: {
+                  id: true,
+                  versionLabel: true,
+                  publishedAt: true,
+                },
+              },
+              employeeDocumentAssignment: {
+                select: {
+                  id: true,
+                  status: true,
+                  assignedAt: true,
+                  dueDate: true,
+                  acknowledgedAt: true,
+                },
+              },
+            },
+          },
         },
         orderBy: [{ sortOrder: "asc" }],
       },
@@ -308,6 +338,34 @@ export async function getOnboardingDetailForActor(
               },
             },
           },
+          acknowledgementRequirements: {
+            orderBy: [{ createdAt: "asc" }],
+            include: {
+              assignableDocument: {
+                select: {
+                  id: true,
+                  title: true,
+                  category: true,
+                },
+              },
+              assignedDocumentVersion: {
+                select: {
+                  id: true,
+                  versionLabel: true,
+                  publishedAt: true,
+                },
+              },
+              employeeDocumentAssignment: {
+                select: {
+                  id: true,
+                  status: true,
+                  assignedAt: true,
+                  dueDate: true,
+                  acknowledgedAt: true,
+                },
+              },
+            },
+          },
         },
         orderBy: [{ sortOrder: "asc" }],
       },
@@ -380,6 +438,17 @@ export async function createOnboardingFromTemplate(input: {
           documentRequirements: {
             orderBy: [{ sortOrder: "asc" }],
           },
+          acknowledgementRequirements: {
+            orderBy: [{ sortOrder: "asc" }],
+            include: {
+              assignableDocument: {
+                select: {
+                  id: true,
+                  currentVersionId: true,
+                },
+              },
+            },
+          },
         },
         orderBy: [{ sortOrder: "asc" }],
       },
@@ -397,7 +466,7 @@ export async function createOnboardingFromTemplate(input: {
     .sort((a, b) => b.getTime() - a.getTime());
 
   try {
-    return await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const onboarding = await tx.employeeOnboarding.create({
         data: {
           employeeId: employee.id,
@@ -408,6 +477,8 @@ export async function createOnboardingFromTemplate(input: {
           createdByEmployeeId: input.actorId,
         },
       });
+
+      const notificationOutboxIds: string[] = [];
 
       for (const task of template.tasks) {
         const createdTask = await tx.employeeOnboardingTask.create({
@@ -439,10 +510,61 @@ export async function createOnboardingFromTemplate(input: {
             },
           });
         }
+
+        for (const requirement of task.acknowledgementRequirements) {
+          const assignedDocumentVersionId =
+            requirement.assignableDocument.currentVersionId;
+
+          if (!assignedDocumentVersionId) {
+            throw new Error(
+              `Assignable document "${requirement.label}" does not have a current published version.`
+            );
+          }
+
+          const createdAcknowledgementRequirement =
+            await tx.employeeOnboardingTaskAcknowledgementRequirement.create({
+              data: {
+                employeeOnboardingTaskId: createdTask.id,
+                label: requirement.label,
+                assignableDocumentId: requirement.assignableDocumentId,
+                assignedDocumentVersionId,
+                isRequired: requirement.isRequired,
+              },
+            });
+
+          const assignment = await createEmployeeDocumentAssignmentRecord(tx, {
+            employeeId: employee.id,
+            actorId: input.actorId,
+            assignableDocumentVersionId: assignedDocumentVersionId,
+            assignmentSourceType: "ONBOARDING",
+            sourceEmployeeOnboardingTaskRequirementId:
+              createdAcknowledgementRequirement.id,
+          });
+
+          await tx.employeeOnboardingTaskAcknowledgementRequirement.update({
+            where: { id: createdAcknowledgementRequirement.id },
+            data: {
+              employeeDocumentAssignmentId: assignment.id,
+            },
+          });
+
+          if (assignment.notificationOutbox?.id) {
+            notificationOutboxIds.push(assignment.notificationOutbox.id);
+          }
+        }
       }
 
-      return onboarding;
+      return {
+        onboarding,
+        notificationOutboxIds,
+      };
     });
+
+    dispatchDocumentAssignmentNotificationOutboxEntries(
+      result.notificationOutboxIds
+    );
+
+    return result.onboarding;
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&

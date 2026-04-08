@@ -40,15 +40,18 @@ export default async function Sidebar({
     isSiteAdmin || isHrAdmin || isManager || roles.includes("IT") || roles.includes("IT_ADMIN");
   const canManageOnboardingTemplates = isSiteAdmin || isHrAdmin;
   const canManageOffboardingTemplates = isSiteAdmin || isHrAdmin;
+  const canManageDocumentAcknowledgements = isSiteAdmin || isHrAdmin;
 
   const sections = buildSidebarSections({
     canSeeMyDocuments: !!user,
+    canSeeMyAcknowledgements: !!user,
     canSeeApprovals,
     canAddEmployees,
     canSeeOnboarding,
     canSeeOffboarding,
     canManageOnboardingTemplates,
     canManageOffboardingTemplates,
+    canManageDocumentAcknowledgements,
     canSeeAdjustments,
     canSeePolicy,
     canSeeCompensation,

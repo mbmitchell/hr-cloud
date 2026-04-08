@@ -36,12 +36,14 @@ function item(
 
 type BuildSidebarSectionsInput = {
   canSeeMyDocuments: boolean;
+  canSeeMyAcknowledgements: boolean;
   canSeeApprovals: boolean;
   canAddEmployees: boolean;
   canSeeOnboarding: boolean;
   canSeeOffboarding: boolean;
   canManageOnboardingTemplates: boolean;
   canManageOffboardingTemplates: boolean;
+  canManageDocumentAcknowledgements: boolean;
   canSeeAdjustments: boolean;
   canSeePolicy: boolean;
   canSeeCompensation: boolean;
@@ -69,6 +71,9 @@ export function buildSidebarSections(
         item("/calendar", "PTO Calendar", "calendar"),
         ...(input.canSeeMyDocuments
           ? [item("/my-documents", "My Documents", "checklist")]
+          : []),
+        ...(input.canSeeMyAcknowledgements
+          ? [item("/my-acknowledgements", "My Acknowledgements", "checklist")]
           : []),
       ],
     },
@@ -119,6 +124,9 @@ export function buildSidebarSections(
           : []),
         ...(input.canManageOffboardingTemplates
           ? [item("/admin/offboarding/templates", "Offboarding Templates", "checklist")]
+          : []),
+        ...(input.canManageDocumentAcknowledgements
+          ? [item("/admin/document-acknowledgements", "Document Acknowledgements", "checklist")]
           : []),
         ...(input.canSeeAdjustments
           ? [item("/admin/accrual-override", "Accrual Settings", "clock")]

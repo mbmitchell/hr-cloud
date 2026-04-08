@@ -9,8 +9,11 @@ import {
   getActiveOffboardingTemplates,
   getEmployeeOffboardingSummary,
 } from "../../../lib/server/offboarding/offboarding-queries";
+import { requireDocumentAcknowledgementActor } from "../../../lib/server/document-acknowledgements/access";
+import { getEmployeeDocumentAcknowledgementSummary } from "../../../lib/server/document-acknowledgements/queries";
 import Link from "next/link";
 import EmployeeDocumentsPanel from "../../../components/employees/employee-documents-panel";
+import EmployeeAcknowledgementsSummaryPanel from "./EmployeeAcknowledgementsSummaryPanel";
 import EmployeeEditForm from "./EmployeeEditForm";
 import EmployeeOffboardingPanel from "./EmployeeOffboardingPanel";
 import EmployeeOnboardingPanel from "./EmployeeOnboardingPanel";
@@ -105,16 +108,23 @@ export default async function EmployeeProfilePage({
   const visibleRequests = employee.requests.slice(0, 10);
   const visibleLedger = employee.ledger.slice(0, 20);
   const directReports = employee.directReports;
+  const acknowledgementActor = isAdmin
+    ? await requireDocumentAcknowledgementActor()
+    : null;
   const [
     onboardingSummary,
     activeOnboardingTemplates,
     offboardingSummary,
     activeOffboardingTemplates,
+    acknowledgementSummary,
   ] = await Promise.all([
     getEmployeeOnboardingSummary(employee.id),
     isAdmin ? getActiveOnboardingTemplates() : Promise.resolve([]),
     isAdmin ? getEmployeeOffboardingSummary(employee.id) : Promise.resolve(null),
     isAdmin ? getActiveOffboardingTemplates() : Promise.resolve([]),
+    acknowledgementActor
+      ? getEmployeeDocumentAcknowledgementSummary(acknowledgementActor, employee.id)
+      : Promise.resolve(null),
   ]);
 
   const roleCodes = employee.roleAssignments.map((assignment) => assignment.role.code);
@@ -243,6 +253,10 @@ export default async function EmployeeProfilePage({
           canUpload={isAdmin}
           canManage={isAdmin}
         />
+      )}
+
+      {isAdmin && acknowledgementSummary && (
+        <EmployeeAcknowledgementsSummaryPanel summary={acknowledgementSummary} />
       )}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">

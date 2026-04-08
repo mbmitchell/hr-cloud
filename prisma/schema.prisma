@@ -44,6 +44,11 @@ model Employee {
   offboardingTasks                         EmployeeOffboardingTask[]                   @relation("EmployeeOffboardingTasks")
   assignedOffboardingTasks                 EmployeeOffboardingTask[]                   @relation("AssignedEmployeeOffboardingTasks")
   completedOffboardingTasks                EmployeeOffboardingTask[]                   @relation("CompletedEmployeeOffboardingTasks")
+  createdAssignableDocuments               AssignableDocument[]                        @relation("CreatedAssignableDocuments")
+  createdAssignableDocumentVersions        AssignableDocumentVersion[]                 @relation("CreatedAssignableDocumentVersions")
+  documentAssignments                      EmployeeDocumentAssignment[]                @relation("EmployeeDocumentAssignments")
+  documentAssignmentNotificationOutboxEntries DocumentAssignmentEmailOutbox[]
+  assignedDocumentAssignments              EmployeeDocumentAssignment[]                @relation("AssignedEmployeeDocumentAssignments")
   roleAssignments                          EmployeeRoleAssignment[]
 
   createdAt DateTime @default(now())
@@ -158,9 +163,102 @@ model EmployeeDocument {
   employee                         Employee                                    @relation("EmployeeDocuments", fields: [employeeId], references: [id])
   uploadedBy                       Employee                                    @relation("UploadedEmployeeDocuments", fields: [uploadedByEmployeeId], references: [id])
   linkedOnboardingTaskRequirements EmployeeOnboardingTaskDocumentRequirement[] @relation("LinkedEmployeeDocuments")
+  assignableDocumentVersions       AssignableDocumentVersion[]                 @relation("EmployeeDocumentAssignableVersions")
 
   @@index([employeeId, category, createdAt])
   @@index([uploadedByEmployeeId])
+}
+
+model AssignableDocument {
+  id                  String   @id @default(uuid())
+  title               String
+  category            String
+  isActive            Boolean  @default(true)
+  currentVersionId    String?
+  createdByEmployeeId String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  createdBy      Employee                     @relation("CreatedAssignableDocuments", fields: [createdByEmployeeId], references: [id])
+  currentVersion AssignableDocumentVersion?   @relation("AssignableDocumentCurrentVersion", fields: [currentVersionId], references: [id])
+  versions       AssignableDocumentVersion[]  @relation("AssignableDocumentVersions")
+  assignments    EmployeeDocumentAssignment[]
+  onboardingTemplateAcknowledgementRequirements OnboardingTemplateTaskAcknowledgementRequirement[]
+  employeeOnboardingAcknowledgementRequirements EmployeeOnboardingTaskAcknowledgementRequirement[]
+
+  @@index([createdByEmployeeId])
+}
+
+model AssignableDocumentVersion {
+  id                   String   @id @default(uuid())
+  assignableDocumentId String
+  versionLabel         String
+  employeeDocumentId   String
+  notes                String?  @db.Text
+  publishedAt          DateTime
+  createdByEmployeeId  String
+  createdAt            DateTime @default(now())
+
+  assignableDocument  AssignableDocument           @relation("AssignableDocumentVersions", fields: [assignableDocumentId], references: [id])
+  employeeDocument    EmployeeDocument             @relation("EmployeeDocumentAssignableVersions", fields: [employeeDocumentId], references: [id])
+  createdBy           Employee                     @relation("CreatedAssignableDocumentVersions", fields: [createdByEmployeeId], references: [id])
+  currentForDocuments AssignableDocument[]         @relation("AssignableDocumentCurrentVersion")
+  assignments         EmployeeDocumentAssignment[]
+  onboardingAssignedAcknowledgementRequirements EmployeeOnboardingTaskAcknowledgementRequirement[]
+
+  @@index([assignableDocumentId])
+  @@index([employeeDocumentId])
+  @@index([createdByEmployeeId])
+}
+
+model EmployeeDocumentAssignment {
+  id                          String    @id @default(uuid())
+  employeeId                  String
+  assignableDocumentId        String
+  assignableDocumentVersionId String
+  assignmentSourceType        String    @default("DIRECT")
+  sourceEmployeeOnboardingTaskRequirementId String?
+  status                      String    @default("PENDING")
+  assignedByEmployeeId        String
+  assignedAt                  DateTime  @default(now())
+  dueDate                     DateTime?
+  acknowledgedAt              DateTime?
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
+
+  employee                                Employee                                    @relation("EmployeeDocumentAssignments", fields: [employeeId], references: [id])
+  assignableDocument                      AssignableDocument                          @relation(fields: [assignableDocumentId], references: [id])
+  assignableDocumentVersion               AssignableDocumentVersion                   @relation(fields: [assignableDocumentVersionId], references: [id])
+  assignedByEmployee                      Employee                                    @relation("AssignedEmployeeDocumentAssignments", fields: [assignedByEmployeeId], references: [id])
+  sourceEmployeeOnboardingTaskRequirement EmployeeOnboardingTaskAcknowledgementRequirement? @relation("AssignmentSourceOnboardingRequirement", fields: [sourceEmployeeOnboardingTaskRequirementId], references: [id])
+  onboardingAcknowledgementRequirements   EmployeeOnboardingTaskAcknowledgementRequirement[] @relation("OnboardingRequirementDocumentAssignment")
+  notificationOutbox                      DocumentAssignmentEmailOutbox?
+
+  @@unique([employeeId, assignableDocumentVersionId])
+  @@index([employeeId, status])
+  @@index([assignableDocumentId])
+  @@index([assignableDocumentVersionId])
+  @@index([assignmentSourceType])
+  @@index([sourceEmployeeOnboardingTaskRequirementId])
+  @@index([dueDate])
+}
+
+model DocumentAssignmentEmailOutbox {
+  id                           String   @id @default(uuid())
+  employeeDocumentAssignmentId String   @unique
+  employeeId                   String
+  status                       String   @default("PENDING")
+  attemptCount                 Int      @default(0)
+  lastError                    String?  @db.Text
+  sentAt                       DateTime?
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
+
+  employeeDocumentAssignment EmployeeDocumentAssignment @relation(fields: [employeeDocumentAssignmentId], references: [id])
+  employee                   Employee                   @relation(fields: [employeeId], references: [id])
+
+  @@index([status])
+  @@index([createdAt])
 }
 
 model OnboardingTemplate {
@@ -186,6 +284,7 @@ model OnboardingTemplateTask {
   template             OnboardingTemplate                          @relation(fields: [templateId], references: [id])
   onboardingTasks      EmployeeOnboardingTask[]
   documentRequirements OnboardingTemplateTaskDocumentRequirement[]
+  acknowledgementRequirements OnboardingTemplateTaskAcknowledgementRequirement[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -249,6 +348,7 @@ model EmployeeOnboardingTask {
   employee             Employee                                    @relation("EmployeeOnboardingTasks", fields: [employeeId], references: [id])
   sourceTemplateTask   OnboardingTemplateTask?                     @relation(fields: [sourceTemplateTaskId], references: [id])
   documentRequirements EmployeeOnboardingTaskDocumentRequirement[]
+  acknowledgementRequirements EmployeeOnboardingTaskAcknowledgementRequirement[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -276,6 +376,46 @@ model EmployeeOnboardingTaskDocumentRequirement {
 
   @@index([employeeOnboardingTaskId])
   @@index([documentCategory])
+}
+
+model OnboardingTemplateTaskAcknowledgementRequirement {
+  id                   String   @id @default(uuid())
+  templateTaskId       String
+  label                String
+  assignableDocumentId String
+  isRequired           Boolean  @default(true)
+  sortOrder            Int
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  templateTask        OnboardingTemplateTask @relation(fields: [templateTaskId], references: [id])
+  assignableDocument  AssignableDocument     @relation(fields: [assignableDocumentId], references: [id])
+
+  @@index([templateTaskId, sortOrder])
+  @@index([assignableDocumentId])
+}
+
+model EmployeeOnboardingTaskAcknowledgementRequirement {
+  id                         String   @id @default(uuid())
+  employeeOnboardingTaskId   String
+  label                      String
+  assignableDocumentId       String
+  assignedDocumentVersionId  String?
+  employeeDocumentAssignmentId String?
+  isRequired                 Boolean  @default(true)
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  employeeOnboardingTask             EmployeeOnboardingTask                             @relation(fields: [employeeOnboardingTaskId], references: [id])
+  assignableDocument                 AssignableDocument                                 @relation(fields: [assignableDocumentId], references: [id])
+  assignedDocumentVersion            AssignableDocumentVersion?                         @relation(fields: [assignedDocumentVersionId], references: [id])
+  employeeDocumentAssignment         EmployeeDocumentAssignment?                        @relation("OnboardingRequirementDocumentAssignment", fields: [employeeDocumentAssignmentId], references: [id])
+  sourceAssignments                  EmployeeDocumentAssignment[]                       @relation("AssignmentSourceOnboardingRequirement")
+
+  @@index([employeeOnboardingTaskId])
+  @@index([assignableDocumentId])
+  @@index([assignedDocumentVersionId])
+  @@index([employeeDocumentAssignmentId])
 }
 
 model OffboardingTemplate {

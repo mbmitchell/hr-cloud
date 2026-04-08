@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import OnboardingProgress from "../../../components/onboarding/onboarding-progress";
+import OnboardingTaskAcknowledgementRequirements from "../../../components/onboarding/onboarding-task-acknowledgement-requirements";
 import OnboardingTaskDocumentRequirements from "../../../components/onboarding/onboarding-task-document-requirements";
 import { requireOnboardingActor, getOnboardingDetailForActor, canActorUpdateOnboardingTask, isOnboardingAdmin } from "../../../lib/server/onboarding";
 import { isAuthorizationError } from "../../../lib/server/authorization";
@@ -50,6 +51,8 @@ export default async function OnboardingDetailPage({
   const canManageDocuments = isOnboardingAdmin(actor);
   const canUploadRequirementDocuments =
     isOnboardingAdmin(actor) || actor.id === onboarding.employeeId;
+  const isEmployeeViewer = actor.id === onboarding.employeeId;
+  const isAdminViewer = isOnboardingAdmin(actor);
   const completedTaskCount = onboarding.tasks.filter(
     (task) => task.status === "COMPLETED"
   ).length;
@@ -182,6 +185,58 @@ export default async function OnboardingDetailPage({
                             }))}
                             canManage={canManageDocuments}
                             canUpload={canUploadRequirementDocuments}
+                          />
+                        )}
+
+                        {task.acknowledgementRequirements.length > 0 && (
+                          <OnboardingTaskAcknowledgementRequirements
+                            requirements={task.acknowledgementRequirements.map(
+                              (requirement) => ({
+                                id: requirement.id,
+                                label: requirement.label,
+                                isRequired: requirement.isRequired,
+                                assignableDocument: {
+                                  id: requirement.assignableDocument.id,
+                                  title: requirement.assignableDocument.title,
+                                  category:
+                                    requirement.assignableDocument.category,
+                                },
+                                assignedDocumentVersion:
+                                  requirement.assignedDocumentVersion
+                                    ? {
+                                        id: requirement.assignedDocumentVersion.id,
+                                        versionLabel:
+                                          requirement.assignedDocumentVersion
+                                            .versionLabel,
+                                        publishedAt:
+                                          requirement.assignedDocumentVersion.publishedAt.toISOString(),
+                                      }
+                                    : null,
+                                employeeDocumentAssignment:
+                                  requirement.employeeDocumentAssignment
+                                    ? {
+                                        id: requirement.employeeDocumentAssignment.id,
+                                        status:
+                                          requirement.employeeDocumentAssignment
+                                            .status,
+                                        assignedAt:
+                                          requirement.employeeDocumentAssignment.assignedAt.toISOString(),
+                                        dueDate:
+                                          requirement.employeeDocumentAssignment
+                                            .dueDate
+                                            ? requirement.employeeDocumentAssignment.dueDate.toISOString()
+                                            : null,
+                                        acknowledgedAt:
+                                          requirement.employeeDocumentAssignment
+                                            .acknowledgedAt
+                                            ? requirement.employeeDocumentAssignment.acknowledgedAt.toISOString()
+                                            : null,
+                                      }
+                                    : null,
+                              })
+                            )}
+                            isEmployeeViewer={isEmployeeViewer}
+                            isAdminViewer={isAdminViewer}
                           />
                         )}
                       </div>

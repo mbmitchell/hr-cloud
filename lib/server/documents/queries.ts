@@ -1,7 +1,9 @@
 import { prisma } from "../../db";
 import type { AuthorizationActor } from "../authorization";
+import { AuthorizationError } from "../authorization";
 import { assertCanAccessDocumentMetadata } from "./access";
 import type { EmployeeDocumentMetadata } from "./types";
+import { POLICY_DOCUMENT_INTERNAL_DESCRIPTION_PREFIX } from "../document-acknowledgements/types";
 
 function mapEmployeeDocumentMetadata(document: {
   id: string;
@@ -66,6 +68,11 @@ export async function listEmployeeDocumentsForActor(
     where: {
       employeeId,
       status: "ACTIVE",
+      NOT: {
+        description: {
+          startsWith: POLICY_DOCUMENT_INTERNAL_DESCRIPTION_PREFIX,
+        },
+      },
     },
     select: employeeDocumentMetadataSelect,
     orderBy: [{ uploadedAt: "desc" }, { createdAt: "desc" }],
@@ -113,7 +120,31 @@ export async function getEmployeeDocumentDownloadForActor(
     return null;
   }
 
-  assertCanAccessDocumentMetadata(actor, document.employeeId);
+  try {
+    assertCanAccessDocumentMetadata(actor, document.employeeId);
+  } catch {
+    const assignment = await prisma.employeeDocumentAssignment.findFirst({
+      where: {
+        employeeId: actor.id,
+        status: {
+          in: ["PENDING", "ACKNOWLEDGED"],
+        },
+        assignableDocumentVersion: {
+          employeeDocumentId: document.id,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!assignment) {
+      throw new AuthorizationError(
+        "You do not have permission to access this document.",
+        { status: 403, code: "FORBIDDEN" }
+      );
+    }
+  }
 
   return document;
 }
