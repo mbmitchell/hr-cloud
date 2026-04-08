@@ -1,2 +1,2 @@
---Intentionally left blank
---Supeseeded by later acknowledgement migrations.
+/* Intentionally left blank.
+   Superseded by later acknowledgement migrations. */
