@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { acknowledgeDocumentAssignment } from "../../../../../lib/server/document-acknowledgements/acknowledge";
+import { markDocumentAssignmentViewed } from "../../../../../lib/server/document-acknowledgements/acknowledge";
 import { isAuthorizationError } from "../../../../../lib/server/authorization";
 
 export async function POST(
@@ -9,7 +9,7 @@ export async function POST(
 ) {
   try {
     const { assignmentId } = await params;
-    const assignment = await acknowledgeDocumentAssignment(assignmentId);
+    const assignment = await markDocumentAssignmentViewed(assignmentId);
 
     return NextResponse.json({ assignment });
   } catch (error) {
@@ -25,17 +25,13 @@ export async function POST(
         return NextResponse.json({ error: error.message }, { status: 404 });
       }
 
-      if (
-        error.message === "Document assignment has already been acknowledged." ||
-        error.message === "Cancelled document assignments cannot be acknowledged." ||
-        error.message === "Please review the document before acknowledging."
-      ) {
+      if (error.message === "Cancelled document assignments cannot be viewed.") {
         return NextResponse.json({ error: error.message }, { status: 400 });
       }
     }
 
     return NextResponse.json(
-      { error: "Failed to acknowledge document." },
+      { error: "Failed to mark document as viewed." },
       { status: 500 }
     );
   }

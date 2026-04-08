@@ -222,6 +222,7 @@ model EmployeeDocumentAssignment {
   assignedByEmployeeId        String
   assignedAt                  DateTime  @default(now())
   dueDate                     DateTime?
+  viewedAt                    DateTime?
   acknowledgedAt              DateTime?
   createdAt                   DateTime  @default(now())
   updatedAt                   DateTime  @updatedAt
@@ -241,6 +242,7 @@ model EmployeeDocumentAssignment {
   @@index([assignmentSourceType])
   @@index([sourceEmployeeOnboardingTaskRequirementId])
   @@index([dueDate])
+  @@index([viewedAt])
 }
 
 model DocumentAssignmentEmailOutbox {

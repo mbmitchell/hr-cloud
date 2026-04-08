@@ -5,8 +5,10 @@ import { useState } from "react";
 
 export default function AcknowledgeButton({
   assignmentId,
+  enabled,
 }: {
   assignmentId: string;
+  enabled: boolean;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -44,7 +46,7 @@ export default function AcknowledgeButton({
       <button
         type="button"
         onClick={handleAcknowledge}
-        disabled={saving}
+        disabled={saving || !enabled}
         className="rounded bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800 disabled:opacity-50"
       >
         {saving ? "Acknowledging..." : "Acknowledge Document"}

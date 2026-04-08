@@ -62,6 +62,7 @@ export type EmployeeDocumentAssignmentListItem = {
   status: string;
   assignedAt: Date;
   dueDate: Date | null;
+  viewedAt: Date | null;
   acknowledgedAt: Date | null;
   document: {
     id: string;

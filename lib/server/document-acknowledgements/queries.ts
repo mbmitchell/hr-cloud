@@ -158,6 +158,7 @@ export async function listEmployeeDocumentAssignmentsForActor(
       status: true,
       assignedAt: true,
       dueDate: true,
+      viewedAt: true,
       acknowledgedAt: true,
       assignableDocument: {
         select: {
@@ -195,6 +196,7 @@ export async function listEmployeeDocumentAssignmentsForActor(
     status: assignment.status,
     assignedAt: assignment.assignedAt,
     dueDate: assignment.dueDate,
+    viewedAt: assignment.viewedAt,
     acknowledgedAt: assignment.acknowledgedAt,
     document: assignment.assignableDocument,
     version: {

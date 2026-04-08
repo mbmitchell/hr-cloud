@@ -17,6 +17,7 @@ export default async function MyAcknowledgementsPage() {
         ...assignment,
         assignedAt: assignment.assignedAt.toISOString(),
         dueDate: assignment.dueDate ? assignment.dueDate.toISOString() : null,
+        viewedAt: assignment.viewedAt ? assignment.viewedAt.toISOString() : null,
         acknowledgedAt: assignment.acknowledgedAt
           ? assignment.acknowledgedAt.toISOString()
           : null,
@@ -32,6 +33,7 @@ export default async function MyAcknowledgementsPage() {
         ...assignment,
         assignedAt: assignment.assignedAt.toISOString(),
         dueDate: assignment.dueDate ? assignment.dueDate.toISOString() : null,
+        viewedAt: assignment.viewedAt ? assignment.viewedAt.toISOString() : null,
         acknowledgedAt: assignment.acknowledgedAt
           ? assignment.acknowledgedAt.toISOString()
           : null,

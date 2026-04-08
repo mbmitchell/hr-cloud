@@ -1,10 +1,12 @@
 import AcknowledgeButton from "./acknowledge-button";
+import ViewDocumentButton from "./view-document-button";
 
 type Assignment = {
   id: string;
   status: string;
   assignedAt: string;
   dueDate: string | null;
+  viewedAt: string | null;
   acknowledgedAt: string | null;
   document: {
     id: string;
@@ -108,6 +110,14 @@ export default function AcknowledgementList({
                         </span>
                       </div>
                     </div>
+                    {showAcknowledgeAction && (
+                      <div>
+                        <div className="text-slate-500">Reviewed</div>
+                        <div className="font-medium text-slate-900">
+                          {assignment.viewedAt ? formatDate(assignment.viewedAt) : "Not yet"}
+                        </div>
+                      </div>
+                    )}
                     {!showAcknowledgeAction && (
                       <div>
                         <div className="text-slate-500">Acknowledged</div>
@@ -120,17 +130,24 @@ export default function AcknowledgementList({
                 </div>
 
                 <div className="flex flex-col gap-2 sm:flex-row lg:flex-col lg:items-end">
-                  <a
-                    href={`/api/documents/${assignment.version.employeeDocumentId}/view`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center justify-center rounded border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50"
-                  >
-                    View Document
-                  </a>
+                  <ViewDocumentButton
+                    assignmentId={assignment.id}
+                    employeeDocumentId={assignment.version.employeeDocumentId}
+                    hasViewed={Boolean(assignment.viewedAt)}
+                  />
 
                   {showAcknowledgeAction ? (
-                    <AcknowledgeButton assignmentId={assignment.id} />
+                    <>
+                      {!assignment.viewedAt ? (
+                        <div className="max-w-xs text-xs text-slate-500">
+                          Please review the document before acknowledging.
+                        </div>
+                      ) : null}
+                      <AcknowledgeButton
+                        assignmentId={assignment.id}
+                        enabled={Boolean(assignment.viewedAt)}
+                      />
+                    </>
                   ) : null}
                 </div>
               </div>
