@@ -33,7 +33,7 @@ export async function acknowledgeDocumentAssignment(assignmentId: string) {
   }
 
   if (!assignment.viewedAt) {
-    throw new Error("Please review the document before acknowledging.");
+    throw new Error("You must view the document before acknowledging.");
   }
 
   return prisma.employeeDocumentAssignment.update({

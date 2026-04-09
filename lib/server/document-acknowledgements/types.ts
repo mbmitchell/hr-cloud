@@ -4,6 +4,11 @@ export const DOCUMENT_ASSIGNMENT_STATUSES = [
   "CANCELLED",
 ] as const;
 
+export const DOCUMENT_ASSIGNMENT_REMINDER_TYPES = [
+  "OVERDUE",
+  "STALE_PENDING",
+] as const;
+
 export const DOCUMENT_ACKNOWLEDGEMENT_ADMIN_ROLES = [
   "SITE_ADMIN",
   "HR_ADMIN",
@@ -15,11 +20,22 @@ export const POLICY_DOCUMENT_INTERNAL_DESCRIPTION_PREFIX =
 export type DocumentAssignmentStatus =
   (typeof DOCUMENT_ASSIGNMENT_STATUSES)[number];
 
+export type DocumentAssignmentReminderType =
+  (typeof DOCUMENT_ASSIGNMENT_REMINDER_TYPES)[number];
+
 export function isDocumentAssignmentStatus(
   value: string
 ): value is DocumentAssignmentStatus {
   return DOCUMENT_ASSIGNMENT_STATUSES.includes(
     value as DocumentAssignmentStatus
+  );
+}
+
+export function isDocumentAssignmentReminderType(
+  value: string
+): value is DocumentAssignmentReminderType {
+  return DOCUMENT_ASSIGNMENT_REMINDER_TYPES.includes(
+    value as DocumentAssignmentReminderType
   );
 }
 
@@ -37,6 +53,8 @@ export type AssignableDocumentListItem = {
     total: number;
     pending: number;
     acknowledged: number;
+    overdue: number;
+    completionPercentage: number;
   };
   notificationCounts: {
     failed: number;

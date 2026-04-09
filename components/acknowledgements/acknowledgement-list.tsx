@@ -1,4 +1,3 @@
-import AcknowledgeButton from "./acknowledge-button";
 import ViewDocumentButton from "./view-document-button";
 
 type Assignment = {
@@ -132,22 +131,20 @@ export default function AcknowledgementList({
                 <div className="flex flex-col gap-2 sm:flex-row lg:flex-col lg:items-end">
                   <ViewDocumentButton
                     assignmentId={assignment.id}
-                    employeeDocumentId={assignment.version.employeeDocumentId}
-                    hasViewed={Boolean(assignment.viewedAt)}
+                    label={
+                      showAcknowledgeAction
+                        ? assignment.viewedAt
+                          ? "Continue Review"
+                          : "Review Document"
+                        : "View Document"
+                    }
                   />
 
                   {showAcknowledgeAction ? (
-                    <>
-                      {!assignment.viewedAt ? (
-                        <div className="max-w-xs text-xs text-slate-500">
-                          Please review the document before acknowledging.
-                        </div>
-                      ) : null}
-                      <AcknowledgeButton
-                        assignmentId={assignment.id}
-                        enabled={Boolean(assignment.viewedAt)}
-                      />
-                    </>
+                    <div className="max-w-xs text-xs text-slate-500">
+                      Open the document viewer to review the document and enable
+                      acknowledgement.
+                    </div>
                   ) : null}
                 </div>
               </div>

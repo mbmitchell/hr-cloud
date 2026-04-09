@@ -26,6 +26,8 @@ type AssignableDocument = {
     total: number;
     pending: number;
     acknowledged: number;
+    overdue: number;
+    completionPercentage: number;
   };
   notificationCounts: {
     failed: number;
@@ -688,7 +690,7 @@ export default function DocumentAcknowledgementsAdminClient() {
                       </div>
                     </div>
 
-                    <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-4">
+                    <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
                       <div className="rounded border border-slate-200 px-4 py-3 text-sm">
                         <div className="text-slate-500">Current Version</div>
                         <div className="mt-1 font-semibold text-slate-900">
@@ -711,6 +713,18 @@ export default function DocumentAcknowledgementsAdminClient() {
                         <div className="text-slate-500">Acknowledged</div>
                         <div className="mt-1 font-semibold text-slate-900">
                           {document.assignmentCounts.acknowledged}
+                        </div>
+                      </div>
+                      <div className="rounded border border-slate-200 px-4 py-3 text-sm">
+                        <div className="text-slate-500">Overdue</div>
+                        <div className="mt-1 font-semibold text-slate-900">
+                          {document.assignmentCounts.overdue}
+                        </div>
+                      </div>
+                      <div className="rounded border border-slate-200 px-4 py-3 text-sm">
+                        <div className="text-slate-500">Completion</div>
+                        <div className="mt-1 font-semibold text-slate-900">
+                          {document.assignmentCounts.completionPercentage}%
                         </div>
                       </div>
                     </div>

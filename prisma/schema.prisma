@@ -48,6 +48,7 @@ model Employee {
   createdAssignableDocumentVersions        AssignableDocumentVersion[]                 @relation("CreatedAssignableDocumentVersions")
   documentAssignments                      EmployeeDocumentAssignment[]                @relation("EmployeeDocumentAssignments")
   documentAssignmentNotificationOutboxEntries DocumentAssignmentEmailOutbox[]
+  documentAssignmentReminderOutboxEntries  DocumentAssignmentReminderEmailOutbox[]
   assignedDocumentAssignments              EmployeeDocumentAssignment[]                @relation("AssignedEmployeeDocumentAssignments")
   roleAssignments                          EmployeeRoleAssignment[]
 
@@ -234,6 +235,7 @@ model EmployeeDocumentAssignment {
   sourceEmployeeOnboardingTaskRequirement EmployeeOnboardingTaskAcknowledgementRequirement? @relation("AssignmentSourceOnboardingRequirement", fields: [sourceEmployeeOnboardingTaskRequirementId], references: [id])
   onboardingAcknowledgementRequirements   EmployeeOnboardingTaskAcknowledgementRequirement[] @relation("OnboardingRequirementDocumentAssignment")
   notificationOutbox                      DocumentAssignmentEmailOutbox?
+  reminderOutboxEntries                   DocumentAssignmentReminderEmailOutbox[]
 
   @@unique([employeeId, assignableDocumentVersionId])
   @@index([employeeId, status])
@@ -261,6 +263,28 @@ model DocumentAssignmentEmailOutbox {
 
   @@index([status])
   @@index([createdAt])
+}
+
+model DocumentAssignmentReminderEmailOutbox {
+  id                           String   @id @default(uuid())
+  employeeDocumentAssignmentId String
+  employeeId                   String
+  reminderType                 String
+  reminderDay                  String
+  status                       String   @default("PENDING")
+  attemptCount                 Int      @default(0)
+  lastError                    String?  @db.Text
+  sentAt                       DateTime?
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
+
+  employeeDocumentAssignment EmployeeDocumentAssignment @relation(fields: [employeeDocumentAssignmentId], references: [id], map: "fk_doc_assign_reminder_assignment")
+  employee                   Employee                   @relation(fields: [employeeId], references: [id], map: "fk_doc_assign_reminder_employee")
+
+  @@unique([employeeDocumentAssignmentId, reminderType, reminderDay], map: "uq_doc_assign_reminder_day")
+  @@index([status], map: "idx_doc_assign_reminder_status")
+  @@index([createdAt], map: "idx_doc_assign_reminder_created")
+  @@index([reminderDay], map: "idx_doc_assign_reminder_day")
 }
 
 model OnboardingTemplate {

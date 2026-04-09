@@ -28,7 +28,7 @@ export async function POST(
       if (
         error.message === "Document assignment has already been acknowledged." ||
         error.message === "Cancelled document assignments cannot be acknowledged." ||
-        error.message === "Please review the document before acknowledging."
+        error.message === "You must view the document before acknowledging."
       ) {
         return NextResponse.json({ error: error.message }, { status: 400 });
       }

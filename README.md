@@ -155,8 +155,31 @@ Email / calendar:
 - `GRAPH_CLIENT_ID`
 - `GRAPH_CLIENT_SECRET`
 - `GRAPH_MAILBOX_USER_ID`
+- `DOCUMENT_ACKNOWLEDGEMENT_REMINDERS_ENABLED`
+- `DOCUMENT_ACKNOWLEDGEMENT_REMINDER_STALE_DAYS`
 
 See [.env.example](/Users/mmitchell/dev/mfn-hr-app/.env.example) for current examples and inline notes.
+
+## 8.1 Scheduled Acknowledgement Reminders
+
+Document acknowledgement reminders can be executed manually or from cron with:
+
+```bash
+npm run reminders:acknowledgements
+```
+
+Recommended Ubuntu cron entry for a once-daily run:
+
+```bash
+0 8 * * * cd /home/mfn-hr/mfn-hr-app && /usr/bin/npm run reminders:acknowledgements >> /var/log/mfn-hr-acknowledgement-reminders.log 2>&1
+```
+
+Notes:
+
+- The script reuses the same reminder generation logic as the admin trigger route.
+- `DOCUMENT_ACKNOWLEDGEMENT_REMINDERS_ENABLED="false"` cleanly skips scheduled runs.
+- `DOCUMENT_ACKNOWLEDGEMENT_REMINDER_STALE_DAYS` controls the non-overdue pending threshold.
+- The script logs one JSON summary line per run for easy tailing or log shipping.
 
 ## 9. Folder Structure Overview
 

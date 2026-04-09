@@ -21,6 +21,8 @@ export async function listAssignableDocumentsForAdmin(
       assignments: {
         select: {
           status: true,
+          dueDate: true,
+          acknowledgedAt: true,
         },
       },
       currentVersion: {
@@ -76,49 +78,68 @@ export async function listAssignableDocumentsForAdmin(
     orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
   });
 
-  return documents.map((document) => ({
-    id: document.id,
-    title: document.title,
-    category: document.category,
-    isActive: document.isActive,
-    currentVersion: document.currentVersion,
-    assignmentCounts: {
-      total: document.assignments.length,
-      pending: document.assignments.filter(
-        (assignment) => assignment.status === "PENDING"
-      ).length,
-      acknowledged: document.assignments.filter(
-        (assignment) => assignment.status === "ACKNOWLEDGED"
-      ).length,
-    },
-    notificationCounts: {
-      failed: document.versions.reduce(
-        (count, version) => count + version.assignments.length,
-        0
-      ),
-    },
-    recentFailedNotifications: document.versions
-      .flatMap((version) =>
-        version.assignments
-          .filter((assignment) => assignment.notificationOutbox != null)
-          .map((assignment) => ({
-            id: assignment.notificationOutbox!.id,
-            employeeName: `${assignment.employee.firstName} ${assignment.employee.lastName}`.trim(),
-            versionLabel: version.versionLabel,
-            createdAt: assignment.notificationOutbox!.createdAt,
-            lastError: assignment.notificationOutbox!.lastError,
-          }))
-      )
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-      .slice(0, 3),
-    versions: document.versions.map((version) => ({
-      id: version.id,
-      versionLabel: version.versionLabel,
-      publishedAt: version.publishedAt,
-      employeeDocumentId: version.employeeDocumentId,
-      originalFileName: version.employeeDocument.originalFileName,
-    })),
-  }));
+  const now = new Date();
+
+  return documents.map((document) => {
+    const totalAssignments = document.assignments.length;
+    const pendingAssignments = document.assignments.filter(
+      (assignment) => assignment.status === "PENDING"
+    ).length;
+    const acknowledgedAssignments = document.assignments.filter(
+      (assignment) => assignment.status === "ACKNOWLEDGED"
+    ).length;
+    const overdueAssignments = document.assignments.filter(
+      (assignment) =>
+        assignment.dueDate != null &&
+        assignment.dueDate.getTime() < now.getTime() &&
+        assignment.acknowledgedAt == null
+    ).length;
+
+    return {
+      id: document.id,
+      title: document.title,
+      category: document.category,
+      isActive: document.isActive,
+      currentVersion: document.currentVersion,
+      assignmentCounts: {
+        total: totalAssignments,
+        pending: pendingAssignments,
+        acknowledged: acknowledgedAssignments,
+        overdue: overdueAssignments,
+        completionPercentage:
+          totalAssignments === 0
+            ? 0
+            : Math.round((acknowledgedAssignments / totalAssignments) * 100),
+      },
+      notificationCounts: {
+        failed: document.versions.reduce(
+          (count, version) => count + version.assignments.length,
+          0
+        ),
+      },
+      recentFailedNotifications: document.versions
+        .flatMap((version) =>
+          version.assignments
+            .filter((assignment) => assignment.notificationOutbox != null)
+            .map((assignment) => ({
+              id: assignment.notificationOutbox!.id,
+              employeeName: `${assignment.employee.firstName} ${assignment.employee.lastName}`.trim(),
+              versionLabel: version.versionLabel,
+              createdAt: assignment.notificationOutbox!.createdAt,
+              lastError: assignment.notificationOutbox!.lastError,
+            }))
+        )
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .slice(0, 3),
+      versions: document.versions.map((version) => ({
+        id: version.id,
+        versionLabel: version.versionLabel,
+        publishedAt: version.publishedAt,
+        employeeDocumentId: version.employeeDocumentId,
+        originalFileName: version.employeeDocument.originalFileName,
+      })),
+    };
+  });
 }
 
 export async function listAssignableEmployeeOptionsForAdmin(
@@ -253,6 +274,7 @@ export async function getDocumentAssignmentForAcknowledgement(
       id: true,
       employeeId: true,
       status: true,
+      viewedAt: true,
       acknowledgedAt: true,
       assignableDocument: {
         select: {
@@ -267,6 +289,12 @@ export async function getDocumentAssignmentForAcknowledgement(
           versionLabel: true,
           employeeDocumentId: true,
           publishedAt: true,
+          employeeDocument: {
+            select: {
+              mimeType: true,
+              originalFileName: true,
+            },
+          },
         },
       },
     },
