@@ -37,6 +37,7 @@ type ApprovalRow = {
   projectedPtoBalance: number;
   monthlyAccrualRate: number;
   accrualCount: number;
+  accrualSummaryText?: string;
   effectiveAvailableBalance: number | null;
   isWorkflowOnly: boolean;
   staffingConflictCount: number;
@@ -253,8 +254,10 @@ export default function ManagerApprovalsClient({
                             {request.projectedPtoBalance.toFixed(2)} hours
                           </div>
                           <div className="text-xs text-slate-500 mt-1">
-                            {request.accrualCount} accrual(s) ×{" "}
-                            {request.monthlyAccrualRate.toFixed(2)} hrs/month
+                            {request.accrualSummaryText ??
+                              `${request.accrualCount} accrual(s) × ${request.monthlyAccrualRate.toFixed(
+                                2
+                              )} hrs/month`}
                           </div>
                         </>
                       )}

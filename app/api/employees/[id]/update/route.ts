@@ -38,6 +38,7 @@ export async function POST(
       status,
       hireDate,
       managerId,
+      payrollFrequency,
     } = parsedInput.data;
 
     const employee = await prisma.employee.findUnique({
@@ -98,6 +99,7 @@ export async function POST(
           status,
           hireDate,
           managerId,
+          payrollFrequency,
         },
       });
     });

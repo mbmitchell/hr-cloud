@@ -2,6 +2,7 @@ import { prisma } from "../../db";
 import { isEmployeeDocumentCategory } from "../../documents/constants";
 import type { AuthorizationActor } from "../authorization";
 import { assertCanManageDocumentMetadata } from "./access";
+import { writeSensitiveDocumentAuditLog } from "./audit";
 import { getEmployeeDocumentMetadataForActor } from "./queries";
 
 function normalizeDescription(value: string | null | undefined) {
@@ -27,6 +28,9 @@ export async function updateEmployeeDocument(input: {
     select: {
       id: true,
       employeeId: true,
+      category: true,
+      originalFileName: true,
+      description: true,
       status: true,
     },
   });
@@ -53,7 +57,7 @@ export async function updateEmployeeDocument(input: {
     throw new Error("Document status is invalid.");
   }
 
-  await prisma.employeeDocument.update({
+  const updatedRecord = await prisma.employeeDocument.update({
     where: { id: existing.id },
     data: {
       ...(nextCategory === undefined ? {} : { category: nextCategory }),
@@ -62,6 +66,22 @@ export async function updateEmployeeDocument(input: {
         : { description: nextDescription }),
       ...(nextStatus === undefined ? {} : { status: nextStatus }),
     },
+    select: {
+      id: true,
+      employeeId: true,
+      category: true,
+      originalFileName: true,
+      description: true,
+      status: true,
+    },
+  });
+
+  await writeSensitiveDocumentAuditLog(prisma, {
+    actorId: input.actor.id,
+    action: "EMPLOYEE_SENSITIVE_DOCUMENT_UPDATE",
+    entityId: existing.id,
+    oldValue: existing,
+    newValue: updatedRecord,
   });
 
   const document = await getEmployeeDocumentMetadataForActor(

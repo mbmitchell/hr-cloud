@@ -50,10 +50,12 @@ function canViewDocumentInBrowser(mimeType: string) {
 
 export default function DocumentList({
   documents,
+  categories = EMPLOYEE_DOCUMENT_CATEGORIES,
   canManage = false,
   onChanged,
 }: {
   documents: DocumentItem[];
+  categories?: readonly string[];
   canManage?: boolean;
   onChanged?: (message: string) => Promise<void> | void;
 }) {
@@ -71,6 +73,7 @@ export default function DocumentList({
         <DocumentListItem
           key={document.id}
           document={document}
+          categories={categories}
           canManage={canManage}
           onChanged={onChanged}
         />
@@ -81,10 +84,12 @@ export default function DocumentList({
 
 function DocumentListItem({
   document,
+  categories,
   canManage,
   onChanged,
 }: {
   document: DocumentItem;
+  categories: readonly string[];
   canManage: boolean;
   onChanged?: (message: string) => Promise<void> | void;
 }) {
@@ -231,7 +236,7 @@ function DocumentListItem({
                 onChange={(event) => setCategory(event.target.value)}
                 className="w-full rounded border px-3 py-2"
               >
-                {EMPLOYEE_DOCUMENT_CATEGORIES.map((option) => (
+                {categories.map((option) => (
                   <option key={option} value={option}>
                     {option}
                   </option>

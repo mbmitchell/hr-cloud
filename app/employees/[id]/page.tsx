@@ -2,6 +2,13 @@ import Link from "next/link";
 
 import { getCurrentUser } from "../../../lib/auth/current-user";
 import { getEmployeeRoles, isManagerOf } from "../../../lib/auth/permissions";
+import { getPolicySettings } from "../../../lib/policy/settings";
+import { getAccrualSummary } from "../../../lib/pto/accrual";
+import { calculatePerPaycheckWithholding } from "../../../lib/server/employees/benefits";
+import {
+  calculateTotalCompensationSummary,
+  serializeCompensationProfile,
+} from "../../../lib/server/employees/compensation";
 import { getEmployeeProfilePageData } from "../../../lib/server/employees/employee-queries";
 import {
   getActiveOnboardingTemplates,
@@ -15,6 +22,7 @@ import { requireDocumentAcknowledgementActor } from "../../../lib/server/documen
 import { getEmployeeDocumentAcknowledgementSummary } from "../../../lib/server/document-acknowledgements/queries";
 import EmployeeActivityTab from "./EmployeeActivityTab";
 import EmployeeAdminTab from "./EmployeeAdminTab";
+import EmployeeBenefitsTab from "./EmployeeBenefitsTab";
 import EmployeeDocumentsTab from "./EmployeeDocumentsTab";
 import EmployeeLifecycleTab from "./EmployeeLifecycleTab";
 import EmployeeProfileTab from "./EmployeeProfileTab";
@@ -27,31 +35,6 @@ type SearchParams = Promise<{
 
 function formatDate(value: Date) {
   return new Date(value).toLocaleDateString();
-}
-
-function getMonthlyAccrualRateForDisplay(params: {
-  hireDate: Date;
-  monthlyAccrualOverride?: number | null;
-  asOfDate?: Date;
-}) {
-  if (params.monthlyAccrualOverride != null) {
-    return params.monthlyAccrualOverride;
-  }
-
-  const asOfDate = params.asOfDate ?? new Date();
-  let years = asOfDate.getFullYear() - params.hireDate.getFullYear();
-
-  if (
-    asOfDate.getMonth() < params.hireDate.getMonth() ||
-    (asOfDate.getMonth() === params.hireDate.getMonth() &&
-      asOfDate.getDate() < params.hireDate.getDate())
-  ) {
-    years -= 1;
-  }
-
-  if (years <= 5) return 10.0;
-  if (years <= 10) return 13.33;
-  return 16.67;
 }
 
 export default async function EmployeeProfilePage({
@@ -84,6 +67,8 @@ export default async function EmployeeProfilePage({
   const canViewProfile =
     isSelf || isAdmin || isExecutive || isAuditor || managesEmployee;
   const canViewDocuments = isSelf || isAdmin;
+  const canViewPrivateInfo = isSelf || isAdmin;
+  const canViewBenefits = isSelf || isAdmin;
 
   if (!canViewProfile) {
     return (
@@ -97,7 +82,10 @@ export default async function EmployeeProfilePage({
     await getEmployeeProfilePageData({
       employeeId: id,
       includeAdminOptions: isAdmin,
+      includePrivateInfo: canViewPrivateInfo,
+      includeBenefits: canViewBenefits,
     });
+  const policy = await getPolicySettings();
 
   if (!employee) {
     return <div className="text-red-600">Employee not found.</div>;
@@ -109,10 +97,15 @@ export default async function EmployeeProfilePage({
   const currentPtoBalance = ptoLedger[0]?.balance ?? 0;
   const currentCompBalance = compLedger[0]?.balance ?? 0;
 
-  const monthlyAccrualRate = getMonthlyAccrualRateForDisplay({
+  const accrualSummary = getAccrualSummary({
     hireDate: employee.hireDate,
+    accrualMode: employee.accrualMode,
     monthlyAccrualOverride: employee.monthlyAccrualOverride,
-  });
+    accrualOverrideReason: employee.accrualOverrideReason,
+    advancedAccrualTier: employee.advancedAccrualTier,
+    advancedAccrualEffectiveDate: employee.advancedAccrualEffectiveDate,
+    advancedAccrualReason: employee.advancedAccrualReason,
+  }, new Date(), policy);
 
   const visibleRequests = employee.requests.slice(0, 10);
   const visibleLedger = employee.ledger.slice(0, 20);
@@ -140,6 +133,29 @@ export default async function EmployeeProfilePage({
   const roleCodes = employee.roleAssignments.map(
     (assignment) => assignment.role.code
   );
+  const compensationProfile = serializeCompensationProfile({
+    id: employee.id,
+    firstName: employee.firstName,
+    lastName: employee.lastName,
+    payType: employee.payType,
+    hourlyRate: employee.hourlyRate,
+    annualSalary: employee.annualSalary,
+    fte: employee.fte,
+    payrollFrequency: employee.payrollFrequency,
+    hireDate: employee.hireDate,
+    compensationProfile:
+      "compensationProfile" in employee ? employee.compensationProfile : null,
+  });
+  const totalCompensationSummary = calculateTotalCompensationSummary({
+    compensationProfile,
+    benefitElections:
+      "benefitElections" in employee
+        ? employee.benefitElections.map((election) => ({
+            electionStatus: election.electionStatus,
+            companyMonthlyCost: election.companyMonthlyCost,
+          }))
+        : [],
+  });
 
   const tabs: EmployeeTabItem[] = [
     {
@@ -152,6 +168,15 @@ export default async function EmployeeProfilePage({
       label: "PTO",
       href: `/employees/${employee.id}?tab=pto`,
     },
+    ...(canViewBenefits
+      ? [
+          {
+            id: "benefits",
+            label: "Benefits",
+            href: `/employees/${employee.id}?tab=benefits`,
+          },
+        ]
+      : []),
     ...(canViewDocuments
       ? [
           {
@@ -189,14 +214,50 @@ export default async function EmployeeProfilePage({
   let activeTabContent;
 
   switch (activeTab) {
+    case "benefits":
+      activeTabContent = canViewBenefits ? (
+        <EmployeeBenefitsTab
+          employeeId={employee.id}
+          payrollFrequency={employee.payrollFrequency}
+          elections={
+            "benefitElections" in employee
+              ? employee.benefitElections.map((election) => ({
+                  id: election.id,
+                  benefitType: election.benefitType,
+                  planName: election.planName,
+                  coverageLevel: election.coverageLevel,
+                  electionStatus: election.electionStatus,
+                  effectiveDate: election.effectiveDate.toISOString().split("T")[0],
+                  totalMonthlyCost: election.totalMonthlyCost.toFixed(2),
+                  companyMonthlyCost: election.companyMonthlyCost.toFixed(2),
+                  employeeMonthlyCost: election.employeeMonthlyCost.toFixed(2),
+                  estimatedPerPaycheckWithholding:
+                    election.electionStatus === "ENROLLED"
+                      ? calculatePerPaycheckWithholding(
+                          election.employeeMonthlyCost,
+                          employee.payrollFrequency
+                        )
+                      : null,
+                  payrollFrequency: employee.payrollFrequency,
+                  notes: election.notes,
+                }))
+              : []
+          }
+          canManage={isAdmin}
+        />
+      ) : null;
+      break;
     case "pto":
       activeTabContent = (
         <EmployeePtoTab
           currentPtoBalance={currentPtoBalance}
           currentCompBalance={currentCompBalance}
-          monthlyAccrualRate={monthlyAccrualRate}
+          accrualSummary={accrualSummary}
           monthlyAccrualOverride={employee.monthlyAccrualOverride}
           accrualOverrideReason={employee.accrualOverrideReason}
+          advancedAccrualTier={employee.advancedAccrualTier}
+          advancedAccrualEffectiveDate={employee.advancedAccrualEffectiveDate}
+          advancedAccrualReason={employee.advancedAccrualReason}
           visibleRequests={visibleRequests}
         />
       );
@@ -271,6 +332,9 @@ export default async function EmployeeProfilePage({
             status: employee.status,
             hireDate: employee.hireDate.toISOString().split("T")[0],
             managerId: employee.managerId,
+            payrollFrequency: employee.payrollFrequency,
+            compensationProfile,
+            totalCompensationSummary,
           }}
           managers={managerOptions}
           roles={allRoles.map((role) => ({
@@ -286,6 +350,7 @@ export default async function EmployeeProfilePage({
     default:
       activeTabContent = (
         <EmployeeProfileTab
+          employeeId={employee.id}
           employee={{
             email: employee.email,
             status: employee.status,
@@ -301,6 +366,17 @@ export default async function EmployeeProfilePage({
           }}
           directReports={directReports}
           roleCodes={roleCodes}
+          contactInfo={
+            canViewPrivateInfo && "contactInfo" in employee
+              ? employee.contactInfo
+              : null
+          }
+          emergencyContacts={
+            canViewPrivateInfo && "emergencyContacts" in employee
+              ? employee.emergencyContacts
+              : []
+          }
+          canViewPrivateInfo={canViewPrivateInfo}
         />
       );
       break;

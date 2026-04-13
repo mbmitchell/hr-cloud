@@ -91,6 +91,7 @@ export async function POST(request: Request) {
       hourlyRate,
       annualSalary,
       fte,
+      payrollFrequency,
     } = parsedInput.data;
 
     const existingEmployee = await prisma.employee.findUnique({
@@ -148,6 +149,7 @@ export async function POST(request: Request) {
           hourlyRate: payType === "HOURLY" ? hourlyRate : null,
           annualSalary: payType === "SALARY" ? annualSalary : null,
           fte,
+          payrollFrequency,
         },
       });
 
@@ -180,6 +182,7 @@ export async function POST(request: Request) {
           hourlyRate: employee.hourlyRate,
           annualSalary: employee.annualSalary,
           fte: employee.fte,
+          payrollFrequency: employee.payrollFrequency,
           roles: validRoles.map((role) => role.code),
         },
       });

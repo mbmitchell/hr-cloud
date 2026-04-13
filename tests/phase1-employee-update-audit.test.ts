@@ -25,9 +25,14 @@ function createEmployeeUpdateTx() {
     hourlyRate: null,
     annualSalary: null,
     fte: 1,
+    payrollFrequency: "BIWEEKLY",
     hireDate: new Date("2024-01-15T00:00:00.000Z"),
+    accrualMode: "STANDARD_TENURE",
     monthlyAccrualOverride: null,
     accrualOverrideReason: null,
+    advancedAccrualTier: null,
+    advancedAccrualEffectiveDate: null,
+    advancedAccrualReason: null,
     managerId: "mgr-1",
     createdAt: new Date("2024-01-01T00:00:00.000Z"),
     updatedAt: new Date("2024-02-01T00:00:00.000Z"),
@@ -79,6 +84,7 @@ test("employee update writes an audit log entry with before and after values", a
       status: updatedEmployee.status,
       hireDate: updatedEmployee.hireDate,
       managerId: updatedEmployee.managerId,
+      payrollFrequency: updatedEmployee.payrollFrequency,
     },
   });
 
@@ -133,6 +139,7 @@ test("employee update writes status history only when the status changes", async
       status: updatedEmployee.status,
       hireDate: updatedEmployee.hireDate,
       managerId: updatedEmployee.managerId,
+      payrollFrequency: updatedEmployee.payrollFrequency,
     },
   });
 

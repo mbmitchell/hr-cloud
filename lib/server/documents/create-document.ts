@@ -5,6 +5,7 @@ import {
   isEmployeeDocumentCategory,
 } from "../../documents/constants";
 import { assertCanUploadEmployeeDocuments } from "./access";
+import { writeSensitiveDocumentAuditLog } from "./audit";
 import { getEmployeeDocumentMetadataForActor } from "./queries";
 import {
   buildEmployeeDocumentStorageKey,
@@ -31,7 +32,7 @@ export async function createEmployeeDocument(input: {
   skipUploadAuthorization?: boolean;
 }) {
   if (!input.skipUploadAuthorization) {
-    assertCanUploadEmployeeDocuments(input.actor, input.employeeId);
+    assertCanUploadEmployeeDocuments(input.actor, input.employeeId, input.category);
   }
 
   if (!isEmployeeDocumentCategory(input.category)) {
@@ -98,6 +99,27 @@ export async function createEmployeeDocument(input: {
   } catch (error) {
     await deleteDocumentFile(storageKey);
     throw error;
+  }
+
+  const createdDocumentRecord = await prisma.employeeDocument.findUnique({
+    where: { id: createdDocument.id },
+    select: {
+      id: true,
+      employeeId: true,
+      category: true,
+      originalFileName: true,
+      description: true,
+      status: true,
+    },
+  });
+
+  if (createdDocumentRecord) {
+    await writeSensitiveDocumentAuditLog(prisma, {
+      actorId: input.actor.id,
+      action: "EMPLOYEE_SENSITIVE_DOCUMENT_UPLOAD",
+      entityId: createdDocumentRecord.id,
+      newValue: createdDocumentRecord,
+    });
   }
 
   const metadata = await getEmployeeDocumentMetadataForActor(

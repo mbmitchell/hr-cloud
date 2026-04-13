@@ -1,5 +1,5 @@
 import { prisma } from "../../../../lib/db";
-import { projectPtoBalance } from "../../../../lib/pto/accrual";
+import { getAccrualSummary, projectPtoBalance } from "../../../../lib/pto/accrual";
 import { getPolicySettings } from "../../../../lib/policy/settings";
 import { NextResponse } from "next/server";
 import {
@@ -60,6 +60,19 @@ export async function GET(
     const currentCompBalance = compLedger[0]?.balance ?? 0;
 
     let ptoProjection = null;
+    const accrualSummary = getAccrualSummary(
+      {
+        hireDate: employee.hireDate,
+        accrualMode: employee.accrualMode,
+        monthlyAccrualOverride: employee.monthlyAccrualOverride,
+        accrualOverrideReason: employee.accrualOverrideReason,
+        advancedAccrualTier: employee.advancedAccrualTier,
+        advancedAccrualEffectiveDate: employee.advancedAccrualEffectiveDate,
+        advancedAccrualReason: employee.advancedAccrualReason,
+      },
+      new Date(),
+      policy
+    );
 
     if (requestStartDateParam) {
       const requestStartDate = new Date(requestStartDateParam);
@@ -69,7 +82,12 @@ export async function GET(
           currentBalance: currentPtoBalance,
           hireDate: employee.hireDate,
           requestStartDate,
+          accrualMode: employee.accrualMode,
           monthlyAccrualOverride: employee.monthlyAccrualOverride,
+          accrualOverrideReason: employee.accrualOverrideReason,
+          advancedAccrualTier: employee.advancedAccrualTier,
+          advancedAccrualEffectiveDate: employee.advancedAccrualEffectiveDate,
+          advancedAccrualReason: employee.advancedAccrualReason,
           policy,
         });
       }
@@ -80,10 +98,15 @@ export async function GET(
         id: employee.id,
         firstName: employee.firstName,
         lastName: employee.lastName,
+        accrualMode: employee.accrualMode,
         currentPtoBalance,
         currentCompBalance,
         monthlyAccrualOverride: employee.monthlyAccrualOverride,
         accrualOverrideReason: employee.accrualOverrideReason,
+        advancedAccrualTier: employee.advancedAccrualTier,
+        advancedAccrualEffectiveDate: employee.advancedAccrualEffectiveDate,
+        advancedAccrualReason: employee.advancedAccrualReason,
+        accrualSummary,
         ptoProjection,
       },
       withPrivateNoStoreHeaders()

@@ -13,10 +13,15 @@ type EmployeeCompensation = {
   id: string;
   firstName: string;
   lastName: string;
-  payType?: string | null;
-  hourlyRate?: number | null;
-  annualSalary?: number | null;
-  fte?: number | null;
+  profileId: string | null;
+  payType: "SALARY" | "HOURLY" | null;
+  hourlyRate: string | null;
+  annualSalary: string | null;
+  standardHours: string;
+  payrollFrequency: "BIWEEKLY" | "SEMI_MONTHLY" | "MONTHLY";
+  effectiveDate: string;
+  notes: string | null;
+  hasProfile: boolean;
 };
 
 export default function CompensationAdminClient() {
@@ -24,10 +29,13 @@ export default function CompensationAdminClient() {
   const [employeeId, setEmployeeId] = useState("");
   const [employeeDetail, setEmployeeDetail] = useState<EmployeeCompensation | null>(null);
 
-  const [payType, setPayType] = useState("HOURLY");
+  const [payType, setPayType] = useState("SALARY");
   const [hourlyRate, setHourlyRate] = useState("");
   const [annualSalary, setAnnualSalary] = useState("");
-  const [fte, setFte] = useState("1");
+  const [standardHours, setStandardHours] = useState("40.00");
+  const [payrollFrequency, setPayrollFrequency] = useState("BIWEEKLY");
+  const [effectiveDate, setEffectiveDate] = useState("");
+  const [notes, setNotes] = useState("");
 
   const [message, setMessage] = useState("");
   const [loadingEmployees, setLoadingEmployees] = useState(true);
@@ -78,10 +86,13 @@ export default function CompensationAdminClient() {
         }
 
         setEmployeeDetail(data);
-        setPayType(data.payType ?? "HOURLY");
-        setHourlyRate(data.hourlyRate != null ? String(data.hourlyRate) : "");
-        setAnnualSalary(data.annualSalary != null ? String(data.annualSalary) : "");
-        setFte(data.fte != null ? String(data.fte) : "1");
+        setPayType(data.payType ?? "SALARY");
+        setHourlyRate(data.hourlyRate ?? "");
+        setAnnualSalary(data.annualSalary ?? "");
+        setStandardHours(data.standardHours ?? "40.00");
+        setPayrollFrequency(data.payrollFrequency ?? "BIWEEKLY");
+        setEffectiveDate(data.effectiveDate ?? "");
+        setNotes(data.notes ?? "");
       } catch {
         setMessage("Unable to load employee compensation.");
         setEmployeeDetail(null);
@@ -109,7 +120,10 @@ export default function CompensationAdminClient() {
           payType,
           hourlyRate: payType === "HOURLY" ? hourlyRate : null,
           annualSalary: payType === "SALARY" ? annualSalary : null,
-          fte,
+          standardHours,
+          payrollFrequency,
+          effectiveDate,
+          notes,
         }),
       });
 
@@ -125,6 +139,13 @@ export default function CompensationAdminClient() {
 
         if (refreshResponse.ok) {
           setEmployeeDetail(refreshData);
+          setPayType(refreshData.payType ?? "SALARY");
+          setHourlyRate(refreshData.hourlyRate ?? "");
+          setAnnualSalary(refreshData.annualSalary ?? "");
+          setStandardHours(refreshData.standardHours ?? "40.00");
+          setPayrollFrequency(refreshData.payrollFrequency ?? "BIWEEKLY");
+          setEffectiveDate(refreshData.effectiveDate ?? "");
+          setNotes(refreshData.notes ?? "");
         }
       }
     } catch {
@@ -139,7 +160,7 @@ export default function CompensationAdminClient() {
       <div>
         <h2 className="text-2xl font-bold">Compensation Management</h2>
         <p className="text-sm text-slate-600 mt-1">
-          Maintain pay type, pay rate, salary, and FTE for liability reporting.
+          Maintain the employee compensation profile used for HR and payroll-supporting reporting.
         </p>
       </div>
 
@@ -174,18 +195,23 @@ export default function CompensationAdminClient() {
                 <div>
                   <b>Current Hourly Rate:</b>{" "}
                   {employeeDetail.hourlyRate != null
-                    ? `$${employeeDetail.hourlyRate.toFixed(2)}`
+                    ? `$${employeeDetail.hourlyRate}`
                     : "-"}
                 </div>
                 <div>
                   <b>Current Annual Salary:</b>{" "}
                   {employeeDetail.annualSalary != null
-                    ? `$${employeeDetail.annualSalary.toFixed(2)}`
+                    ? `$${employeeDetail.annualSalary}`
                     : "-"}
                 </div>
                 <div>
-                  <b>Current FTE:</b>{" "}
-                  {employeeDetail.fte != null ? employeeDetail.fte.toFixed(2) : "1.00"}
+                  <b>Current Standard Hours:</b> {employeeDetail.standardHours}
+                </div>
+                <div>
+                  <b>Payroll Frequency:</b> {employeeDetail.payrollFrequency}
+                </div>
+                <div>
+                  <b>Effective Date:</b> {employeeDetail.effectiveDate}
                 </div>
               </div>
             ) : (
@@ -238,16 +264,51 @@ export default function CompensationAdminClient() {
           )}
 
           <div>
-            <label className="block text-sm font-medium mb-2">FTE</label>
+            <label className="block text-sm font-medium mb-2">Standard Hours</label>
             <input
               type="number"
               step="0.01"
               min="0.01"
-              value={fte}
-              onChange={(e) => setFte(e.target.value)}
+              value={standardHours}
+              onChange={(e) => setStandardHours(e.target.value)}
               className="w-full border rounded px-3 py-2"
-              placeholder="Example: 1.00"
+              placeholder="Example: 40.00"
               required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Payroll Frequency</label>
+            <select
+              value={payrollFrequency}
+              onChange={(e) => setPayrollFrequency(e.target.value)}
+              className="w-full border rounded px-3 py-2"
+            >
+              <option value="BIWEEKLY">BIWEEKLY</option>
+              <option value="SEMI_MONTHLY">SEMI_MONTHLY</option>
+              <option value="MONTHLY">MONTHLY</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Effective Date</label>
+            <input
+              type="date"
+              value={effectiveDate}
+              onChange={(e) => setEffectiveDate(e.target.value)}
+              className="w-full border rounded px-3 py-2"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Notes</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="w-full border rounded px-3 py-2"
+              rows={3}
+              placeholder="Optional compensation notes"
             />
           </div>
 

@@ -19,6 +19,7 @@ type EmployeeEditFormProps = {
     status: string;
     hireDate: string;
     managerId: string | null;
+    payrollFrequency: "BIWEEKLY" | "SEMI_MONTHLY" | "MONTHLY";
   };
   managers: ManagerOption[];
   defaultExpanded?: boolean;
@@ -38,6 +39,7 @@ export default function EmployeeEditForm({
   const [status, setStatus] = useState(employee.status);
   const [hireDate, setHireDate] = useState(employee.hireDate);
   const [managerId, setManagerId] = useState(employee.managerId ?? "");
+  const [payrollFrequency, setPayrollFrequency] = useState(employee.payrollFrequency);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -61,6 +63,7 @@ export default function EmployeeEditForm({
           status,
           hireDate,
           managerId: managerId || null,
+          payrollFrequency,
         }),
       });
 
@@ -208,6 +211,23 @@ export default function EmployeeEditForm({
                     {manager.firstName} {manager.lastName}
                   </option>
                 ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium">Payroll Frequency</label>
+              <select
+                value={payrollFrequency}
+                onChange={(e) =>
+                  setPayrollFrequency(
+                    e.target.value as "BIWEEKLY" | "SEMI_MONTHLY" | "MONTHLY"
+                  )
+                }
+                className="w-full rounded border px-3 py-2"
+              >
+                <option value="BIWEEKLY">BIWEEKLY</option>
+                <option value="SEMI_MONTHLY">SEMI_MONTHLY</option>
+                <option value="MONTHLY">MONTHLY</option>
               </select>
             </div>
           </div>

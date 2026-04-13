@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { requireDocumentActor } from "../../../../../lib/server/documents/access";
+import { writeSensitiveDocumentAuditLog } from "../../../../../lib/server/documents/audit";
 import { getEmployeeDocumentDownloadForActor } from "../../../../../lib/server/documents/queries";
 import { getDocumentFileStream } from "../../../../../lib/server/documents/storage";
+import { prisma } from "../../../../../lib/db";
 import { isAuthorizationError } from "../../../../../lib/server/authorization";
 
 const INLINE_VIEW_MIME_TYPES = new Set([
@@ -48,6 +50,20 @@ export async function GET(
 
     try {
       const file = await getDocumentFileStream(document.storageKey);
+
+      await writeSensitiveDocumentAuditLog(prisma, {
+        actorId: actor.id,
+        action: "EMPLOYEE_SENSITIVE_DOCUMENT_VIEW",
+        entityId: document.id,
+        newValue: {
+          id: document.id,
+          employeeId: document.employeeId,
+          category: document.category,
+          originalFileName: document.originalFileName,
+          description: document.description,
+          status: document.status,
+        },
+      });
 
       return new Response(file.stream, {
         headers: {

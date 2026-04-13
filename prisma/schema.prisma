@@ -7,6 +7,37 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum EmployeeAccrualMode {
+  STANDARD_TENURE
+  ADVANCED_TIER
+  MANUAL_ONLY
+}
+
+enum EmployeeAccrualTier {
+  YEARS_1_TO_5
+  YEARS_6_TO_10
+  YEARS_11_PLUS
+}
+
+enum EmployeeBenefitType {
+  MEDICAL
+  DENTAL
+  VISION
+  LIFE
+  OTHER
+}
+
+enum EmployeeBenefitElectionStatus {
+  ENROLLED
+  WAIVED
+}
+
+enum EmployeePayrollFrequency {
+  BIWEEKLY
+  SEMI_MONTHLY
+  MONTHLY
+}
+
 model Employee {
   id         String   @id @default(uuid())
   email      String   @unique
@@ -24,9 +55,15 @@ model Employee {
   hourlyRate   Float?
   annualSalary Float?
   fte          Float?  @default(1)
+  payrollFrequency EmployeePayrollFrequency @default(BIWEEKLY)
 
+  accrualMode                 EmployeeAccrualMode @default(STANDARD_TENURE)
   monthlyAccrualOverride Float?
   accrualOverrideReason  String?
+  advancedAccrualTier          EmployeeAccrualTier?
+  advancedAccrualEffectiveDate DateTime?
+  advancedAccrualReason        String?
+
 
   manager       Employee?  @relation("ManagerToReports", fields: [managerId], references: [id])
   directReports Employee[] @relation("ManagerToReports")
@@ -51,12 +88,90 @@ model Employee {
   documentAssignmentReminderOutboxEntries  DocumentAssignmentReminderEmailOutbox[]
   assignedDocumentAssignments              EmployeeDocumentAssignment[]                @relation("AssignedEmployeeDocumentAssignments")
   roleAssignments                          EmployeeRoleAssignment[]
+  contactInfo                              EmployeeContactInfo?
+  emergencyContacts                        EmployeeEmergencyContact[]
+  benefitElections                         EmployeeBenefitElection[]
+  compensationProfile                      EmployeeCompensationProfile?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([entraTid, entraOid])
   @@index([managerId])
+}
+
+model EmployeeCompensationProfile {
+  id               String                   @id @default(uuid())
+  employeeId       String                   @unique
+  payType          String
+  annualSalary     Decimal?                 @db.Decimal(12, 2)
+  hourlyRate       Decimal?                 @db.Decimal(10, 2)
+  standardHours    Decimal                  @db.Decimal(5, 2)
+  payrollFrequency EmployeePayrollFrequency @default(BIWEEKLY)
+  effectiveDate    DateTime
+  notes            String?                  @db.Text
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId, effectiveDate])
+}
+
+model EmployeeBenefitElection {
+  id                  String                        @id @default(uuid())
+  employeeId          String
+  benefitType         EmployeeBenefitType
+  planName            String
+  coverageLevel       String?
+  electionStatus      EmployeeBenefitElectionStatus
+  effectiveDate       DateTime
+  totalMonthlyCost    Decimal                       @db.Decimal(10, 2)
+  companyMonthlyCost  Decimal                       @db.Decimal(10, 2)
+  employeeMonthlyCost Decimal                       @db.Decimal(10, 2)
+  notes               String?                       @db.Text
+  createdAt           DateTime                      @default(now())
+  updatedAt           DateTime                      @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId, benefitType, effectiveDate])
+}
+
+model EmployeeContactInfo {
+  id            String   @id @default(uuid())
+  employeeId    String   @unique
+  preferredName String?
+  personalEmail String?
+  mobilePhone   String?
+  homePhone     String?
+  street1       String?
+  street2       String?
+  city          String?
+  state         String?
+  postalCode    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId])
+}
+
+model EmployeeEmergencyContact {
+  id           String   @id @default(uuid())
+  employeeId   String
+  name         String
+  relationship String
+  phone        String
+  email        String?
+  priority     Int      @default(1)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId, priority, createdAt])
 }
 
 model PTORequest {

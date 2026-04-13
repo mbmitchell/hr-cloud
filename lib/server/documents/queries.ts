@@ -1,7 +1,11 @@
 import { prisma } from "../../db";
+import { isSensitiveEmployeeDocumentCategory } from "../../documents/constants";
 import type { AuthorizationActor } from "../authorization";
 import { AuthorizationError } from "../authorization";
-import { assertCanAccessDocumentMetadata } from "./access";
+import {
+  assertCanAccessDocumentMetadata,
+  canActorAccessEmployeeDocumentCategory,
+} from "./access";
 import type { EmployeeDocumentMetadata } from "./types";
 import { POLICY_DOCUMENT_INTERNAL_DESCRIPTION_PREFIX } from "../document-acknowledgements/types";
 
@@ -78,7 +82,11 @@ export async function listEmployeeDocumentsForActor(
     orderBy: [{ uploadedAt: "desc" }, { createdAt: "desc" }],
   });
 
-  return documents.map(mapEmployeeDocumentMetadata);
+  return documents
+    .filter((document) =>
+      canActorAccessEmployeeDocumentCategory(actor, employeeId, document.category)
+    )
+    .map(mapEmployeeDocumentMetadata);
 }
 
 export async function getEmployeeDocumentMetadataForActor(
@@ -94,7 +102,7 @@ export async function getEmployeeDocumentMetadataForActor(
     return null;
   }
 
-  assertCanAccessDocumentMetadata(actor, document.employeeId);
+  assertCanAccessDocumentMetadata(actor, document.employeeId, document.category);
 
   return mapEmployeeDocumentMetadata(document);
 }
@@ -108,10 +116,12 @@ export async function getEmployeeDocumentDownloadForActor(
     select: {
       id: true,
       employeeId: true,
+      category: true,
       originalFileName: true,
       mimeType: true,
       fileSizeBytes: true,
       storageKey: true,
+      description: true,
       status: true,
     },
   });
@@ -121,7 +131,7 @@ export async function getEmployeeDocumentDownloadForActor(
   }
 
   try {
-    assertCanAccessDocumentMetadata(actor, document.employeeId);
+    assertCanAccessDocumentMetadata(actor, document.employeeId, document.category);
   } catch {
     const assignment = await prisma.employeeDocumentAssignment.findFirst({
       where: {

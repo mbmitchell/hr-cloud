@@ -3,6 +3,7 @@ import {
   AuthorizationError,
   requireActor,
 } from "../authorization";
+import { isSensitiveEmployeeDocumentCategory } from "../../documents/constants";
 
 function canActorManageEmployeeDocuments(actor: AuthorizationActor) {
   return actor.roles.some((roleCode) =>
@@ -25,6 +26,22 @@ export function canActorAccessEmployeeDocuments(
   return actor.id === employeeId;
 }
 
+export function canActorAccessEmployeeDocumentCategory(
+  actor: AuthorizationActor,
+  employeeId: string,
+  category: string
+) {
+  if (isSensitiveEmployeeDocumentCategory(category)) {
+    return (
+      actor.id === employeeId ||
+      actor.roles.includes("SITE_ADMIN") ||
+      actor.roles.includes("HR_ADMIN")
+    );
+  }
+
+  return canActorAccessEmployeeDocuments(actor, employeeId);
+}
+
 export async function requireDocumentActor() {
   return requireActor();
 }
@@ -45,23 +62,43 @@ export function assertCanAccessEmployeeDocuments(
 
 export function assertCanAccessDocumentMetadata(
   actor: AuthorizationActor,
-  employeeId: string
+  employeeId: string,
+  category?: string
 ) {
+  if (category) {
+    if (canActorAccessEmployeeDocumentCategory(actor, employeeId, category)) {
+      return;
+    }
+
+    throw new AuthorizationError(
+      "You do not have permission to access this employee document.",
+      { status: 403, code: "FORBIDDEN" }
+    );
+  }
+
   assertCanAccessEmployeeDocuments(actor, employeeId);
 }
 
 export function canActorUploadEmployeeDocuments(
   actor: AuthorizationActor,
-  _employeeId: string
+  _employeeId: string,
+  category?: string
 ) {
+  if (category && isSensitiveEmployeeDocumentCategory(category)) {
+    return actor.roles.some((roleCode) =>
+      ["SITE_ADMIN", "HR_ADMIN"].includes(roleCode)
+    );
+  }
+
   return canActorManageEmployeeDocuments(actor);
 }
 
 export function assertCanUploadEmployeeDocuments(
   actor: AuthorizationActor,
-  employeeId: string
+  employeeId: string,
+  category?: string
 ) {
-  if (canActorUploadEmployeeDocuments(actor, employeeId)) {
+  if (canActorUploadEmployeeDocuments(actor, employeeId, category)) {
     return;
   }
 

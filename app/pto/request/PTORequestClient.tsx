@@ -29,6 +29,7 @@ type Projection = {
   accrualCount: number;
   accruedBeforeRequest: number;
   projectedBalance: number;
+  accrualSummaryText?: string;
 };
 
 type EmployeeBalance = {
@@ -37,8 +38,28 @@ type EmployeeBalance = {
   lastName: string;
   currentPtoBalance: number;
   currentCompBalance: number;
+  accrualMode?: string | null;
   monthlyAccrualOverride?: number | null;
   accrualOverrideReason?: string | null;
+  advancedAccrualTier?: string | null;
+  advancedAccrualEffectiveDate?: string | null;
+  advancedAccrualReason?: string | null;
+  accrualSummary?: {
+    mode: string;
+    source: string;
+    currentMonthlyRate: number;
+    tenureTier: string;
+    activeTier: string | null;
+    advancedTier: string | null;
+    advancedEffectiveDate: string | null;
+    manualOverrideRate: number | null;
+    reason: string | null;
+    nextTier: {
+      tier: string;
+      monthlyRate: number;
+      effectiveDate: string;
+    } | null;
+  };
   ptoProjection: Projection | null;
 };
 
@@ -370,14 +391,18 @@ export default function PTORequestClient() {
                 {employeeBalance.ptoProjection.projectedBalance.toFixed(2)} hours
               </div>
               <div className="text-sm text-blue-800">
-                {employeeBalance.ptoProjection.accrualCount} accrual(s) ×{" "}
-                {employeeBalance.ptoProjection.monthlyRate.toFixed(2)} hrs/month
+                {employeeBalance.ptoProjection.accrualSummaryText ??
+                  `${employeeBalance.ptoProjection.accrualCount} accrual(s) × ${employeeBalance.ptoProjection.monthlyRate.toFixed(
+                    2
+                  )} hrs/month`}
               </div>
-              {employeeBalance.monthlyAccrualOverride != null && (
+              {employeeBalance.accrualSummary?.source !== "STANDARD_TENURE" && (
                 <div className="text-xs text-amber-700">
-                  Override in use: {employeeBalance.monthlyAccrualOverride.toFixed(2)} hrs/month
-                  {employeeBalance.accrualOverrideReason
-                    ? ` — ${employeeBalance.accrualOverrideReason}`
+                  {employeeBalance.accrualSummary?.source === "MANUAL_ONLY"
+                    ? `Manual-only accrual in use: ${employeeBalance.accrualSummary.currentMonthlyRate.toFixed(2)} hrs/month`
+                    : `Advanced tier in use: ${employeeBalance.accrualSummary?.activeTier ?? "N/A"} (${employeeBalance.accrualSummary?.currentMonthlyRate.toFixed(2)} hrs/month)`}
+                  {employeeBalance.accrualSummary?.reason
+                    ? ` — ${employeeBalance.accrualSummary.reason}`
                     : ""}
                 </div>
               )}

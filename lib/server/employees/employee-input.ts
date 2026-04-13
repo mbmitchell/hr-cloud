@@ -16,6 +16,7 @@ export type ParsedEmployeeInput = {
   hourlyRate?: number | null;
   annualSalary?: number | null;
   fte?: number;
+  payrollFrequency: "BIWEEKLY" | "SEMI_MONTHLY" | "MONTHLY";
 };
 
 type EmployeeInputParseResult =
@@ -54,6 +55,10 @@ export function parseEmployeeInput(
   const status = parseRequiredString(body.status);
   const hireDate = parseRequiredString(body.hireDate);
   const managerId = parseOptionalString(body.managerId);
+  const payrollFrequency =
+    body.payrollFrequency == null || body.payrollFrequency === ""
+      ? "BIWEEKLY"
+      : String(body.payrollFrequency).trim();
 
   if (!firstName || !lastName || !email || !status || !hireDate) {
     return {
@@ -70,6 +75,13 @@ export function parseEmployeeInput(
     };
   }
 
+  if (!["BIWEEKLY", "SEMI_MONTHLY", "MONTHLY"].includes(payrollFrequency)) {
+    return {
+      ok: false,
+      error: "Payroll frequency is invalid.",
+    };
+  }
+
   const parsed: ParsedEmployeeInput = {
     firstName,
     lastName,
@@ -79,6 +91,7 @@ export function parseEmployeeInput(
     status,
     hireDate: parsedHireDate,
     managerId,
+    payrollFrequency: payrollFrequency as "BIWEEKLY" | "SEMI_MONTHLY" | "MONTHLY",
   };
 
   if (!options.includeCompensation) {
@@ -99,7 +112,6 @@ export function parseEmployeeInput(
       : Number(body.annualSalary);
   const fte =
     body.fte == null || body.fte === "" ? 1 : Number(body.fte);
-
   if (payType && !["HOURLY", "SALARY"].includes(payType)) {
     return {
       ok: false,

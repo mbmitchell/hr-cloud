@@ -63,6 +63,10 @@ export async function GET() {
     "Roles",
     "PTO Balance",
     "COMP Balance",
+    "Accrual Mode",
+    "Advanced Accrual Tier",
+    "Advanced Accrual Effective Date",
+    "Advanced Accrual Reason",
     "Monthly Accrual Override",
     "Accrual Override Reason",
   ];
@@ -91,6 +95,12 @@ export async function GET() {
       roles,
       ptoBalance.toFixed(2),
       compBalance.toFixed(2),
+      employee.accrualMode,
+      employee.advancedAccrualTier ?? "",
+      employee.advancedAccrualEffectiveDate
+        ? employee.advancedAccrualEffectiveDate.toISOString().split("T")[0]
+        : "",
+      employee.advancedAccrualReason ?? "",
       employee.monthlyAccrualOverride != null
         ? employee.monthlyAccrualOverride.toFixed(2)
         : "",

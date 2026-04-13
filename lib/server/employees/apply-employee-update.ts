@@ -15,6 +15,7 @@ type EmployeeUpdateInput = {
     status: string;
     hireDate: Date;
     managerId: string | null;
+    payrollFrequency: "BIWEEKLY" | "SEMI_MONTHLY" | "MONTHLY";
   };
 };
 
@@ -61,6 +62,7 @@ function serializeEmployee(employee: {
   status: string;
   hireDate: Date;
   managerId: string | null;
+  payrollFrequency: "BIWEEKLY" | "SEMI_MONTHLY" | "MONTHLY";
 }) {
   return {
     firstName: employee.firstName,
@@ -71,6 +73,7 @@ function serializeEmployee(employee: {
     status: employee.status,
     hireDate: employee.hireDate.toISOString(),
     managerId: employee.managerId,
+    payrollFrequency: employee.payrollFrequency,
   };
 }
 

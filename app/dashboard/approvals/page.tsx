@@ -12,6 +12,7 @@ const emptyProjection = {
   projectedBalance: 0,
   monthlyRate: 0,
   accrualCount: 0,
+  accrualSummaryText: "No future accruals before the request date.",
 };
 
 export default async function ManagerApprovalsPage() {
@@ -85,7 +86,12 @@ const requests = await prisma.pTORequest.findMany({
             currentBalance: currentPtoBalance,
             hireDate: employee.hireDate,
             requestStartDate: request.startDate,
+            accrualMode: employee.accrualMode,
             monthlyAccrualOverride: employee.monthlyAccrualOverride,
+            accrualOverrideReason: employee.accrualOverrideReason,
+            advancedAccrualTier: employee.advancedAccrualTier,
+            advancedAccrualEffectiveDate: employee.advancedAccrualEffectiveDate,
+            advancedAccrualReason: employee.advancedAccrualReason,
           })
         : emptyProjection;
 
@@ -141,6 +147,7 @@ const requests = await prisma.pTORequest.findMany({
         projectedPtoBalance: ptoProjection.projectedBalance,
         monthlyAccrualRate: ptoProjection.monthlyRate,
         accrualCount: ptoProjection.accrualCount,
+        accrualSummaryText: ptoProjection.accrualSummaryText,
         effectiveAvailableBalance,
         isWorkflowOnly: isWorkflowOnlyLeaveType(request.leaveType),
         staffingConflictCount: staffingConflicts.length,

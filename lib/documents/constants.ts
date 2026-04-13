@@ -4,6 +4,9 @@ export const EMPLOYEE_DOCUMENT_CATEGORIES = [
   "PERFORMANCE_REVIEW",
   "HR_RECORD",
   "ONBOARDING",
+  "DIRECT_DEPOSIT_AUTHORIZATION",
+  "TAX_FORM",
+  "BENEFIT_ENROLLMENT_FORM",
   "OTHER",
 ] as const;
 
@@ -25,6 +28,26 @@ export function isEmployeeDocumentCategory(
 ): value is EmployeeDocumentCategory {
   return EMPLOYEE_DOCUMENT_CATEGORIES.includes(
     value as EmployeeDocumentCategory
+  );
+}
+
+export const SENSITIVE_EMPLOYEE_DOCUMENT_CATEGORIES = [
+  "DIRECT_DEPOSIT_AUTHORIZATION",
+  "TAX_FORM",
+  "BENEFIT_ENROLLMENT_FORM",
+] as const satisfies readonly EmployeeDocumentCategory[];
+
+export function isSensitiveEmployeeDocumentCategory(
+  value: string
+): value is (typeof SENSITIVE_EMPLOYEE_DOCUMENT_CATEGORIES)[number] {
+  return SENSITIVE_EMPLOYEE_DOCUMENT_CATEGORIES.includes(
+    value as (typeof SENSITIVE_EMPLOYEE_DOCUMENT_CATEGORIES)[number]
+  );
+}
+
+export function getStandardEmployeeDocumentCategories() {
+  return EMPLOYEE_DOCUMENT_CATEGORIES.filter(
+    (category) => !isSensitiveEmployeeDocumentCategory(category)
   );
 }
 

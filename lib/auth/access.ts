@@ -95,7 +95,6 @@ export async function canCurrentUserManageCompensation() {
   return currentUserHasAnyRole([
     "SITE_ADMIN",
     "HR_ADMIN",
-    "ACCOUNTING",
   ]);
 }
 export async function canCurrentUserRunRollover() {

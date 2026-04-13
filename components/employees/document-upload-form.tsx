@@ -6,14 +6,18 @@ import { EMPLOYEE_DOCUMENT_CATEGORIES } from "../../lib/documents/constants";
 
 export default function DocumentUploadForm({
   employeeId,
+  categories = EMPLOYEE_DOCUMENT_CATEGORIES,
+  title = "Upload Document",
   onUploaded,
 }: {
   employeeId: string;
+  categories?: readonly string[];
+  title?: string;
   onUploaded: (message: string) => Promise<void> | void;
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [file, setFile] = useState<File | null>(null);
-  const [category, setCategory] = useState<string>(EMPLOYEE_DOCUMENT_CATEGORIES[0]);
+  const [category, setCategory] = useState<string>(categories[0] ?? EMPLOYEE_DOCUMENT_CATEGORIES[0]);
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -63,7 +67,7 @@ export default function DocumentUploadForm({
       }
 
       setFile(null);
-      setCategory(EMPLOYEE_DOCUMENT_CATEGORIES[0]);
+      setCategory(categories[0] ?? EMPLOYEE_DOCUMENT_CATEGORIES[0]);
       setDescription("");
       const fileInput = fileInputRef.current;
       if (fileInput) {
@@ -79,6 +83,8 @@ export default function DocumentUploadForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-slate-200 p-4">
+      <div className="text-sm font-semibold text-slate-900">{title}</div>
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
           <label className="mb-2 block text-sm font-medium">Document</label>
@@ -123,7 +129,7 @@ export default function DocumentUploadForm({
             onChange={(event) => setCategory(event.target.value)}
             className="w-full rounded border px-3 py-2"
           >
-            {EMPLOYEE_DOCUMENT_CATEGORIES.map((option) => (
+            {categories.map((option) => (
               <option key={option} value={option}>
                 {option}
               </option>

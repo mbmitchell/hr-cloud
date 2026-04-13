@@ -78,6 +78,8 @@ export async function getEmployeeDirectoryEmployees(actorId: string) {
 export async function getEmployeeProfilePageData(input: {
   employeeId: string;
   includeAdminOptions: boolean;
+  includePrivateInfo?: boolean;
+  includeBenefits?: boolean;
 }) {
   const employee = await prisma.employee.findUnique({
     where: { id: input.employeeId },
@@ -103,6 +105,29 @@ export async function getEmployeeProfilePageData(input: {
         where: { isActive: true },
         include: { role: true },
       },
+      ...(input.includeAdminOptions
+        ? {
+            compensationProfile: true,
+          }
+        : {}),
+      ...(input.includePrivateInfo
+        ? {
+            contactInfo: true,
+            emergencyContacts: {
+              orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
+            },
+          }
+        : {}),
+      ...(input.includeBenefits
+        ? {
+            benefitElections: {
+              orderBy: [
+                { effectiveDate: "desc" },
+                { createdAt: "desc" },
+              ],
+            },
+          }
+        : {}),
     },
   });
 

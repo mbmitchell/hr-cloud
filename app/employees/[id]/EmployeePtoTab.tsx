@@ -1,4 +1,5 @@
 import EmployeeProfileSection from "./EmployeeProfileSection";
+import type { AccrualSummary } from "../../../lib/pto/accrual";
 
 function formatDate(value: Date) {
   return new Date(value).toLocaleDateString();
@@ -7,16 +8,22 @@ function formatDate(value: Date) {
 export default function EmployeePtoTab({
   currentPtoBalance,
   currentCompBalance,
-  monthlyAccrualRate,
+  accrualSummary,
   monthlyAccrualOverride,
   accrualOverrideReason,
+  advancedAccrualTier,
+  advancedAccrualEffectiveDate,
+  advancedAccrualReason,
   visibleRequests,
 }: {
   currentPtoBalance: number;
   currentCompBalance: number;
-  monthlyAccrualRate: number;
+  accrualSummary: AccrualSummary;
   monthlyAccrualOverride: number | null;
   accrualOverrideReason: string | null;
+  advancedAccrualTier: string | null;
+  advancedAccrualEffectiveDate: Date | null;
+  advancedAccrualReason: string | null;
   visibleRequests: Array<{
     id: string;
     createdAt: Date;
@@ -51,7 +58,7 @@ export default function EmployeePtoTab({
         <div className="rounded-xl bg-white p-4 shadow sm:p-5">
           <div className="text-sm text-slate-500">Monthly Accrual Rate</div>
           <div className="mt-2 text-3xl font-semibold">
-            {monthlyAccrualRate.toFixed(2)}
+            {accrualSummary.currentMonthlyRate.toFixed(2)}
           </div>
           <div className="mt-1 text-sm text-slate-500">hours / month</div>
         </div>
@@ -60,16 +67,45 @@ export default function EmployeePtoTab({
       <EmployeeProfileSection title="Accrual Settings" defaultExpanded>
         <div className="space-y-2 text-sm">
           <div>
-            <b>Standard Monthly Rate:</b> {monthlyAccrualRate.toFixed(2)} hours
+            <b>Accrual Mode:</b> {accrualSummary.mode}
           </div>
           <div>
-            <b>Override:</b>{" "}
+            <b>Current Monthly Rate:</b> {accrualSummary.currentMonthlyRate.toFixed(2)} hours
+          </div>
+          <div>
+            <b>Current Tier:</b> {accrualSummary.activeTier ?? "Manual only"}
+          </div>
+          <div>
+            <b>Rate Source:</b> {accrualSummary.source}
+          </div>
+          <div>
+            <b>Advanced Tier:</b> {advancedAccrualTier ?? "None"}
+          </div>
+          <div>
+            <b>Advanced Effective Date:</b>{" "}
+            {advancedAccrualEffectiveDate ? formatDate(advancedAccrualEffectiveDate) : "-"}
+          </div>
+          <div>
+            <b>Advanced Reason:</b> {advancedAccrualReason ?? "-"}
+          </div>
+          <div>
+            <b>Manual Override:</b>{" "}
             {monthlyAccrualOverride != null
               ? `${monthlyAccrualOverride.toFixed(2)} hours/month`
               : "None"}
           </div>
           <div>
-            <b>Override Reason:</b> {accrualOverrideReason ?? "-"}
+            <b>Manual Override Reason:</b> {accrualOverrideReason ?? "-"}
+          </div>
+          <div>
+            <b>Next Tier:</b>{" "}
+            {accrualSummary.nextTier
+              ? `${accrualSummary.nextTier.tier} on ${new Date(
+                  accrualSummary.nextTier.effectiveDate
+                ).toLocaleDateString()} (${accrualSummary.nextTier.monthlyRate.toFixed(
+                  2
+                )} hours/month)`
+              : "No further automatic tier changes"}
           </div>
           <div>
             <b>Rollover Cap:</b> 80.00 hours

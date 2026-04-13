@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "../db";
-import { getMonthlyAccrualRate } from "./accrual";
+import { getAccrualSummary, getMonthlyAccrualRate } from "./accrual";
 import { getPolicySettings } from "../policy/settings";
 
 type RunAccrualsResult = {
@@ -88,10 +88,28 @@ export async function runMonthlyAccruals(
         });
 
         const currentBalance = latestPtoLedger?.balance ?? 0;
+        const accrualSummary = getAccrualSummary(
+          {
+            hireDate: employee.hireDate,
+            accrualMode: employee.accrualMode,
+            monthlyAccrualOverride: employee.monthlyAccrualOverride,
+            accrualOverrideReason: employee.accrualOverrideReason,
+            advancedAccrualTier: employee.advancedAccrualTier,
+            advancedAccrualEffectiveDate: employee.advancedAccrualEffectiveDate,
+            advancedAccrualReason: employee.advancedAccrualReason,
+          },
+          effectiveDate,
+          policy
+        );
         const monthlyRate = getMonthlyAccrualRate(
           {
             hireDate: employee.hireDate,
+            accrualMode: employee.accrualMode,
             monthlyAccrualOverride: employee.monthlyAccrualOverride,
+            accrualOverrideReason: employee.accrualOverrideReason,
+            advancedAccrualTier: employee.advancedAccrualTier,
+            advancedAccrualEffectiveDate: employee.advancedAccrualEffectiveDate,
+            advancedAccrualReason: employee.advancedAccrualReason,
           },
           effectiveDate,
           policy
@@ -109,9 +127,11 @@ export async function runMonthlyAccruals(
             effectiveDate,
             idempotencyKey,
             notes:
-              employee.monthlyAccrualOverride != null
-                ? `${notesLabel} (override applied)`
-                : notesLabel,
+              accrualSummary.source === "MANUAL_ONLY"
+                ? `${notesLabel} (manual-only accrual override applied)`
+                : accrualSummary.source === "ADVANCED_TIER"
+                  ? `${notesLabel} (advanced tier applied)`
+                  : notesLabel,
           },
         });
 
@@ -130,6 +150,9 @@ export async function runMonthlyAccruals(
               accrualHours: monthlyRate,
               newBalance,
               effectiveDate: effectiveDate.toISOString(),
+              accrualMode: employee.accrualMode,
+              accrualSource: accrualSummary.source,
+              activeTier: accrualSummary.activeTier,
             }),
           },
         });

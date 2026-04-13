@@ -33,6 +33,7 @@ export default function AddEmployeeClient() {
   const [hourlyRate, setHourlyRate] = useState("");
   const [annualSalary, setAnnualSalary] = useState("");
   const [fte, setFte] = useState("1");
+  const [payrollFrequency, setPayrollFrequency] = useState("BIWEEKLY");
 
   const [selectedRoleCodes, setSelectedRoleCodes] = useState<string[]>(["EMPLOYEE"]);
 
@@ -94,6 +95,7 @@ export default function AddEmployeeClient() {
           hourlyRate: payType === "HOURLY" ? hourlyRate : null,
           annualSalary: payType === "SALARY" ? annualSalary : null,
           fte,
+          payrollFrequency,
           roleCodes: selectedRoleCodes,
         }),
       });
@@ -224,6 +226,19 @@ export default function AddEmployeeClient() {
                     {manager.department ? ` — ${manager.department}` : ""}
                   </option>
                 ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Payroll Frequency</label>
+              <select
+                value={payrollFrequency}
+                onChange={(e) => setPayrollFrequency(e.target.value)}
+                className="w-full border rounded px-3 py-2"
+              >
+                <option value="BIWEEKLY">BIWEEKLY</option>
+                <option value="SEMI_MONTHLY">SEMI_MONTHLY</option>
+                <option value="MONTHLY">MONTHLY</option>
               </select>
             </div>
           </div>
