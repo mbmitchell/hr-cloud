@@ -5,6 +5,7 @@ import {
   getDocumentMaxUploadBytes,
 } from "../../../../../lib/documents/constants";
 import { prisma } from "../../../../../lib/db";
+import { writeAuditLog } from "../../../../../lib/server/audit/write-audit-log";
 import {
   assertCanManageDocumentAcknowledgements,
   requireDocumentAcknowledgementActor,
@@ -141,6 +142,20 @@ export async function POST(request: Request) {
         where: { id: assignableDocument.id },
         data: {
           currentVersionId: version.id,
+        },
+      });
+
+      await writeAuditLog(tx, {
+        userId: actor.id,
+        action: "DOCUMENT_ACKNOWLEDGEMENT_VERSION_UPLOAD",
+        entityType: "AssignableDocument",
+        entityId: assignableDocument.id,
+        newValue: {
+          versionId: version.id,
+          versionLabel: version.versionLabel,
+          employeeDocumentId: version.employeeDocumentId,
+          originalFileName: backingDocument.originalFileName,
+          notes,
         },
       });
 

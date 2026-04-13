@@ -9,13 +9,15 @@ type AcknowledgementSummary = {
 
 export default function EmployeeAcknowledgementsSummaryPanel({
   summary,
+  defaultExpanded = false,
 }: {
   summary: AcknowledgementSummary;
+  defaultExpanded?: boolean;
 }) {
   const hasAssignments = summary.total > 0;
 
   return (
-    <EmployeeProfileSection title="Acknowledgements">
+    <EmployeeProfileSection title="Acknowledgements" defaultExpanded={defaultExpanded}>
       <div className="space-y-4">
         <p className="text-sm text-slate-600">
           Summary of assigned policy and acknowledgement documents for this

@@ -43,8 +43,11 @@ declare global {
   var __mfnAuthWarningsLogged: boolean | undefined;
 }
 
-const allowDevAuth = process.env.AUTH_ENABLE_DEV_AUTH === "true";
+const isDevelopment = process.env.NODE_ENV === "development";
+const allowDevAuth =
+  isDevelopment && process.env.AUTH_ENABLE_DEV_AUTH === "true";
 const allowDevUserSwitcher =
+  isDevelopment &&
   process.env.AUTH_ENABLE_DEV_AUTH === "true" &&
   process.env.AUTH_ENABLE_DEV_USER_SWITCHER === "true";
 const allowMicrosoftEntraAuth = Boolean(
@@ -60,7 +63,6 @@ const devAuthEmailAllowlist = new Set(
     .map((email) => email.trim().toLowerCase())
     .filter(Boolean)
 );
-const isDevelopment = process.env.NODE_ENV === "development";
 
 function stripSensitiveTokenFields(token: Record<string, unknown>) {
   delete token.access_token;

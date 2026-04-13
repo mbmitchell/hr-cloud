@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "../../../../../../lib/db";
+import { writeAuditLog } from "../../../../../../lib/server/audit/write-audit-log";
 import {
   assertCanManageDocumentAcknowledgements,
   requireDocumentAcknowledgementActor,
@@ -103,6 +104,20 @@ export async function POST(
           },
         });
       }
+
+      await writeAuditLog(tx, {
+        userId: actor.id,
+        action: "DOCUMENT_ACKNOWLEDGEMENT_VERSION_PUBLISH",
+        entityType: "AssignableDocument",
+        entityId: document.id,
+        newValue: {
+          versionId: createdVersion.id,
+          versionLabel: createdVersion.versionLabel,
+          employeeDocumentId: sourceDocument.id,
+          setAsCurrent,
+          notes,
+        },
+      });
 
       return createdVersion;
     });

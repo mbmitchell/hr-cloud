@@ -29,6 +29,34 @@ function isImageMimeType(mimeType: string) {
   );
 }
 
+function formatDate(value: string | null) {
+  return value ? new Date(value).toLocaleDateString() : "-";
+}
+
+function getViewerStatusSummary(assignment: ViewerAssignment) {
+  if (assignment.acknowledgedAt) {
+    return {
+      label: "Acknowledged",
+      detail: `Acknowledged ${formatDate(assignment.acknowledgedAt)}`,
+      className: "bg-green-100 text-green-800",
+    };
+  }
+
+  if (assignment.viewedAt) {
+    return {
+      label: "Viewed",
+      detail: `Viewed ${formatDate(assignment.viewedAt)} • Pending acknowledgement`,
+      className: "bg-sky-100 text-sky-800",
+    };
+  }
+
+  return {
+    label: "Assigned",
+    detail: "Open and review the document to continue.",
+    className: "bg-amber-100 text-amber-800",
+  };
+}
+
 export default function AcknowledgementDocumentViewer({
   assignment,
 }: {
@@ -109,6 +137,7 @@ export default function AcknowledgementDocumentViewer({
   const viewerUrl = `/api/documents/${assignment.version.employeeDocumentId}/view`;
   const canAcknowledge =
     assignment.status === "PENDING" && !markingViewed && hasScrolledToBottom;
+  const statusSummary = getViewerStatusSummary(assignment);
 
   return (
     <div className="space-y-6">
@@ -130,6 +159,18 @@ export default function AcknowledgementDocumentViewer({
       </div>
 
       <div className="rounded-xl bg-white p-5 shadow sm:p-6">
+        <div className="mb-4 flex flex-col gap-2 border-b border-slate-200 pb-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="text-sm font-medium text-slate-700">Acknowledgement Status</div>
+            <div className="mt-1 text-xs text-slate-500">{statusSummary.detail}</div>
+          </div>
+          <span
+            className={`inline-flex w-fit rounded-full px-2.5 py-1 text-xs font-medium ${statusSummary.className}`}
+          >
+            {statusSummary.label}
+          </span>
+        </div>
+
         <div className="mb-4">
           <h3 className="text-lg font-semibold text-slate-900">
             Review Document

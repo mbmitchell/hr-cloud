@@ -26,12 +26,14 @@ export default function EmployeeDocumentsPanel({
   employeeId,
   canUpload,
   canManage = false,
+  defaultExpanded = false,
 }: {
   employeeId: string;
   canUpload: boolean;
   canManage?: boolean;
+  defaultExpanded?: boolean;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");

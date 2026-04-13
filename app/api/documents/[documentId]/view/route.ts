@@ -12,6 +12,12 @@ const INLINE_VIEW_MIME_TYPES = new Set([
   "image/webp",
 ]);
 
+const sensitiveDocumentHeaders = {
+  "Cache-Control": "private, no-store",
+  Pragma: "no-cache",
+  "X-Content-Type-Options": "nosniff",
+} as const;
+
 function buildInlineContentDisposition(fileName: string) {
   const safeFileName = fileName.replace(/["\r\n]/g, "_");
   return `inline; filename="${safeFileName}"`;
@@ -29,14 +35,14 @@ export async function GET(
     if (!document) {
       return NextResponse.json(
         { error: "Document not found." },
-        { status: 404 }
+        { status: 404, headers: sensitiveDocumentHeaders }
       );
     }
 
     if (!INLINE_VIEW_MIME_TYPES.has(document.mimeType)) {
       return NextResponse.json(
         { error: "This document type is not supported for in-browser viewing." },
-        { status: 415 }
+        { status: 415, headers: sensitiveDocumentHeaders }
       );
     }
 
@@ -45,6 +51,7 @@ export async function GET(
 
       return new Response(file.stream, {
         headers: {
+          ...sensitiveDocumentHeaders,
           "Content-Type": document.mimeType,
           "Content-Length": String(file.contentLength),
           "Content-Disposition": buildInlineContentDisposition(
@@ -55,14 +62,14 @@ export async function GET(
     } catch {
       return NextResponse.json(
         { error: "Document file not found." },
-        { status: 404 }
+        { status: 404, headers: sensitiveDocumentHeaders }
       );
     }
   } catch (error) {
     if (isAuthorizationError(error)) {
       return NextResponse.json(
         { error: error.message },
-        { status: error.status }
+        { status: error.status, headers: sensitiveDocumentHeaders }
       );
     }
 
@@ -70,7 +77,7 @@ export async function GET(
 
     return NextResponse.json(
       { error: "Failed to view employee document." },
-      { status: 500 }
+      { status: 500, headers: sensitiveDocumentHeaders }
     );
   }
 }

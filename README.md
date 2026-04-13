@@ -209,10 +209,21 @@ tests/
 - Prisma ORM for parameterized database access
 - Audit logging for key auth, authorization, and HR mutations
 - Environment-variable-based secret handling
+- Baseline response hardening headers set by Next.js:
+  - `X-Content-Type-Options: nosniff`
+  - `Referrer-Policy: strict-origin-when-cross-origin`
+  - `X-Frame-Options: DENY`
+  - `Permissions-Policy: camera=(), microphone=(), geolocation=()`
 - Nginx rate limiting
 - Fail2Ban
 - TLS via Let's Encrypt
 - Temporary dev auth controls explicitly gated by env flags
+
+Nginx should still enforce edge concerns that are deployment-specific, especially:
+- HSTS
+- request/body size limits
+- rate limiting
+- any future CSP or `frame-ancestors` policy, if introduced after explicit validation
 
 ## 11. Future Roadmap
 

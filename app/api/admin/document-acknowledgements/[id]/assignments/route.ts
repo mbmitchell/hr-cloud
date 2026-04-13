@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "../../../../../../lib/db";
+import { writeAuditLog } from "../../../../../../lib/server/audit/write-audit-log";
 import { resolveAssignmentTargetEmployeeIds } from "../../../../../../lib/server/document-acknowledgements/assignment-targets";
 import { assignDocumentVersionToEmployees } from "../../../../../../lib/server/document-acknowledgements/assign";
 import {
@@ -121,6 +122,27 @@ export async function POST(
               dueDate: Date | null;
             }>,
           };
+
+    await writeAuditLog(prisma, {
+      userId: actor.id,
+      action: "DOCUMENT_ACKNOWLEDGEMENT_ASSIGNMENTS_CREATE",
+      entityType: "AssignableDocument",
+      entityId: document.id,
+      newValue: {
+        assignableDocumentVersionId,
+        targetMode,
+        targetEmployeeIds: resolvedEmployeeIds,
+        createdAssignmentIds: assignmentResult.assignments.map(
+          (assignment) => assignment.id
+        ),
+        dueDate: dueDate ? dueDate.toISOString() : null,
+        summary: {
+          attempted: resolvedEmployeeIds.length,
+          created: assignmentResult.assignments.length,
+          skipped: existingEmployeeIds.size,
+        },
+      },
+    });
 
     return NextResponse.json({
       assignment:

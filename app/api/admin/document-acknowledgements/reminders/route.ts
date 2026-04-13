@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { prisma } from "../../../../../lib/db";
+import { writeAuditLog } from "../../../../../lib/server/audit/write-audit-log";
 import {
   assertCanManageDocumentAcknowledgements,
   requireDocumentAcknowledgementActor,
@@ -35,6 +37,14 @@ export async function POST(request: Request) {
     const result = await triggerDocumentAssignmentReminderEmails({
       actor,
       staleThresholdDays,
+    });
+
+    await writeAuditLog(prisma, {
+      userId: actor.id,
+      action: "DOCUMENT_ACKNOWLEDGEMENT_REMINDER_TRIGGER",
+      entityType: "EmployeeDocumentAssignment",
+      entityId: "manual-reminder-run",
+      newValue: result,
     });
 
     return NextResponse.json({ result });

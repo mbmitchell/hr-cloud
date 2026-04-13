@@ -233,7 +233,7 @@ await prisma.policySettings.create({
 
   const marty = await prisma.employee.create({
     data: {
-      email: "marty@managedfinancialnetworks.com",
+      email: "marty@mfncuso.com",
     firstName: "Marty",
     lastName: "Mitchell",
     title: "Chief Information Officer",
@@ -248,7 +248,7 @@ await prisma.policySettings.create({
 
   const sarah = await prisma.employee.create({
     data: {
-        email: "sarah.manager@managedfinancialnetworks.com",
+        email: "sarah.manager@mfncuso.com",
     firstName: "Sarah",
     lastName: "Manager",
     title: "Operations Manager",
@@ -263,7 +263,7 @@ await prisma.policySettings.create({
 
   const andrew = await prisma.employee.create({
     data: {
-        email: "andrew.accounting@managedfinancialnetworks.com",
+        email: "andrew.accounting@mfncuso.com",
     firstName: "Andrew",
     lastName: "Accounting",
     title: "Controller",
@@ -278,7 +278,7 @@ await prisma.policySettings.create({
 
   const allen = await prisma.employee.create({
     data: {
-     email: "allen@managedfinancialnetworks.com",
+     email: "allen@mfncuso.com",
     firstName: "Allen",
     lastName: "Yoest",
     title: "System Administrator",

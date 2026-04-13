@@ -7,6 +7,7 @@ import {
   isAuthorizationError,
   requireActor,
 } from "../../../../lib/server/authorization";
+import { withPrivateNoStoreHeaders } from "../../../../lib/server/http/headers";
 
 export async function GET(
   request: Request,
@@ -26,7 +27,7 @@ export async function GET(
     if (!employeeExists) {
       return NextResponse.json(
         { error: "Employee not found." },
-        { status: 404 }
+        withPrivateNoStoreHeaders({ status: 404 })
       );
     }
 
@@ -46,7 +47,7 @@ export async function GET(
     if (!employee) {
       return NextResponse.json(
         { error: "Employee not found." },
-        { status: 404 }
+        withPrivateNoStoreHeaders({ status: 404 })
       );
     }
 
@@ -74,27 +75,30 @@ export async function GET(
       }
     }
 
-    return NextResponse.json({
-      id: employee.id,
-      firstName: employee.firstName,
-      lastName: employee.lastName,
-      currentPtoBalance,
-      currentCompBalance,
-      monthlyAccrualOverride: employee.monthlyAccrualOverride,
-      accrualOverrideReason: employee.accrualOverrideReason,
-      ptoProjection,
-    });
+    return NextResponse.json(
+      {
+        id: employee.id,
+        firstName: employee.firstName,
+        lastName: employee.lastName,
+        currentPtoBalance,
+        currentCompBalance,
+        monthlyAccrualOverride: employee.monthlyAccrualOverride,
+        accrualOverrideReason: employee.accrualOverrideReason,
+        ptoProjection,
+      },
+      withPrivateNoStoreHeaders()
+    );
   } catch (error) {
     if (isAuthorizationError(error)) {
       return NextResponse.json(
         { error: error.message },
-        { status: error.status }
+        withPrivateNoStoreHeaders({ status: error.status })
       );
     }
 
     return NextResponse.json(
       { error: "Failed to load employee balances." },
-      { status: 500 }
+      withPrivateNoStoreHeaders({ status: 500 })
     );
   }
 }

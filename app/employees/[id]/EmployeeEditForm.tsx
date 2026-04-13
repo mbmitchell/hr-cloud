@@ -21,13 +21,15 @@ type EmployeeEditFormProps = {
     managerId: string | null;
   };
   managers: ManagerOption[];
+  defaultExpanded?: boolean;
 };
 
 export default function EmployeeEditForm({
   employee,
   managers,
+  defaultExpanded = false,
 }: EmployeeEditFormProps) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const [firstName, setFirstName] = useState(employee.firstName);
   const [lastName, setLastName] = useState(employee.lastName);
   const [email, setEmail] = useState(employee.email);

@@ -22,6 +22,7 @@ export async function listAssignableDocumentsForAdmin(
         select: {
           status: true,
           dueDate: true,
+          viewedAt: true,
           acknowledgedAt: true,
         },
       },
@@ -44,13 +45,6 @@ export async function listAssignableDocumentsForAdmin(
             },
           },
           assignments: {
-            where: {
-              notificationOutbox: {
-                is: {
-                  status: "FAILED",
-                },
-              },
-            },
             select: {
               id: true,
               employee: {
@@ -63,6 +57,20 @@ export async function listAssignableDocumentsForAdmin(
                 select: {
                   id: true,
                   createdAt: true,
+                  lastError: true,
+                  status: true,
+                },
+              },
+              reminderOutboxEntries: {
+                orderBy: [{ createdAt: "desc" }],
+                take: 1,
+                select: {
+                  id: true,
+                  reminderType: true,
+                  status: true,
+                  attemptCount: true,
+                  createdAt: true,
+                  sentAt: true,
                   lastError: true,
                 },
               },
@@ -88,6 +96,12 @@ export async function listAssignableDocumentsForAdmin(
     const acknowledgedAssignments = document.assignments.filter(
       (assignment) => assignment.status === "ACKNOWLEDGED"
     ).length;
+    const viewedPendingAssignments = document.assignments.filter(
+      (assignment) =>
+        assignment.status === "PENDING" &&
+        assignment.acknowledgedAt == null &&
+        assignment.viewedAt != null
+    ).length;
     const overdueAssignments = document.assignments.filter(
       (assignment) =>
         assignment.dueDate != null &&
@@ -104,6 +118,7 @@ export async function listAssignableDocumentsForAdmin(
       assignmentCounts: {
         total: totalAssignments,
         pending: pendingAssignments,
+        viewedPending: viewedPendingAssignments,
         acknowledged: acknowledgedAssignments,
         overdue: overdueAssignments,
         completionPercentage:
@@ -113,14 +128,21 @@ export async function listAssignableDocumentsForAdmin(
       },
       notificationCounts: {
         failed: document.versions.reduce(
-          (count, version) => count + version.assignments.length,
+          (count, version) =>
+            count +
+            version.assignments.filter(
+              (assignment) => assignment.notificationOutbox?.status === "FAILED"
+            ).length,
           0
         ),
       },
       recentFailedNotifications: document.versions
         .flatMap((version) =>
           version.assignments
-            .filter((assignment) => assignment.notificationOutbox != null)
+            .filter(
+              (assignment) =>
+                assignment.notificationOutbox?.status === "FAILED"
+            )
             .map((assignment) => ({
               id: assignment.notificationOutbox!.id,
               employeeName: `${assignment.employee.firstName} ${assignment.employee.lastName}`.trim(),
@@ -131,6 +153,25 @@ export async function listAssignableDocumentsForAdmin(
         )
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
         .slice(0, 3),
+      recentReminderHistory: document.versions
+        .flatMap((version) =>
+          version.assignments
+            .filter((assignment) => assignment.reminderOutboxEntries.length > 0)
+            .map((assignment) => ({
+              id: assignment.reminderOutboxEntries[0]!.id,
+              assignmentId: assignment.id,
+              employeeName: `${assignment.employee.firstName} ${assignment.employee.lastName}`.trim(),
+              versionLabel: version.versionLabel,
+              reminderType: assignment.reminderOutboxEntries[0]!.reminderType,
+              status: assignment.reminderOutboxEntries[0]!.status,
+              attemptCount: assignment.reminderOutboxEntries[0]!.attemptCount,
+              createdAt: assignment.reminderOutboxEntries[0]!.createdAt,
+              sentAt: assignment.reminderOutboxEntries[0]!.sentAt,
+              lastError: assignment.reminderOutboxEntries[0]!.lastError,
+            }))
+        )
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .slice(0, 5),
       versions: document.versions.map((version) => ({
         id: version.id,
         versionLabel: version.versionLabel,

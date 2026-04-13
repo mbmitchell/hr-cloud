@@ -21,6 +21,7 @@ type Props = {
   } | null;
   activeTemplates: TemplateOption[];
   canCreate: boolean;
+  defaultExpanded?: boolean;
 };
 
 export default function EmployeeOnboardingPanel({
@@ -28,8 +29,9 @@ export default function EmployeeOnboardingPanel({
   onboarding,
   activeTemplates,
   canCreate,
+  defaultExpanded = false,
 }: Props) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const [templateId, setTemplateId] = useState(activeTemplates[0]?.id ?? "");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);

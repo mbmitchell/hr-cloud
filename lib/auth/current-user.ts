@@ -2,7 +2,9 @@ import { prisma } from "../db";
 import { cookies } from "next/headers";
 import { auth } from "../../auth";
 
-const allowDevAuth = process.env.AUTH_ENABLE_DEV_AUTH === "true";
+const allowDevAuth =
+  process.env.NODE_ENV === "development" &&
+  process.env.AUTH_ENABLE_DEV_AUTH === "true";
 
 export async function getCurrentUser() {
   const session = await auth();

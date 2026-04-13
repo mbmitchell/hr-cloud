@@ -25,6 +25,7 @@ type AssignableDocument = {
   assignmentCounts: {
     total: number;
     pending: number;
+    viewedPending: number;
     acknowledged: number;
     overdue: number;
     completionPercentage: number;
@@ -37,6 +38,18 @@ type AssignableDocument = {
     employeeName: string;
     versionLabel: string;
     createdAt: string;
+    lastError: string | null;
+  }>;
+  recentReminderHistory?: Array<{
+    id: string;
+    assignmentId: string;
+    employeeName: string;
+    versionLabel: string;
+    reminderType: string;
+    status: string;
+    attemptCount: number;
+    createdAt: string;
+    sentAt: string | null;
     lastError: string | null;
   }>;
   versions: Version[];
@@ -94,8 +107,29 @@ function summarizeNotificationError(value: string | null) {
   return value.length > 120 ? `${value.slice(0, 117)}...` : value;
 }
 
+function summarizeReminderError(value: string | null) {
+  if (!value) {
+    return "No delivery errors recorded.";
+  }
+
+  return value.length > 140 ? `${value.slice(0, 137)}...` : value;
+}
+
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString("en-US");
+}
+
+function getReminderStatusBadgeClass(status: string) {
+  switch (status) {
+    case "SENT":
+      return "bg-green-100 text-green-800";
+    case "FAILED":
+      return "bg-red-100 text-red-800";
+    case "PENDING":
+      return "bg-amber-100 text-amber-800";
+    default:
+      return "bg-slate-100 text-slate-700";
+  }
 }
 
 function statusBannerClasses(kind: NonNullable<Notice>["kind"]) {
@@ -690,7 +724,7 @@ export default function DocumentAcknowledgementsAdminClient() {
                       </div>
                     </div>
 
-                    <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                    <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
                       <div className="rounded border border-slate-200 px-4 py-3 text-sm">
                         <div className="text-slate-500">Current Version</div>
                         <div className="mt-1 font-semibold text-slate-900">
@@ -704,9 +738,17 @@ export default function DocumentAcknowledgementsAdminClient() {
                         </div>
                       </div>
                       <div className="rounded border border-slate-200 px-4 py-3 text-sm">
-                        <div className="text-slate-500">Pending</div>
+                        <div className="text-slate-500">Assigned / Pending</div>
                         <div className="mt-1 font-semibold text-slate-900">
                           {document.assignmentCounts.pending}
+                        </div>
+                      </div>
+                      <div className="rounded border border-slate-200 px-4 py-3 text-sm">
+                        <div className="text-slate-500">
+                          Viewed / Awaiting Ack
+                        </div>
+                        <div className="mt-1 font-semibold text-slate-900">
+                          {document.assignmentCounts.viewedPending}
                         </div>
                       </div>
                       <div className="rounded border border-slate-200 px-4 py-3 text-sm">
@@ -760,6 +802,57 @@ export default function DocumentAcknowledgementsAdminClient() {
                               for this document.
                             </div>
                           )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mt-3 rounded border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
+                      <div className="font-medium text-slate-900">
+                        Recent Reminder Activity
+                      </div>
+                      {document.recentReminderHistory &&
+                      document.recentReminderHistory.length > 0 ? (
+                        <div className="mt-3 space-y-2">
+                          {document.recentReminderHistory.map((reminder) => (
+                            <div
+                              key={reminder.id}
+                              className="rounded border border-slate-200 bg-white px-3 py-3"
+                            >
+                              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                  <div className="font-medium text-slate-900">
+                                    {reminder.employeeName} • {reminder.versionLabel}
+                                  </div>
+                                  <div className="mt-1 text-xs text-slate-500">
+                                    Last reminder:{" "}
+                                    {formatDate(reminder.sentAt ?? reminder.createdAt)} •{" "}
+                                    {reminder.reminderType}
+                                  </div>
+                                </div>
+                                <span
+                                  className={`inline-flex w-fit rounded-full px-2.5 py-1 text-xs font-medium ${getReminderStatusBadgeClass(
+                                    reminder.status
+                                  )}`}
+                                >
+                                  {reminder.status}
+                                </span>
+                              </div>
+
+                              <div className="mt-2 text-xs text-slate-600">
+                                Attempts: {reminder.attemptCount}
+                              </div>
+
+                              {reminder.status === "FAILED" ? (
+                                <div className="mt-1 text-xs text-red-700">
+                                  Last failure: {summarizeReminderError(reminder.lastError)}
+                                </div>
+                              ) : null}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="mt-1 text-slate-600">
+                          No reminder history yet for assignments on this document.
                         </div>
                       )}
                     </div>

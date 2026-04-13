@@ -6,6 +6,7 @@ import {
   requireAdmin,
 } from "../../../../../lib/server/authorization";
 import { writeAuditLog } from "../../../../../lib/server/audit/write-audit-log";
+import { withPrivateNoStoreHeaders } from "../../../../../lib/server/http/headers";
 
 export async function GET(
   _request: Request,
@@ -33,7 +34,7 @@ export async function GET(
     if (!employee) {
       return NextResponse.json(
         { error: "Employee not found." },
-        { status: 404 }
+        withPrivateNoStoreHeaders({ status: 404 })
       );
     }
 
@@ -42,28 +43,31 @@ export async function GET(
       orderBy: { name: "asc" },
     });
 
-    return NextResponse.json({
-      employeeId: employee.id,
-      assignedRoleCodes: employee.roleAssignments.map(
-        (assignment) => assignment.role.code
-      ),
-      roles: allRoles.map((role) => ({
-        id: role.id,
-        code: role.code,
-        name: role.name,
-      })),
-    });
+    return NextResponse.json(
+      {
+        employeeId: employee.id,
+        assignedRoleCodes: employee.roleAssignments.map(
+          (assignment) => assignment.role.code
+        ),
+        roles: allRoles.map((role) => ({
+          id: role.id,
+          code: role.code,
+          name: role.name,
+        })),
+      },
+      withPrivateNoStoreHeaders()
+    );
   } catch (error) {
     if (isAuthorizationError(error)) {
       return NextResponse.json(
         { error: error.message },
-        { status: error.status }
+        withPrivateNoStoreHeaders({ status: error.status })
       );
     }
 
     return NextResponse.json(
       { error: "Failed to load employee roles." },
-      { status: 500 }
+      withPrivateNoStoreHeaders({ status: 500 })
     );
   }
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { isEmployeeDocumentCategory } from "../../../../../lib/documents/constants";
 import { prisma } from "../../../../../lib/db";
+import { writeAuditLog } from "../../../../../lib/server/audit/write-audit-log";
 import {
   assertCanManageDocumentAcknowledgements,
   requireDocumentAcknowledgementActor,
@@ -19,7 +20,7 @@ export async function PATCH(
 
     const existing = await prisma.assignableDocument.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, title: true, category: true, isActive: true },
     });
 
     if (!existing) {
@@ -55,6 +56,23 @@ export async function PATCH(
         title,
         category,
         ...(isActive === undefined ? {} : { isActive }),
+      },
+    });
+
+    await writeAuditLog(prisma, {
+      userId: actor.id,
+      action: "DOCUMENT_ACKNOWLEDGEMENT_UPDATE",
+      entityType: "AssignableDocument",
+      entityId: document.id,
+      oldValue: {
+        title: existing.title,
+        category: existing.category,
+        isActive: existing.isActive,
+      },
+      newValue: {
+        title: document.title,
+        category: document.category,
+        isActive: document.isActive,
       },
     });
 

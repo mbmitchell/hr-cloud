@@ -1,11 +1,7 @@
 import { prisma } from "../../../../lib/db";
 import { getCurrentUser } from "../../../../lib/auth/current-user";
 import { getEmployeeRoles, isManagerOf } from "../../../../lib/auth/permissions";
-
-function csvEscape(value: string | number | null | undefined) {
-  const stringValue = value == null ? "" : String(value);
-  return `"${stringValue.replace(/"/g, '""')}"`;
-}
+import { csvEscape } from "../../../../lib/server/csv";
 
 export async function GET() {
   const currentUser = await getCurrentUser();

@@ -10,6 +10,7 @@ import {
 import {
   requireDocumentActor,
 } from "../../../../../lib/server/documents/access";
+import { withPrivateNoStoreHeaders } from "../../../../../lib/server/http/headers";
 
 export async function GET(
   _request: Request,
@@ -20,18 +21,18 @@ export async function GET(
     const { id } = await params;
     const documents = await listEmployeeDocumentsForActor(actor, id);
 
-    return NextResponse.json({ documents });
+    return NextResponse.json({ documents }, withPrivateNoStoreHeaders());
   } catch (error) {
     if (isAuthorizationError(error)) {
       return NextResponse.json(
         { error: error.message },
-        { status: error.status }
+        withPrivateNoStoreHeaders({ status: error.status })
       );
     }
 
     return NextResponse.json(
       { error: "Failed to load employee documents." },
-      { status: 500 }
+      withPrivateNoStoreHeaders({ status: 500 })
     );
   }
 }
@@ -53,7 +54,7 @@ export async function POST(
     if (!(fileValue instanceof File)) {
       return NextResponse.json(
         { error: "A document file is required." },
-        { status: 400 }
+        withPrivateNoStoreHeaders({ status: 400 })
       );
     }
 
@@ -65,12 +66,15 @@ export async function POST(
       file: fileValue,
     });
 
-    return NextResponse.json({ document }, { status: 201 });
+    return NextResponse.json(
+      { document },
+      withPrivateNoStoreHeaders({ status: 201 })
+    );
   } catch (error) {
     if (isAuthorizationError(error)) {
       return NextResponse.json(
         { error: error.message },
-        { status: error.status }
+        withPrivateNoStoreHeaders({ status: error.status })
       );
     }
 
@@ -82,11 +86,17 @@ export async function POST(
         error.message === "Document file type is not allowed." ||
         error.message === "Document description is too long."
       ) {
-        return NextResponse.json({ error: error.message }, { status: 400 });
+        return NextResponse.json(
+          { error: error.message },
+          withPrivateNoStoreHeaders({ status: 400 })
+        );
       }
 
       if (error.message === "Employee not found.") {
-        return NextResponse.json({ error: error.message }, { status: 404 });
+        return NextResponse.json(
+          { error: error.message },
+          withPrivateNoStoreHeaders({ status: 404 })
+        );
       }
     }
 
@@ -94,7 +104,7 @@ export async function POST(
 
     return NextResponse.json(
       { error: "Failed to upload employee document." },
-      { status: 500 }
+      withPrivateNoStoreHeaders({ status: 500 })
     );
   }
 }

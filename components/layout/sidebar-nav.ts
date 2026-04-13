@@ -83,11 +83,6 @@ export function buildSidebarSections(
       items: [
         ...(input.canSeeApprovals
           ? [
-              item("/pto/approvals", "Approval Queue", "checklist"),
-            ]
-          : []),
-        ...(input.canSeeApprovals
-          ? [
               item("/dashboard/approvals", "Approvals", "team"),
             ]
           : []),

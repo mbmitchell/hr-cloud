@@ -27,23 +27,23 @@ test("email transport defaults to graph in production", () => {
 test("email runtime config reads explicit graph settings", () => {
   const config = getEmailRuntimeConfig({
     EMAIL_TRANSPORT: "graph",
-    EMAIL_FROM: "hr@managedfinancialnetworks.com",
-    EMAIL_REPLY_TO: "benefits@managedfinancialnetworks.com",
-    APP_BASE_URL: "https://hr.managedfinancialnetworks.com",
+    EMAIL_FROM: "hr@mfncuso.com",
+    EMAIL_REPLY_TO: "benefits@mfncuso.com",
+    APP_BASE_URL: "https://hr.mfncuso.com",
     GRAPH_TENANT_ID: "tenant-id",
     GRAPH_CLIENT_ID: "client-id",
     GRAPH_CLIENT_SECRET: "secret",
-    GRAPH_MAILBOX_USER_ID: "hr@managedfinancialnetworks.com",
+    GRAPH_MAILBOX_USER_ID: "hr@mfncuso.com",
   });
 
   assert.deepEqual(config, {
     transport: "graph",
-    from: "hr@managedfinancialnetworks.com",
-    replyTo: "benefits@managedfinancialnetworks.com",
-    appBaseUrl: "https://hr.managedfinancialnetworks.com",
+    from: "hr@mfncuso.com",
+    replyTo: "benefits@mfncuso.com",
+    appBaseUrl: "https://hr.mfncuso.com",
     graphTenantId: "tenant-id",
     graphClientId: "client-id",
     graphClientSecret: "secret",
-    graphMailboxUserId: "hr@managedfinancialnetworks.com",
+    graphMailboxUserId: "hr@mfncuso.com",
   });
 });

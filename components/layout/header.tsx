@@ -11,6 +11,7 @@ export default async function Header() {
   const roles = user ? await getEmployeeRoles(user.id) : [];
   const isDev = process.env.NODE_ENV !== "production";
   const allowDevUserSwitcher =
+    process.env.NODE_ENV === "development" &&
     process.env.AUTH_ENABLE_DEV_AUTH === "true" &&
     process.env.AUTH_ENABLE_DEV_USER_SWITCHER === "true";
 

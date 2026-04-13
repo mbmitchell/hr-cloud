@@ -27,13 +27,15 @@ export default function EmployeeOffboardingPanel({
   offboarding,
   activeTemplates,
   canCreate,
+  defaultExpanded = false,
 }: {
   employeeId: string;
   offboarding: OffboardingSummary | null;
   activeTemplates: TemplateOption[];
   canCreate: boolean;
+  defaultExpanded?: boolean;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const [templateId, setTemplateId] = useState(activeTemplates[0]?.id ?? "");
   const [separationType, setSeparationType] = useState("VOLUNTARY");
   const [terminationDate, setTerminationDate] = useState(todayValue());

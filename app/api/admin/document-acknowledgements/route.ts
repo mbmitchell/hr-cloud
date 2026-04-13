@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { isEmployeeDocumentCategory } from "../../../../lib/documents/constants";
 import { prisma } from "../../../../lib/db";
+import { writeAuditLog } from "../../../../lib/server/audit/write-audit-log";
 import {
   requireDocumentAcknowledgementActor,
   assertCanManageDocumentAcknowledgements,
@@ -72,6 +73,18 @@ export async function POST(request: Request) {
         category,
         isActive,
         createdByEmployeeId: actor.id,
+      },
+    });
+
+    await writeAuditLog(prisma, {
+      userId: actor.id,
+      action: "DOCUMENT_ACKNOWLEDGEMENT_CREATE",
+      entityType: "AssignableDocument",
+      entityId: document.id,
+      newValue: {
+        title: document.title,
+        category: document.category,
+        isActive: document.isActive,
       },
     });
 

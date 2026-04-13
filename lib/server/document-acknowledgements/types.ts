@@ -52,6 +52,7 @@ export type AssignableDocumentListItem = {
   assignmentCounts: {
     total: number;
     pending: number;
+    viewedPending: number;
     acknowledged: number;
     overdue: number;
     completionPercentage: number;
@@ -64,6 +65,18 @@ export type AssignableDocumentListItem = {
     employeeName: string;
     versionLabel: string;
     createdAt: Date;
+    lastError: string | null;
+  }>;
+  recentReminderHistory?: Array<{
+    id: string;
+    assignmentId: string;
+    employeeName: string;
+    versionLabel: string;
+    reminderType: string;
+    status: string;
+    attemptCount: number;
+    createdAt: Date;
+    sentAt: Date | null;
     lastError: string | null;
   }>;
   versions?: Array<{

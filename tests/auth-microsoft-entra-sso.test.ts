@@ -124,7 +124,7 @@ test("entra sign-in requires matching tenant and matching employee record", asyn
     entraTid: string;
   }) => ({
     id: employeeId,
-    email: "employee@managedfinancialnetworks.com",
+    email: "employee@mfncuso.com",
     status: "ACTIVE",
     entraOid,
     entraTid,

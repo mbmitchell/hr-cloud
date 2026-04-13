@@ -1,14 +1,10 @@
 import { prisma } from "../../../../lib/db";
 import { calculatePtoLiability } from "../../../../lib/finance/liability";
+import { csvEscape } from "../../../../lib/server/csv";
 import {
   isAuthorizationError,
   requireRole,
 } from "../../../../lib/server/authorization";
-
-function csvEscape(value: string | number | null | undefined) {
-  const stringValue = value == null ? "" : String(value);
-  return `"${stringValue.replace(/"/g, '""')}"`;
-}
 
 export async function GET() {
   try {

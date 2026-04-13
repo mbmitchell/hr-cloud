@@ -5,6 +5,12 @@ import { getEmployeeDocumentDownloadForActor } from "../../../../../lib/server/d
 import { getDocumentFileStream } from "../../../../../lib/server/documents/storage";
 import { isAuthorizationError } from "../../../../../lib/server/authorization";
 
+const sensitiveDocumentHeaders = {
+  "Cache-Control": "private, no-store",
+  Pragma: "no-cache",
+  "X-Content-Type-Options": "nosniff",
+} as const;
+
 function buildContentDisposition(fileName: string) {
   const safeFileName = fileName.replace(/["\r\n]/g, "_");
   return `attachment; filename="${safeFileName}"`;
@@ -22,7 +28,7 @@ export async function GET(
     if (!document) {
       return NextResponse.json(
         { error: "Document not found." },
-        { status: 404 }
+        { status: 404, headers: sensitiveDocumentHeaders }
       );
     }
 
@@ -31,6 +37,7 @@ export async function GET(
 
       return new Response(file.stream, {
         headers: {
+          ...sensitiveDocumentHeaders,
           "Content-Type": document.mimeType,
           "Content-Length": String(file.contentLength),
           "Content-Disposition": buildContentDisposition(
@@ -41,14 +48,14 @@ export async function GET(
     } catch {
       return NextResponse.json(
         { error: "Document file not found." },
-        { status: 404 }
+        { status: 404, headers: sensitiveDocumentHeaders }
       );
     }
   } catch (error) {
     if (isAuthorizationError(error)) {
       return NextResponse.json(
         { error: error.message },
-        { status: error.status }
+        { status: error.status, headers: sensitiveDocumentHeaders }
       );
     }
 
@@ -56,7 +63,7 @@ export async function GET(
 
     return NextResponse.json(
       { error: "Failed to download employee document." },
-      { status: 500 }
+      { status: 500, headers: sensitiveDocumentHeaders }
     );
   }
 }
