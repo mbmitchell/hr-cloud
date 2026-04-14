@@ -1,10 +1,17 @@
 export type EmailTransportKind = "dev" | "graph";
 
+export type EmailAttachment = {
+  filename: string;
+  contentType: string;
+  contentBase64: string;
+};
+
 export type EmailMessage = {
   to: string | string[];
   subject: string;
   text: string;
   replyTo?: string | null;
+  attachments?: EmailAttachment[];
 };
 
 export type EmailSendResult =

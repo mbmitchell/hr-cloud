@@ -60,6 +60,12 @@ export async function sendWithGraphTransport(
               address: recipient,
             },
           })),
+          attachments: message.attachments?.map((attachment) => ({
+            "@odata.type": "#microsoft.graph.fileAttachment",
+            name: attachment.filename,
+            contentType: attachment.contentType,
+            contentBytes: attachment.contentBase64,
+          })),
         },
         saveToSentItems: false,
       }),

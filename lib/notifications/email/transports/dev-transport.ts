@@ -27,6 +27,11 @@ export async function sendWithDevTransport(
     replyTo: message.replyTo || undefined,
     subject: message.subject,
     text: message.text,
+    attachments: message.attachments?.map((attachment) => ({
+      filename: attachment.filename,
+      contentType: attachment.contentType,
+      content: Buffer.from(attachment.contentBase64, "base64"),
+    })),
   });
 
   return {

@@ -42,7 +42,25 @@ type ReportResponse = {
   upcomingApproved: RequestRow[];
 };
 
-export default function ReportsClient() {
+export default function ReportsClient({
+  canSeeReportingStructure = false,
+  canSeeEmployeeMaster = false,
+  canSeeUserAccess = false,
+  canSeeJobChanges = false,
+  canSeeDocumentAcknowledgements = false,
+  canSeePtoLedger = false,
+  canSeePtoLiability = false,
+  canSeeAuditLog = false,
+}: {
+  canSeeReportingStructure?: boolean;
+  canSeeEmployeeMaster?: boolean;
+  canSeeUserAccess?: boolean;
+  canSeeJobChanges?: boolean;
+  canSeeDocumentAcknowledgements?: boolean;
+  canSeePtoLedger?: boolean;
+  canSeePtoLiability?: boolean;
+  canSeeAuditLog?: boolean;
+}) {
   const [data, setData] = useState<ReportResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -140,6 +158,174 @@ export default function ReportsClient() {
           </a>
         </div>
       </div>
+
+      {canSeeReportingStructure ? (
+        <div className="rounded bg-white p-5 shadow">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">
+                Reporting Structure
+              </h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Review current manager hierarchy and employee reporting lines.
+              </p>
+            </div>
+            <a
+              href="/reports/reporting-structure"
+              className="inline-flex items-center justify-center rounded border border-slate-300 px-4 py-2.5 text-sm hover:bg-slate-50"
+            >
+              Open Report
+            </a>
+          </div>
+        </div>
+      ) : null}
+
+      {canSeeEmployeeMaster ? (
+        <div className="rounded bg-white p-5 shadow">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">
+                Employee Master Report
+              </h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Review the current employee roster and core employment data.
+              </p>
+            </div>
+            <a
+              href="/reports/employee-master"
+              className="inline-flex items-center justify-center rounded border border-slate-300 px-4 py-2.5 text-sm hover:bg-slate-50"
+            >
+              Open Report
+            </a>
+          </div>
+        </div>
+      ) : null}
+
+      {canSeeUserAccess ? (
+        <div className="rounded bg-white p-5 shadow">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">
+                User Access / Role Report
+              </h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Review the current employee access roster and active role assignments.
+              </p>
+            </div>
+            <a
+              href="/reports/user-access"
+              className="inline-flex items-center justify-center rounded border border-slate-300 px-4 py-2.5 text-sm hover:bg-slate-50"
+            >
+              Open Report
+            </a>
+          </div>
+        </div>
+      ) : null}
+
+      {canSeeJobChanges ? (
+        <div className="rounded bg-white p-5 shadow">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">
+                Job Change History Report
+              </h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Review structured employment change requests and their workflow status history.
+              </p>
+            </div>
+            <a
+              href="/reports/job-changes"
+              className="inline-flex items-center justify-center rounded border border-slate-300 px-4 py-2.5 text-sm hover:bg-slate-50"
+            >
+              Open Report
+            </a>
+          </div>
+        </div>
+      ) : null}
+
+      {canSeeDocumentAcknowledgements ? (
+        <div className="rounded bg-white p-5 shadow">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">
+                Document Acknowledgement Report
+              </h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Review document assignments, acknowledgement status, and overdue items.
+              </p>
+            </div>
+            <a
+              href="/reports/document-acknowledgements"
+              className="inline-flex items-center justify-center rounded border border-slate-300 px-4 py-2.5 text-sm hover:bg-slate-50"
+            >
+              Open Report
+            </a>
+          </div>
+        </div>
+      ) : null}
+
+      {canSeePtoLedger ? (
+        <div className="rounded bg-white p-5 shadow">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">
+                PTO Ledger / Balance Report
+              </h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Review PTO ledger activity, running balances, and negative-balance exposure.
+              </p>
+            </div>
+            <a
+              href="/reports/pto-ledger"
+              className="inline-flex items-center justify-center rounded border border-slate-300 px-4 py-2.5 text-sm hover:bg-slate-50"
+            >
+              Open Report
+            </a>
+          </div>
+        </div>
+      ) : null}
+
+      {canSeePtoLiability ? (
+        <div className="rounded bg-white p-5 shadow">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">
+                PTO Liability Report
+              </h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Review current estimated PTO payout exposure without exposing raw pay or balance inputs.
+              </p>
+            </div>
+            <a
+              href="/reports/pto-liability"
+              className="inline-flex items-center justify-center rounded border border-slate-300 px-4 py-2.5 text-sm hover:bg-slate-50"
+            >
+              Open Report
+            </a>
+          </div>
+        </div>
+      ) : null}
+
+      {canSeeAuditLog ? (
+        <div className="rounded bg-white p-5 shadow">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">
+                Audit Log Report
+              </h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Review system activity and control evidence across HR workflows.
+              </p>
+            </div>
+            <a
+              href="/reports/audit-log"
+              className="inline-flex items-center justify-center rounded border border-slate-300 px-4 py-2.5 text-sm hover:bg-slate-50"
+            >
+              Open Report
+            </a>
+          </div>
+        </div>
+      ) : null}
 
       {loading ? (
         <div className="text-slate-600">Loading reports...</div>
