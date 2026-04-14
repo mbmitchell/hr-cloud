@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { runYearEndRollover } from "../../../../lib/pto/rollover-job";
+import { withPrivateNoStoreHeaders } from "../../../../lib/server/http/headers";
+import { runYearEndPtoRolloverJob } from "../../../../lib/server/internal-jobs/pto";
 import {
   isAuthorizationError,
   requireRole,
@@ -20,24 +21,39 @@ export async function POST(request: Request) {
     if (Number.isNaN(runDateValue.getTime())) {
       return NextResponse.json(
         { error: "Invalid run date." },
-        { status: 400 }
+        withPrivateNoStoreHeaders({ status: 400 })
       );
     }
 
-    const result = await runYearEndRollover(runDateValue);
+    const job = await runYearEndPtoRolloverJob({
+      runDate: runDateValue,
+    });
 
-    return NextResponse.json(result);
+    return NextResponse.json(
+      {
+        ...(job.result ?? {
+          runDate: new Date(runDateValue.getFullYear(), 0, 1).toISOString(),
+          processedEmployees: 0,
+          createdEntries: 0,
+          skippedEmployees: 0,
+          details: [],
+        }),
+        scheduledJobRun: job.run,
+        deduplicated: job.deduplicated,
+      },
+      withPrivateNoStoreHeaders()
+    );
   } catch (error) {
     if (isAuthorizationError(error)) {
       return NextResponse.json(
         { error: error.message },
-        { status: error.status }
+        withPrivateNoStoreHeaders({ status: error.status })
       );
     }
 
     return NextResponse.json(
       { error: "Failed to run year-end rollover." },
-      { status: 500 }
+      withPrivateNoStoreHeaders({ status: 500 })
     );
   }
 }

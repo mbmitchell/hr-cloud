@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "../../../../../../lib/db";
 import { writeAuditLog } from "../../../../../../lib/server/audit/write-audit-log";
+import { auditNotificationSuppressed } from "../../../../../../lib/server/hr-notifications/audit";
 import { resolveAssignmentTargetEmployeeIds } from "../../../../../../lib/server/document-acknowledgements/assignment-targets";
 import { assignDocumentVersionToEmployees } from "../../../../../../lib/server/document-acknowledgements/assign";
 import {
@@ -30,6 +31,11 @@ export async function POST(
     const department = String(body.department || "").trim();
     const explicitVersionId = String(body.assignableDocumentVersionId || "").trim();
     const dueDateValue = String(body.dueDate || "").trim();
+    const sendNotification =
+      typeof body.sendNotification === "boolean" ? body.sendNotification : true;
+    const notificationSuppressionReason = body.notificationSuppressionReason
+      ? String(body.notificationSuppressionReason).trim()
+      : null;
 
     const document = await prisma.assignableDocument.findUnique({
       where: { id },
@@ -107,6 +113,7 @@ export async function POST(
             employeeIds: employeeIdsToCreate,
             assignableDocumentVersionId,
             dueDate,
+            sendNotification,
           })
         : {
             targetEmployeeIds: [] as string[],
@@ -141,8 +148,20 @@ export async function POST(
           created: assignmentResult.assignments.length,
           skipped: existingEmployeeIds.size,
         },
+        sendNotification,
       },
     });
+
+    if (!sendNotification && assignmentResult.assignments.length > 0) {
+      await auditNotificationSuppressed({
+        actorId: actor.id,
+        eventType: "DOCUMENT_ASSIGNMENT_CREATED",
+        relatedEntityType: "AssignableDocument",
+        relatedEntityId: document.id,
+        recipientScope: "ASSIGNED_EMPLOYEES",
+        reason: notificationSuppressionReason,
+      });
+    }
 
     return NextResponse.json({
       assignment:

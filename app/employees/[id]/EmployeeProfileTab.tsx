@@ -23,6 +23,8 @@ export default function EmployeeProfileTab({
     status: string;
     department: string | null;
     title: string | null;
+    employmentClassification: string | null;
+    workLocation: string | null;
     hireDate: Date;
     manager: {
       firstName: string;
@@ -74,6 +76,13 @@ export default function EmployeeProfileTab({
             </div>
             <div>
               <b>Title:</b> {employee.title ?? "-"}
+            </div>
+            <div>
+              <b>Employment Classification:</b>{" "}
+              {employee.employmentClassification ?? "-"}
+            </div>
+            <div>
+              <b>Work Location:</b> {employee.workLocation ?? "-"}
             </div>
             <div>
               <b>Hire Date:</b> {formatDate(employee.hireDate)}

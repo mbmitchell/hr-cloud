@@ -10,7 +10,7 @@ import { prisma } from "../db";
 import { getDirectReportIds } from "../auth/access";
 import { isManagerOf } from "../auth/permissions";
 import { createEmployeeDocumentAssignmentRecord } from "./document-acknowledgements/assign";
-import { dispatchDocumentAssignmentNotificationOutboxEntries } from "./document-acknowledgements/notifications";
+import { enqueueDocumentAssignmentHrNotification } from "./hr-notifications/document-acknowledgements";
 import {
   type AuthorizationActor,
   AuthorizationError,
@@ -560,9 +560,12 @@ export async function createOnboardingFromTemplate(input: {
       };
     });
 
-    dispatchDocumentAssignmentNotificationOutboxEntries(
-      result.notificationOutboxIds
-    );
+    for (const outboxId of result.notificationOutboxIds) {
+      await enqueueDocumentAssignmentHrNotification({
+        documentAssignmentOutboxId: outboxId,
+        actorId: input.actorId,
+      });
+    }
 
     return result.onboarding;
   } catch (error) {

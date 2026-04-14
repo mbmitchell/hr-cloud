@@ -21,6 +21,8 @@ function createEmployeeUpdateTx() {
     department: "Operations",
     title: "HR Generalist",
     status: "ACTIVE",
+    employmentClassification: null,
+    workLocation: null,
     payType: null,
     hourlyRate: null,
     annualSalary: null,

@@ -50,6 +50,7 @@ type BuildSidebarSectionsInput = {
   canSeeAuthDiagnostics: boolean;
   canSeeReports: boolean;
   canSeeAudit: boolean;
+  canSeeNotifications: boolean;
   isSiteAdmin: boolean;
 };
 
@@ -149,6 +150,9 @@ export function buildSidebarSections(
           : []),
         ...(input.canSeeAudit
           ? [item("/admin/audit", "Audit Log", "audit")]
+          : []),
+        ...(input.canSeeNotifications
+          ? [item("/admin/notifications", "Notifications", "audit")]
           : []),
       ],
     },

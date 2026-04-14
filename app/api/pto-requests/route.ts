@@ -7,7 +7,7 @@
  * - Validate request payloads
  * - Derive the acting employee from the authenticated session
  * - Persist the request, request history, and audit record transactionally
- * - Trigger post-commit notification delivery
+ * - Trigger post-commit notification enqueue
  *
  * Security considerations:
  * - Only authenticated employees may create requests
@@ -23,10 +23,7 @@ import {
 } from "../../../lib/server/authorization";
 import { writeAuditLog } from "../../../lib/server/audit/write-audit-log";
 import { isLeaveType } from "../../../lib/pto/leave-types";
-import { dispatchEmailInBackground } from "../../../lib/notifications/email/dispatch";
-import {
-  sendPtoRequestSubmittedNotification,
-} from "../../../lib/notifications/email/workflows";
+import { enqueuePtoNotifications } from "../../../lib/server/hr-notifications/pto";
 
 export async function POST(request: Request) {
   try {
@@ -137,14 +134,15 @@ export async function POST(request: Request) {
       return requestRecord;
     });
 
-    // EMAIL DELIVERY
-    // Notifications are intentionally non-blocking. A request should remain
-    // successfully created even if downstream mail delivery fails.
-    dispatchEmailInBackground(async () => {
-      await sendPtoRequestSubmittedNotification({
+    try {
+      await enqueuePtoNotifications({
+        eventType: "PTO_REQUEST_SUBMITTED",
         requestId: created.id,
+        actorId: actor.id,
       });
-    });
+    } catch (error) {
+      console.error("Failed to enqueue PTO submitted notifications:", error);
+    }
 
     return NextResponse.json(created);
   } catch (error) {

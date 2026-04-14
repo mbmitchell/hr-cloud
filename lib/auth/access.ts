@@ -42,6 +42,13 @@ export async function canCurrentUserViewAudit() {
   ]);
 }
 
+export async function canCurrentUserManageNotifications() {
+  return currentUserHasAnyRole([
+    "SITE_ADMIN",
+    "HR_ADMIN",
+  ]);
+}
+
 export async function canCurrentUserManageAdjustments() {
   return currentUserHasAnyRole([
     "SITE_ADMIN",

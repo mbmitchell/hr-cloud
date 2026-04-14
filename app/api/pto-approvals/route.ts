@@ -25,11 +25,7 @@ import {
   isAuthorizationError,
   requireActor,
 } from "../../../lib/server/authorization";
-import { dispatchEmailInBackground } from "../../../lib/notifications/email/dispatch";
-import {
-  sendPtoRequestApprovedNotification,
-  sendPtoRequestDeniedNotification,
-} from "../../../lib/notifications/email/workflows";
+import { enqueuePtoNotifications } from "../../../lib/server/hr-notifications/pto";
 import { dispatchCalendarSyncInBackground } from "../../../lib/notifications/calendar/dispatch";
 import { createApprovedPtoCalendarEvent } from "../../../lib/notifications/calendar/create-event";
 
@@ -96,15 +92,16 @@ export async function POST(request: Request) {
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
     });
 
-    // EMAIL DELIVERY
-    // Approval should not roll back because Microsoft 365 mail delivery fails.
-    dispatchEmailInBackground(async () => {
-      if (status === "APPROVED") {
-        await sendPtoRequestApprovedNotification({ requestId });
-      } else {
-        await sendPtoRequestDeniedNotification({ requestId });
-      }
-    });
+    try {
+      await enqueuePtoNotifications({
+        eventType:
+          status === "APPROVED" ? "PTO_REQUEST_APPROVED" : "PTO_REQUEST_DENIED",
+        requestId,
+        actorId: actor.id,
+      });
+    } catch (error) {
+      console.error("Failed to enqueue PTO decision notifications:", error);
+    }
 
     if (status === "APPROVED") {
       // CALENDAR SYNC

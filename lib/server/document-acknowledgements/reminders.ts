@@ -5,6 +5,12 @@ import { dispatchEmailInBackground } from "../../notifications/email/dispatch";
 import { logEmailNotificationEvent } from "../../notifications/email/logger";
 import { getEmailRuntimeConfig } from "../../notifications/email/send-email";
 import type { AuthorizationActor } from "../authorization";
+import {
+  enqueueDocumentAssignmentReminderHrNotification,
+  markAcknowledgementNotificationFailed,
+  markAcknowledgementNotificationProcessing,
+  markAcknowledgementNotificationSent,
+} from "../hr-notifications/document-acknowledgements";
 import { assertCanManageDocumentAcknowledgements } from "./access";
 import type { DocumentAssignmentReminderType } from "./types";
 import { sendDocumentAssignmentReminderEmail } from "../email/send-document-assignment-reminder-email";
@@ -179,6 +185,7 @@ async function dispatchReminderOutboxEntry(outboxId: string) {
       status: true,
       reminderType: true,
       employeeId: true,
+      hrNotificationOutboxId: true,
       employee: {
         select: {
           email: true,
@@ -209,6 +216,11 @@ async function dispatchReminderOutboxEntry(outboxId: string) {
     return;
   }
 
+  await markAcknowledgementNotificationProcessing({
+    hrNotificationOutboxId: outbox.hrNotificationOutboxId,
+    relatedEntityId: outbox.employeeDocumentAssignment.id,
+  });
+
   const recipient = outbox.employee.email.trim().toLowerCase();
 
   if (!recipient) {
@@ -216,6 +228,11 @@ async function dispatchReminderOutboxEntry(outboxId: string) {
       "Assigned employee is missing an email address for acknowledgement reminder delivery.";
 
     await markReminderOutboxFailed(outbox.id, errorSummary);
+    await markAcknowledgementNotificationFailed({
+      hrNotificationOutboxId: outbox.hrNotificationOutboxId,
+      relatedEntityId: outbox.employeeDocumentAssignment.id,
+      errorMessage: errorSummary,
+    });
     await logEmailNotificationEvent({
       eventType: `DOCUMENT_ASSIGNMENT_REMINDER_${outbox.reminderType}`,
       category: "hr-notification",
@@ -245,6 +262,11 @@ async function dispatchReminderOutboxEntry(outboxId: string) {
       const errorSummary = result.reason.slice(0, 500);
 
       await markReminderOutboxFailed(outbox.id, errorSummary);
+      await markAcknowledgementNotificationFailed({
+        hrNotificationOutboxId: outbox.hrNotificationOutboxId,
+        relatedEntityId: outbox.employeeDocumentAssignment.id,
+        errorMessage: errorSummary,
+      });
       await logEmailNotificationEvent({
         eventType: `DOCUMENT_ASSIGNMENT_REMINDER_${outbox.reminderType}`,
         category: "hr-notification",
@@ -263,9 +285,16 @@ async function dispatchReminderOutboxEntry(outboxId: string) {
       where: { id: outbox.id },
       data: {
         status: "SENT",
+        attemptCount: {
+          increment: 1,
+        },
         sentAt: new Date(),
         lastError: null,
       },
+    });
+    await markAcknowledgementNotificationSent({
+      hrNotificationOutboxId: outbox.hrNotificationOutboxId,
+      relatedEntityId: outbox.employeeDocumentAssignment.id,
     });
 
     await logEmailNotificationEvent({
@@ -283,6 +312,11 @@ async function dispatchReminderOutboxEntry(outboxId: string) {
     const errorSummary = summarizeError(error);
 
     await markReminderOutboxFailed(outbox.id, errorSummary);
+    await markAcknowledgementNotificationFailed({
+      hrNotificationOutboxId: outbox.hrNotificationOutboxId,
+      relatedEntityId: outbox.employeeDocumentAssignment.id,
+      errorMessage: errorSummary,
+    });
     await logEmailNotificationEvent({
       eventType: `DOCUMENT_ASSIGNMENT_REMINDER_${outbox.reminderType}`,
       category: "hr-notification",
@@ -314,6 +348,7 @@ export function dispatchDocumentAssignmentReminderOutboxEntries(outboxIds: strin
 export async function runDocumentAssignmentReminderGeneration(input?: {
   staleThresholdDays?: number;
   now?: Date;
+  actorId?: string | null;
 }) {
   const now = input?.now ?? new Date();
   const staleThresholdDays =
@@ -357,7 +392,12 @@ export async function runDocumentAssignmentReminderGeneration(input?: {
     return createdIds;
   });
 
-  dispatchDocumentAssignmentReminderOutboxEntries(createdOutboxIds);
+  for (const outboxId of createdOutboxIds) {
+    await enqueueDocumentAssignmentReminderHrNotification({
+      reminderOutboxId: outboxId,
+      actorId: input?.actorId ?? null,
+    });
+  }
 
   return {
     timestamp: now.toISOString(),
@@ -387,5 +427,6 @@ export async function triggerDocumentAssignmentReminderEmails(input: {
   return runDocumentAssignmentReminderGeneration({
     staleThresholdDays: input.staleThresholdDays,
     now: input.now,
+    actorId: input.actor.id,
   });
 }

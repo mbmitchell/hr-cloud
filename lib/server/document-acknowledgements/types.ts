@@ -127,6 +127,7 @@ export type AssignDocumentInput = {
   employeeIds?: string[];
   assignableDocumentVersionId: string;
   dueDate?: Date | null;
+  sendNotification?: boolean;
 };
 
 export type AssignableEmployeeOption = {

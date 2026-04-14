@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "../../db";
-import { dispatchDocumentAssignmentNotificationOutboxEntries } from "./notifications";
+import { enqueueDocumentAssignmentHrNotification } from "../hr-notifications/document-acknowledgements";
 import {
   assertCanManageDocumentAcknowledgements,
   requireDocumentAcknowledgementActor,
@@ -37,6 +37,7 @@ export async function createEmployeeDocumentAssignmentRecord(
     dueDate?: Date | null;
     assignmentSourceType?: string;
     sourceEmployeeOnboardingTaskRequirementId?: string | null;
+    sendNotification?: boolean;
   }
 ) {
   const [employee, version] = await Promise.all([
@@ -73,11 +74,15 @@ export async function createEmployeeDocumentAssignmentRecord(
         status: "PENDING",
         assignedByEmployeeId: input.actorId,
         dueDate: input.dueDate ?? null,
-        notificationOutbox: {
-          create: {
-            employeeId: employee.id,
-          },
-        },
+        ...(input.sendNotification === false
+          ? {}
+          : {
+              notificationOutbox: {
+                create: {
+                  employeeId: employee.id,
+                },
+              },
+            }),
       },
       select: {
         id: true,
@@ -153,6 +158,7 @@ export async function assignDocumentVersionToEmployees(
         assignableDocumentVersionId: input.assignableDocumentVersionId,
         dueDate: input.dueDate ?? null,
         assignmentSourceType: "DIRECT",
+        sendNotification: input.sendNotification,
       });
 
       createdAssignments.push(assignment);
@@ -161,11 +167,16 @@ export async function assignDocumentVersionToEmployees(
     return createdAssignments;
   });
 
-  dispatchDocumentAssignmentNotificationOutboxEntries(
-    assignments
-      .map((assignment) => assignment.notificationOutbox?.id ?? null)
-      .filter((value): value is string => Boolean(value))
-  );
+  const notificationOutboxIds = assignments
+    .map((assignment) => assignment.notificationOutbox?.id ?? null)
+    .filter((value): value is string => Boolean(value));
+
+  for (const outboxId of notificationOutboxIds) {
+    await enqueueDocumentAssignmentHrNotification({
+      documentAssignmentOutboxId: outboxId,
+      actorId: actor.id,
+    });
+  }
 
   return {
     targetEmployeeIds: employeeIds,

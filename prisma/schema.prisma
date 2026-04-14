@@ -38,6 +38,50 @@ enum EmployeePayrollFrequency {
   MONTHLY
 }
 
+enum EmployeeChangeRequestStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  APPLIED
+  CANCELLED
+}
+
+enum EmployeeChangeType {
+  COMPENSATION
+  JOB_INFO
+  MANAGER
+  STATUS
+  LOCATION
+  CLASSIFICATION
+  OTHER
+}
+
+enum HrNotificationOutboxStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+enum HrNotificationType {
+  USER_INITIATED
+  SYSTEM_GENERATED
+}
+
+enum ScheduledJobRunStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+enum HrNotificationTemplateKey {
+  GENERIC_HR_NOTIFICATION
+  EMPLOYEE_CHANGE_REQUEST_CREATED
+  EMPLOYEE_CHANGE_REQUEST_APPROVED
+  EMPLOYEE_CHANGE_REQUEST_APPLIED
+}
+
 model Employee {
   id         String   @id @default(uuid())
   email      String   @unique
@@ -50,6 +94,8 @@ model Employee {
   hireDate   DateTime
   managerId  String?
   status     String
+  employmentClassification String?
+  workLocation             String?
 
   payType      String?
   hourlyRate   Float?
@@ -92,12 +138,101 @@ model Employee {
   emergencyContacts                        EmployeeEmergencyContact[]
   benefitElections                         EmployeeBenefitElection[]
   compensationProfile                      EmployeeCompensationProfile?
+  changeRequests                           EmployeeChangeRequest[]                  @relation("EmployeeChangeRequests")
+  requestedChangeRequests                  EmployeeChangeRequest[]                  @relation("RequestedEmployeeChangeRequests")
+  reviewedChangeRequests                   EmployeeChangeRequest[]                  @relation("ReviewedEmployeeChangeRequests")
+  hrNotifications                          HrNotificationOutbox[]                  @relation("HrNotificationEmployee")
+  receivedHrNotifications                  HrNotificationOutbox[]                  @relation("HrNotificationRecipientEmployee")
+  createdHrNotifications                   HrNotificationOutbox[]                  @relation("HrNotificationCreatedByEmployee")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([entraTid, entraOid])
   @@index([managerId])
+}
+
+model HrNotificationOutbox {
+  id                  String                    @id @default(uuid())
+  eventType           String
+  relatedEntityType   String
+  relatedEntityId     String
+  notificationType    HrNotificationType        @default(USER_INITIATED)
+  employeeId          String?
+  recipientEmployeeId String?
+  recipientEmail      String
+  templateKey         HrNotificationTemplateKey
+  payload             Json
+  status              HrNotificationOutboxStatus @default(PENDING)
+  attemptCount        Int                       @default(0)
+  lastAttemptAt       DateTime?
+  sentAt              DateTime?
+  lastError           String?                   @db.Text
+  createdByEmployeeId String?
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+
+  employee          Employee? @relation("HrNotificationEmployee", fields: [employeeId], references: [id])
+  recipientEmployee Employee? @relation("HrNotificationRecipientEmployee", fields: [recipientEmployeeId], references: [id])
+  createdByEmployee Employee? @relation("HrNotificationCreatedByEmployee", fields: [createdByEmployeeId], references: [id])
+  documentAssignmentEmailOutbox    DocumentAssignmentEmailOutbox?
+  documentAssignmentReminderOutbox DocumentAssignmentReminderEmailOutbox?
+
+  @@index([status, createdAt])
+  @@index([notificationType, status, createdAt])
+  @@index([eventType, status])
+  @@index([relatedEntityType, relatedEntityId])
+  @@index([employeeId])
+  @@index([recipientEmployeeId])
+  @@index([createdByEmployeeId])
+}
+
+model ScheduledJobRun {
+  id               String                 @id @default(uuid())
+  jobName          String
+  runKey           String                 @unique
+  startedAt        DateTime               @default(now())
+  completedAt      DateTime?
+  status           ScheduledJobRunStatus  @default(RUNNING)
+  recordsProcessed Int?
+  lastError        String?                @db.Text
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  @@index([jobName, startedAt])
+  @@index([status, startedAt])
+}
+
+model EmployeeChangeRequest {
+  id                     String                      @id @default(uuid())
+  employeeId             String
+  status                 EmployeeChangeRequestStatus @default(DRAFT)
+  changeType             EmployeeChangeType
+  requestedByEmployeeId  String
+  reviewedByEmployeeId   String?
+  submittedAt            DateTime?
+  approvedAt             DateTime?
+  appliedAt              DateTime?
+  cancelledAt            DateTime?
+  requestedEffectiveDate DateTime
+  actualEffectiveDate    DateTime?
+  reason                 String?                     @db.Text
+  notes                  String?                     @db.Text
+  relatedDocumentId      String?
+  oldValues              Json
+  newValues              Json
+  createdAt              DateTime                    @default(now())
+  updatedAt              DateTime                    @updatedAt
+
+  employee    Employee         @relation("EmployeeChangeRequests", fields: [employeeId], references: [id])
+  requestedBy Employee         @relation("RequestedEmployeeChangeRequests", fields: [requestedByEmployeeId], references: [id])
+  reviewedBy  Employee?        @relation("ReviewedEmployeeChangeRequests", fields: [reviewedByEmployeeId], references: [id])
+  relatedDocument EmployeeDocument? @relation(fields: [relatedDocumentId], references: [id])
+
+  @@index([employeeId, status, requestedEffectiveDate])
+  @@index([requestedByEmployeeId])
+  @@index([reviewedByEmployeeId])
+  @@index([relatedDocumentId])
 }
 
 model EmployeeCompensationProfile {
@@ -280,6 +415,7 @@ model EmployeeDocument {
   uploadedBy                       Employee                                    @relation("UploadedEmployeeDocuments", fields: [uploadedByEmployeeId], references: [id])
   linkedOnboardingTaskRequirements EmployeeOnboardingTaskDocumentRequirement[] @relation("LinkedEmployeeDocuments")
   assignableDocumentVersions       AssignableDocumentVersion[]                 @relation("EmployeeDocumentAssignableVersions")
+  relatedChangeRequests            EmployeeChangeRequest[]
 
   @@index([employeeId, category, createdAt])
   @@index([uploadedByEmployeeId])
@@ -366,6 +502,7 @@ model DocumentAssignmentEmailOutbox {
   id                           String   @id @default(uuid())
   employeeDocumentAssignmentId String   @unique
   employeeId                   String
+  hrNotificationOutboxId       String?  @unique
   status                       String   @default("PENDING")
   attemptCount                 Int      @default(0)
   lastError                    String?  @db.Text
@@ -375,6 +512,7 @@ model DocumentAssignmentEmailOutbox {
 
   employeeDocumentAssignment EmployeeDocumentAssignment @relation(fields: [employeeDocumentAssignmentId], references: [id])
   employee                   Employee                   @relation(fields: [employeeId], references: [id])
+  hrNotificationOutbox       HrNotificationOutbox?      @relation(fields: [hrNotificationOutboxId], references: [id])
 
   @@index([status])
   @@index([createdAt])
@@ -384,6 +522,7 @@ model DocumentAssignmentReminderEmailOutbox {
   id                           String   @id @default(uuid())
   employeeDocumentAssignmentId String
   employeeId                   String
+  hrNotificationOutboxId       String?  @unique
   reminderType                 String
   reminderDay                  String
   status                       String   @default("PENDING")
@@ -395,6 +534,7 @@ model DocumentAssignmentReminderEmailOutbox {
 
   employeeDocumentAssignment EmployeeDocumentAssignment @relation(fields: [employeeDocumentAssignmentId], references: [id], map: "fk_doc_assign_reminder_assignment")
   employee                   Employee                   @relation(fields: [employeeId], references: [id], map: "fk_doc_assign_reminder_employee")
+  hrNotificationOutbox       HrNotificationOutbox?      @relation(fields: [hrNotificationOutboxId], references: [id], map: "fk_doc_assign_reminder_hr_notification")
 
   @@unique([employeeDocumentAssignmentId, reminderType, reminderDay], map: "uq_doc_assign_reminder_day")
   @@index([status], map: "idx_doc_assign_reminder_status")

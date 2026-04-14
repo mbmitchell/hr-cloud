@@ -32,6 +32,7 @@ export default async function Sidebar({
     ? await canCurrentUserAccessAdjustmentsPage()
     : false;
   const canSeeAudit = isSiteAdmin || isHrAdmin || isAuditor;
+  const canSeeNotifications = isSiteAdmin || isHrAdmin;
   const canSeePolicy = isSiteAdmin || isHrAdmin;
   const canAddEmployees = isSiteAdmin || isHrAdmin;
   const canSeeAuthDiagnostics = isSiteAdmin || isHrAdmin;
@@ -58,6 +59,7 @@ export default async function Sidebar({
     canSeeAuthDiagnostics,
     canSeeReports,
     canSeeAudit,
+    canSeeNotifications,
     isSiteAdmin,
   });
 

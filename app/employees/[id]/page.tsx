@@ -24,6 +24,7 @@ import EmployeeActivityTab from "./EmployeeActivityTab";
 import EmployeeAdminTab from "./EmployeeAdminTab";
 import EmployeeBenefitsTab from "./EmployeeBenefitsTab";
 import EmployeeDocumentsTab from "./EmployeeDocumentsTab";
+import EmployeeJobChangesTab from "./EmployeeJobChangesTab";
 import EmployeeLifecycleTab from "./EmployeeLifecycleTab";
 import EmployeeProfileTab from "./EmployeeProfileTab";
 import EmployeePtoTab from "./EmployeePtoTab";
@@ -69,6 +70,7 @@ export default async function EmployeeProfilePage({
   const canViewDocuments = isSelf || isAdmin;
   const canViewPrivateInfo = isSelf || isAdmin;
   const canViewBenefits = isSelf || isAdmin;
+  const canViewJobChanges = isSelf || isAdmin;
 
   if (!canViewProfile) {
     return (
@@ -186,6 +188,15 @@ export default async function EmployeeProfilePage({
           },
         ]
       : []),
+    ...(canViewJobChanges
+      ? [
+          {
+            id: "job-changes",
+            label: "Job Changes",
+            href: `/employees/${employee.id}?tab=job-changes`,
+          },
+        ]
+      : []),
     {
       id: "lifecycle",
       label: "Onboarding / Offboarding",
@@ -269,6 +280,15 @@ export default async function EmployeeProfilePage({
           canUpload={isAdmin}
           canManage={isAdmin}
           acknowledgementSummary={acknowledgementSummary}
+        />
+      ) : null;
+      break;
+    case "job-changes":
+      activeTabContent = canViewJobChanges ? (
+        <EmployeeJobChangesTab
+          employeeId={employee.id}
+          canManage={isAdmin}
+          managers={managerOptions}
         />
       ) : null;
       break;
@@ -356,6 +376,8 @@ export default async function EmployeeProfilePage({
             status: employee.status,
             department: employee.department,
             title: employee.title,
+            employmentClassification: employee.employmentClassification,
+            workLocation: employee.workLocation,
             hireDate: employee.hireDate,
             manager: employee.manager
               ? {

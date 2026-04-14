@@ -3,6 +3,11 @@ import { dispatchEmailInBackground } from "../../notifications/email/dispatch";
 import { logEmailNotificationEvent } from "../../notifications/email/logger";
 import { getEmailRuntimeConfig } from "../../notifications/email/send-email";
 import { sendDocumentAssignmentEmail } from "../email/send-document-assignment-email";
+import {
+  markAcknowledgementNotificationFailed,
+  markAcknowledgementNotificationProcessing,
+  markAcknowledgementNotificationSent,
+} from "../hr-notifications/document-acknowledgements";
 
 function summarizeError(error: unknown) {
   const summary =
@@ -35,6 +40,7 @@ async function dispatchDocumentAssignmentNotificationOutboxEntry(
       id: true,
       status: true,
       employeeId: true,
+      hrNotificationOutboxId: true,
       employee: {
         select: {
           email: true,
@@ -63,6 +69,11 @@ async function dispatchDocumentAssignmentNotificationOutboxEntry(
     return;
   }
 
+  await markAcknowledgementNotificationProcessing({
+    hrNotificationOutboxId: outbox.hrNotificationOutboxId,
+    relatedEntityId: outbox.employeeDocumentAssignment.id,
+  });
+
   const recipient = outbox.employee.email.trim().toLowerCase();
 
   if (!recipient) {
@@ -70,6 +81,11 @@ async function dispatchDocumentAssignmentNotificationOutboxEntry(
       "Assigned employee is missing an email address for acknowledgement delivery.";
 
     await markOutboxFailed(outbox.id, errorSummary);
+    await markAcknowledgementNotificationFailed({
+      hrNotificationOutboxId: outbox.hrNotificationOutboxId,
+      relatedEntityId: outbox.employeeDocumentAssignment.id,
+      errorMessage: errorSummary,
+    });
     await logEmailNotificationEvent({
       eventType: "DOCUMENT_ASSIGNMENT_CREATED",
       category: "hr-notification",
@@ -97,6 +113,11 @@ async function dispatchDocumentAssignmentNotificationOutboxEntry(
       const errorSummary = result.reason.slice(0, 500);
 
       await markOutboxFailed(outbox.id, errorSummary);
+      await markAcknowledgementNotificationFailed({
+        hrNotificationOutboxId: outbox.hrNotificationOutboxId,
+        relatedEntityId: outbox.employeeDocumentAssignment.id,
+        errorMessage: errorSummary,
+      });
       await logEmailNotificationEvent({
         eventType: "DOCUMENT_ASSIGNMENT_CREATED",
         category: "hr-notification",
@@ -115,9 +136,16 @@ async function dispatchDocumentAssignmentNotificationOutboxEntry(
       where: { id: outbox.id },
       data: {
         status: "SENT",
+        attemptCount: {
+          increment: 1,
+        },
         sentAt: new Date(),
         lastError: null,
       },
+    });
+    await markAcknowledgementNotificationSent({
+      hrNotificationOutboxId: outbox.hrNotificationOutboxId,
+      relatedEntityId: outbox.employeeDocumentAssignment.id,
     });
 
     await logEmailNotificationEvent({
@@ -135,6 +163,11 @@ async function dispatchDocumentAssignmentNotificationOutboxEntry(
     const errorSummary = summarizeError(error);
 
     await markOutboxFailed(outbox.id, errorSummary);
+    await markAcknowledgementNotificationFailed({
+      hrNotificationOutboxId: outbox.hrNotificationOutboxId,
+      relatedEntityId: outbox.employeeDocumentAssignment.id,
+      errorMessage: errorSummary,
+    });
     await logEmailNotificationEvent({
       eventType: "DOCUMENT_ASSIGNMENT_CREATED",
       category: "hr-notification",
