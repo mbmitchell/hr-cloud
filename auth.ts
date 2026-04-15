@@ -44,8 +44,7 @@ declare global {
 }
 
 const isDevelopment = process.env.NODE_ENV === "development";
-const allowDevAuth =
-  isDevelopment && process.env.AUTH_ENABLE_DEV_AUTH === "true";
+const allowDevAuth = process.env.AUTH_ENABLE_DEV_AUTH === "true";
 const allowDevUserSwitcher =
   isDevelopment &&
   process.env.AUTH_ENABLE_DEV_AUTH === "true" &&

@@ -3,9 +3,7 @@ import { getCurrentUser } from "../../../lib/auth/current-user";
 import { getEmployeeRoles } from "../../../lib/auth/permissions";
 import { withPrivateNoStoreHeaders } from "../../../lib/server/http/headers";
 
-const allowDevAuth =
-  process.env.NODE_ENV === "development" &&
-  process.env.AUTH_ENABLE_DEV_AUTH === "true";
+const allowDevAuth = process.env.AUTH_ENABLE_DEV_AUTH === "true";
 const allowDevUserSwitcher =
   process.env.NODE_ENV === "development" &&
   process.env.AUTH_ENABLE_DEV_AUTH === "true" &&

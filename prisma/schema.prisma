@@ -84,7 +84,7 @@ enum HrNotificationTemplateKey {
 
 model Employee {
   id         String   @id @default(uuid())
-  email      String   @unique
+  email      String   @unique(map: "emp_email_key")
   entraOid   String?
   entraTid   String?
   firstName  String
@@ -149,8 +149,8 @@ model Employee {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([entraTid, entraOid])
-  @@index([managerId])
+  @@unique([entraTid, entraOid], map: "emp_entra_key")
+  @@index([managerId], map: "emp_mgr_idx")
 }
 
 model HrNotificationOutbox {
@@ -179,19 +179,19 @@ model HrNotificationOutbox {
   documentAssignmentEmailOutbox    DocumentAssignmentEmailOutbox?
   documentAssignmentReminderOutbox DocumentAssignmentReminderEmailOutbox?
 
-  @@index([status, createdAt])
-  @@index([notificationType, status, createdAt])
-  @@index([eventType, status])
-  @@index([relatedEntityType, relatedEntityId])
-  @@index([employeeId])
-  @@index([recipientEmployeeId])
-  @@index([createdByEmployeeId])
+  @@index([status, createdAt], map: "hno_stat_created_idx")
+  @@index([notificationType, status, createdAt], map: "hno_type_stat_created_idx")
+  @@index([eventType, status], map: "hno_event_stat_idx")
+  @@index([relatedEntityType, relatedEntityId], map: "hno_rel_ent_idx")
+  @@index([employeeId], map: "hno_emp_idx")
+  @@index([recipientEmployeeId], map: "hno_rcpt_emp_idx")
+  @@index([createdByEmployeeId], map: "hno_created_by_idx")
 }
 
 model ScheduledJobRun {
   id               String                 @id @default(uuid())
   jobName          String
-  runKey           String                 @unique
+  runKey           String                 @unique(map: "sjr_runkey_key")
   startedAt        DateTime               @default(now())
   completedAt      DateTime?
   status           ScheduledJobRunStatus  @default(RUNNING)
@@ -200,8 +200,8 @@ model ScheduledJobRun {
   createdAt        DateTime               @default(now())
   updatedAt        DateTime               @updatedAt
 
-  @@index([jobName, startedAt])
-  @@index([status, startedAt])
+  @@index([jobName, startedAt], map: "sjr_job_started_idx")
+  @@index([status, startedAt], map: "sjr_stat_started_idx")
 }
 
 model EmployeeChangeRequest {
@@ -225,20 +225,20 @@ model EmployeeChangeRequest {
   createdAt              DateTime                    @default(now())
   updatedAt              DateTime                    @updatedAt
 
-  employee    Employee         @relation("EmployeeChangeRequests", fields: [employeeId], references: [id])
-  requestedBy Employee         @relation("RequestedEmployeeChangeRequests", fields: [requestedByEmployeeId], references: [id])
-  reviewedBy  Employee?        @relation("ReviewedEmployeeChangeRequests", fields: [reviewedByEmployeeId], references: [id])
-  relatedDocument EmployeeDocument? @relation(fields: [relatedDocumentId], references: [id])
+  employee    Employee         @relation("EmployeeChangeRequests", fields: [employeeId], references: [id], map: "ecr_emp_fk")
+  requestedBy Employee         @relation("RequestedEmployeeChangeRequests", fields: [requestedByEmployeeId], references: [id], map: "ecr_req_by_fk")
+  reviewedBy  Employee?        @relation("ReviewedEmployeeChangeRequests", fields: [reviewedByEmployeeId], references: [id], map: "ecr_rev_by_fk")
+  relatedDocument EmployeeDocument? @relation(fields: [relatedDocumentId], references: [id], map: "ecr_rel_doc_fk")
 
-  @@index([employeeId, status, requestedEffectiveDate])
-  @@index([requestedByEmployeeId])
-  @@index([reviewedByEmployeeId])
-  @@index([relatedDocumentId])
+  @@index([employeeId, status, requestedEffectiveDate], map: "ecr_emp_stat_eff_idx")
+  @@index([requestedByEmployeeId], map: "ecr_req_by_idx")
+  @@index([reviewedByEmployeeId], map: "ecr_rev_by_idx")
+  @@index([relatedDocumentId], map: "ecr_rel_doc_idx")
 }
 
 model EmployeeCompensationProfile {
   id               String                   @id @default(uuid())
-  employeeId       String                   @unique
+  employeeId       String                   @unique(map: "ecp_emp_key")
   payType          String
   annualSalary     Decimal?                 @db.Decimal(12, 2)
   hourlyRate       Decimal?                 @db.Decimal(10, 2)
@@ -249,9 +249,9 @@ model EmployeeCompensationProfile {
   createdAt        DateTime                 @default(now())
   updatedAt        DateTime                 @updatedAt
 
-  employee Employee @relation(fields: [employeeId], references: [id])
+  employee Employee @relation(fields: [employeeId], references: [id], map: "ecp_emp_fk")
 
-  @@index([employeeId, effectiveDate])
+  @@index([employeeId, effectiveDate], map: "ecp_emp_eff_idx")
 }
 
 model EmployeeCompensationHistory {
@@ -266,10 +266,10 @@ model EmployeeCompensationHistory {
   notes            String?                  @db.Text
   createdAt        DateTime                 @default(now())
 
-  employee Employee @relation(fields: [employeeId], references: [id])
+  employee Employee @relation(fields: [employeeId], references: [id], map: "ech_emp_fk")
 
-  @@index([employeeId, effectiveDate, createdAt])
-  @@index([effectiveDate])
+  @@index([employeeId, effectiveDate, createdAt], map: "ech_emp_eff_created_idx")
+  @@index([effectiveDate], map: "ech_eff_idx")
 }
 
 model EmployeeBenefitElection {
@@ -287,9 +287,9 @@ model EmployeeBenefitElection {
   createdAt           DateTime                      @default(now())
   updatedAt           DateTime                      @updatedAt
 
-  employee Employee @relation(fields: [employeeId], references: [id])
+  employee Employee @relation(fields: [employeeId], references: [id], map: "ebe_emp_fk")
 
-  @@index([employeeId, benefitType, effectiveDate])
+  @@index([employeeId, benefitType, effectiveDate], map: "ebe_emp_type_eff_idx")
 }
 
 model EmployeeContactInfo {
@@ -498,23 +498,23 @@ model EmployeeDocumentAssignment {
   createdAt                   DateTime  @default(now())
   updatedAt                   DateTime  @updatedAt
 
-  employee                                Employee                                    @relation("EmployeeDocumentAssignments", fields: [employeeId], references: [id])
-  assignableDocument                      AssignableDocument                          @relation(fields: [assignableDocumentId], references: [id])
-  assignableDocumentVersion               AssignableDocumentVersion                   @relation(fields: [assignableDocumentVersionId], references: [id])
-  assignedByEmployee                      Employee                                    @relation("AssignedEmployeeDocumentAssignments", fields: [assignedByEmployeeId], references: [id])
-  sourceEmployeeOnboardingTaskRequirement EmployeeOnboardingTaskAcknowledgementRequirement? @relation("AssignmentSourceOnboardingRequirement", fields: [sourceEmployeeOnboardingTaskRequirementId], references: [id])
+  employee                                Employee                                    @relation("EmployeeDocumentAssignments", fields: [employeeId], references: [id], map: "eda_emp_fk")
+  assignableDocument                      AssignableDocument                          @relation(fields: [assignableDocumentId], references: [id], map: "eda_doc_fk")
+  assignableDocumentVersion               AssignableDocumentVersion                   @relation(fields: [assignableDocumentVersionId], references: [id], map: "eda_doc_ver_fk")
+  assignedByEmployee                      Employee                                    @relation("AssignedEmployeeDocumentAssignments", fields: [assignedByEmployeeId], references: [id], map: "eda_assigned_by_fk")
+  sourceEmployeeOnboardingTaskRequirement EmployeeOnboardingTaskAcknowledgementRequirement? @relation("AssignmentSourceOnboardingRequirement", fields: [sourceEmployeeOnboardingTaskRequirementId], references: [id], map: "eda_src_req_fk")
   onboardingAcknowledgementRequirements   EmployeeOnboardingTaskAcknowledgementRequirement[] @relation("OnboardingRequirementDocumentAssignment")
   notificationOutbox                      DocumentAssignmentEmailOutbox?
   reminderOutboxEntries                   DocumentAssignmentReminderEmailOutbox[]
 
-  @@unique([employeeId, assignableDocumentVersionId])
-  @@index([employeeId, status])
-  @@index([assignableDocumentId])
-  @@index([assignableDocumentVersionId])
-  @@index([assignmentSourceType])
-  @@index([sourceEmployeeOnboardingTaskRequirementId])
-  @@index([dueDate])
-  @@index([viewedAt])
+  @@unique([employeeId, assignableDocumentVersionId], map: "eda_emp_doc_ver_key")
+  @@index([employeeId, status], map: "eda_emp_stat_idx")
+  @@index([assignableDocumentId], map: "eda_doc_idx")
+  @@index([assignableDocumentVersionId], map: "eda_doc_ver_idx")
+  @@index([assignmentSourceType], map: "eda_src_type_idx")
+  @@index([sourceEmployeeOnboardingTaskRequirementId], map: "eda_src_req_idx")
+  @@index([dueDate], map: "eda_due_idx")
+  @@index([viewedAt], map: "eda_viewed_idx")
 }
 
 model DocumentAssignmentEmailOutbox {
@@ -604,8 +604,8 @@ model OnboardingTemplateTaskDocumentRequirement {
 
   templateTask OnboardingTemplateTask @relation(fields: [templateTaskId], references: [id])
 
-  @@index([templateTaskId, sortOrder])
-  @@index([documentCategory])
+  @@index([templateTaskId, sortOrder], map: "ottdr_task_sort_idx")
+  @@index([documentCategory], map: "ottdr_doc_cat_idx")
 }
 
 model EmployeeOnboarding {
@@ -670,12 +670,12 @@ model EmployeeOnboardingTaskDocumentRequirement {
   createdAt                DateTime  @default(now())
   updatedAt                DateTime  @updatedAt
 
-  employeeOnboardingTask EmployeeOnboardingTask @relation(fields: [employeeOnboardingTaskId], references: [id])
-  linkedEmployeeDocument EmployeeDocument?      @relation("LinkedEmployeeDocuments", fields: [linkedEmployeeDocumentId], references: [id])
-  linkedByEmployee       Employee?              @relation("LinkedOnboardingTaskDocumentRequirements", fields: [linkedByEmployeeId], references: [id])
+  employeeOnboardingTask EmployeeOnboardingTask @relation(fields: [employeeOnboardingTaskId], references: [id], map: "eotdr_task_fk")
+  linkedEmployeeDocument EmployeeDocument?      @relation("LinkedEmployeeDocuments", fields: [linkedEmployeeDocumentId], references: [id], map: "eotdr_link_doc_fk")
+  linkedByEmployee       Employee?              @relation("LinkedOnboardingTaskDocumentRequirements", fields: [linkedByEmployeeId], references: [id], map: "eotdr_link_by_fk")
 
-  @@index([employeeOnboardingTaskId])
-  @@index([documentCategory])
+  @@index([employeeOnboardingTaskId], map: "eotdr_task_idx")
+  @@index([documentCategory], map: "eotdr_doc_cat_idx")
 }
 
 model OnboardingTemplateTaskAcknowledgementRequirement {
@@ -688,11 +688,11 @@ model OnboardingTemplateTaskAcknowledgementRequirement {
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
-  templateTask        OnboardingTemplateTask @relation(fields: [templateTaskId], references: [id])
-  assignableDocument  AssignableDocument     @relation(fields: [assignableDocumentId], references: [id])
+  templateTask        OnboardingTemplateTask @relation(fields: [templateTaskId], references: [id], map: "ottar_task_fk")
+  assignableDocument  AssignableDocument     @relation(fields: [assignableDocumentId], references: [id], map: "ottar_doc_fk")
 
-  @@index([templateTaskId, sortOrder])
-  @@index([assignableDocumentId])
+  @@index([templateTaskId, sortOrder], map: "ottar_task_sort_idx")
+  @@index([assignableDocumentId], map: "ottar_doc_idx")
 }
 
 model EmployeeOnboardingTaskAcknowledgementRequirement {
@@ -706,16 +706,16 @@ model EmployeeOnboardingTaskAcknowledgementRequirement {
   createdAt                  DateTime @default(now())
   updatedAt                  DateTime @updatedAt
 
-  employeeOnboardingTask             EmployeeOnboardingTask                             @relation(fields: [employeeOnboardingTaskId], references: [id])
-  assignableDocument                 AssignableDocument                                 @relation(fields: [assignableDocumentId], references: [id])
-  assignedDocumentVersion            AssignableDocumentVersion?                         @relation(fields: [assignedDocumentVersionId], references: [id])
-  employeeDocumentAssignment         EmployeeDocumentAssignment?                        @relation("OnboardingRequirementDocumentAssignment", fields: [employeeDocumentAssignmentId], references: [id])
+  employeeOnboardingTask             EmployeeOnboardingTask                             @relation(fields: [employeeOnboardingTaskId], references: [id], map: "eotar_task_fk")
+  assignableDocument                 AssignableDocument                                 @relation(fields: [assignableDocumentId], references: [id], map: "eotar_doc_fk")
+  assignedDocumentVersion            AssignableDocumentVersion?                         @relation(fields: [assignedDocumentVersionId], references: [id], map: "eotar_doc_ver_fk")
+  employeeDocumentAssignment         EmployeeDocumentAssignment?                        @relation("OnboardingRequirementDocumentAssignment", fields: [employeeDocumentAssignmentId], references: [id], map: "eotar_eda_fk")
   sourceAssignments                  EmployeeDocumentAssignment[]                       @relation("AssignmentSourceOnboardingRequirement")
 
-  @@index([employeeOnboardingTaskId])
-  @@index([assignableDocumentId])
-  @@index([assignedDocumentVersionId])
-  @@index([employeeDocumentAssignmentId])
+  @@index([employeeOnboardingTaskId], map: "eotar_task_idx")
+  @@index([assignableDocumentId], map: "eotar_doc_idx")
+  @@index([assignedDocumentVersionId], map: "eotar_doc_ver_idx")
+  @@index([employeeDocumentAssignmentId], map: "eotar_eda_idx")
 }
 
 model OffboardingTemplate {
