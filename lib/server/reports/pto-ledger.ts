@@ -17,6 +17,7 @@ export type PtoLedgerSortDirection = "asc" | "desc";
 export type PtoLedgerFilters = {
   employee: string;
   entryType: string;
+  asOfDate: string;
   dateFrom: string;
   dateTo: string;
   department: string;
@@ -129,6 +130,27 @@ function parseDateOrNull(value: string) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+function parseAsOfDate(value: string | null | undefined) {
+  const normalized = normalizeString(value);
+
+  if (!normalized) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  }
+
+  const parsed = new Date(normalized);
+
+  if (Number.isNaN(parsed.getTime())) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  }
+
+  parsed.setHours(0, 0, 0, 0);
+  return parsed;
+}
+
 function endOfDay(date: Date) {
   const value = new Date(date);
   value.setHours(23, 59, 59, 999);
@@ -176,6 +198,7 @@ function getRelatedSource(input: {
 export function getPtoLedgerFilters(input: {
   employee?: string;
   entryType?: string;
+  asOfDate?: string;
   dateFrom?: string;
   dateTo?: string;
   department?: string;
@@ -189,6 +212,7 @@ export function getPtoLedgerFilters(input: {
   return {
     employee: normalizeString(input.employee),
     entryType: normalizeString(input.entryType),
+    asOfDate: parseAsOfDate(input.asOfDate).toISOString().split("T")[0],
     dateFrom: normalizeString(input.dateFrom),
     dateTo: normalizeString(input.dateTo),
     department: normalizeString(input.department),
@@ -234,7 +258,8 @@ function sortRows(
   });
 }
 
-async function getPtoLedgerBaseData(): Promise<PtoLedgerBaseData> {
+async function getPtoLedgerBaseData(asOfDate: Date): Promise<PtoLedgerBaseData> {
+  const asOfEnd = endOfDay(asOfDate);
   const [employees, ledgerEntries] = await Promise.all([
     prisma.employee.findMany({
       select: {
@@ -249,6 +274,9 @@ async function getPtoLedgerBaseData(): Promise<PtoLedgerBaseData> {
     prisma.pTOLedger.findMany({
       where: {
         bucket: "PTO",
+        effectiveDate: {
+          lte: asOfEnd,
+        },
       },
       orderBy: [{ effectiveDate: "desc" }, { createdAt: "desc" }],
     }),
@@ -422,7 +450,9 @@ function buildPtoLedgerReportResult(
 export async function getPtoLedgerReport(
   filters: PtoLedgerFilters
 ): Promise<PtoLedgerReportResult> {
-  const { allRows, filterOptions } = await getPtoLedgerBaseData();
+  const { allRows, filterOptions } = await getPtoLedgerBaseData(
+    parseAsOfDate(filters.asOfDate)
+  );
   return buildPtoLedgerReportResult(allRows, filterOptions, filters);
 }
 

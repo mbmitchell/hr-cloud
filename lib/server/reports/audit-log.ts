@@ -10,6 +10,7 @@ export type AuditLogSortKey =
 export type AuditLogSortDirection = "asc" | "desc";
 
 export type AuditLogFilters = {
+  asOfDate: string;
   dateFrom: string;
   dateTo: string;
   actor: string;
@@ -111,6 +112,26 @@ function parseDateOrNull(value: string) {
 
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function parseAsOfDate(value: string | null | undefined) {
+  const normalized = normalizeString(value);
+
+  if (!normalized) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  }
+
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  }
+
+  parsed.setHours(0, 0, 0, 0);
+  return parsed;
 }
 
 function endOfDay(date: Date) {
@@ -267,6 +288,7 @@ function getSummary(input: {
 }
 
 export function getAuditLogFilters(input: {
+  asOfDate?: string;
   dateFrom?: string;
   dateTo?: string;
   actor?: string;
@@ -280,6 +302,7 @@ export function getAuditLogFilters(input: {
   pageSize?: string;
 }): AuditLogFilters {
   return {
+    asOfDate: parseAsOfDate(input.asOfDate).toISOString().split("T")[0],
     dateFrom: normalizeString(input.dateFrom),
     dateTo: normalizeString(input.dateTo),
     actor: normalizeString(input.actor),
@@ -428,10 +451,17 @@ function buildAuditLogReportResult(
 ): AuditLogReportResult {
   const actorSearch = filters.actor.toLowerCase();
   const relatedEmployeeSearch = filters.relatedEmployee.toLowerCase();
+  const asOfEnd = endOfDay(parseAsOfDate(filters.asOfDate));
   const dateFrom = parseDateOrNull(filters.dateFrom);
   const dateTo = parseDateOrNull(filters.dateTo);
 
   const filteredRows = allRows.filter((row) => {
+    const timestamp = new Date(row.timestamp);
+
+    if (timestamp.getTime() > asOfEnd.getTime()) {
+      return false;
+    }
+
     const matchesActor =
       actorSearch === "" ||
       row.actorId.toLowerCase().includes(actorSearch) ||
@@ -455,7 +485,6 @@ function buildAuditLogReportResult(
         .toLowerCase()
         .includes(relatedEmployeeSearch);
 
-    const timestamp = new Date(row.timestamp);
     const matchesDateFrom =
       dateFrom == null || timestamp.getTime() >= dateFrom.getTime();
     const matchesDateTo =

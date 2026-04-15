@@ -15,6 +15,7 @@ import {
 
 type SearchParams = Promise<{
   status?: string;
+  asOfDate?: string;
   document?: string;
   category?: string;
   employee?: string;
@@ -147,6 +148,7 @@ export default async function DocumentAcknowledgementReportPage({
 
   const baseParams = {
     status: report.filters.status,
+    asOfDate: report.filters.asOfDate,
     document: report.filters.documentId,
     category: report.filters.category,
     employee: report.filters.employee,
@@ -255,6 +257,16 @@ export default async function DocumentAcknowledgementReportPage({
               <option value="PENDING">Pending</option>
               <option value="OVERDUE">Overdue</option>
             </select>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium">As of Date</label>
+            <input
+              type="date"
+              name="asOfDate"
+              defaultValue={report.filters.asOfDate}
+              className="w-full rounded border px-3 py-2"
+            />
           </div>
 
           <div>

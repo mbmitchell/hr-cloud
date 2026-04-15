@@ -138,6 +138,7 @@ model Employee {
   emergencyContacts                        EmployeeEmergencyContact[]
   benefitElections                         EmployeeBenefitElection[]
   compensationProfile                      EmployeeCompensationProfile?
+  compensationHistory                      EmployeeCompensationHistory[]
   changeRequests                           EmployeeChangeRequest[]                  @relation("EmployeeChangeRequests")
   requestedChangeRequests                  EmployeeChangeRequest[]                  @relation("RequestedEmployeeChangeRequests")
   reviewedChangeRequests                   EmployeeChangeRequest[]                  @relation("ReviewedEmployeeChangeRequests")
@@ -251,6 +252,24 @@ model EmployeeCompensationProfile {
   employee Employee @relation(fields: [employeeId], references: [id])
 
   @@index([employeeId, effectiveDate])
+}
+
+model EmployeeCompensationHistory {
+  id               String                   @id @default(uuid())
+  employeeId       String
+  payType          String
+  annualSalary     Decimal?                 @db.Decimal(12, 2)
+  hourlyRate       Decimal?                 @db.Decimal(10, 2)
+  standardHours    Decimal                  @db.Decimal(5, 2)
+  payrollFrequency EmployeePayrollFrequency @default(BIWEEKLY)
+  effectiveDate    DateTime
+  notes            String?                  @db.Text
+  createdAt        DateTime                 @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId, effectiveDate, createdAt])
+  @@index([effectiveDate])
 }
 
 model EmployeeBenefitElection {

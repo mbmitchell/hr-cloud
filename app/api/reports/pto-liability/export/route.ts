@@ -24,7 +24,6 @@ export async function GET(request: Request) {
     });
 
     const url = new URL(request.url);
-    const snapshotDate = new Date();
     const filters = getPtoLiabilityFilters({
       employee: url.searchParams.get("employee") ?? undefined,
       department: url.searchParams.get("department") ?? undefined,
@@ -32,13 +31,14 @@ export async function GET(request: Request) {
       payrollFrequency: url.searchParams.get("payrollFrequency") ?? undefined,
       workLocation: url.searchParams.get("workLocation") ?? undefined,
       liabilityStatus: url.searchParams.get("liabilityStatus") ?? undefined,
+      asOfDate: url.searchParams.get("asOfDate") ?? undefined,
       sort: url.searchParams.get("sort") ?? undefined,
       direction: url.searchParams.get("direction") ?? undefined,
       page: "1",
       pageSize: "10000",
     });
 
-    const rows = await getPtoLiabilityExportRows(filters, snapshotDate);
+    const rows = await getPtoLiabilityExportRows(filters);
 
     const csv = [
       [
@@ -87,7 +87,7 @@ export async function GET(request: Request) {
           payrollFrequency: filters.payrollFrequency || null,
           workLocation: filters.workLocation || null,
           liabilityStatus: filters.liabilityStatus,
-          snapshotDate: snapshotDate.toISOString(),
+          asOfDate: filters.asOfDate,
         },
       },
     });
@@ -97,7 +97,7 @@ export async function GET(request: Request) {
         headers: {
           "Content-Type": "text/csv; charset=utf-8",
           "Content-Disposition": `attachment; filename="pto_liability_${formatDateForFilename(
-            snapshotDate
+            new Date(filters.asOfDate)
           )}.csv"`,
         },
       }),

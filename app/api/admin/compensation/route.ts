@@ -92,7 +92,19 @@ export async function POST(request: Request) {
             notes: string | null;
           }>;
         };
+        employeeCompensationHistory: {
+          create(args: {
+            data: { employeeId: string } & typeof parsedInput;
+          }): Promise<unknown>;
+        };
       }).employeeCompensationProfile;
+      const compensationHistoryClient = (tx as typeof tx & {
+        employeeCompensationHistory: {
+          create(args: {
+            data: { employeeId: string } & typeof parsedInput;
+          }): Promise<unknown>;
+        };
+      }).employeeCompensationHistory;
 
       const savedProfile = employee.compensationProfile
         ? await compensationProfileClient.update({
@@ -111,6 +123,13 @@ export async function POST(request: Request) {
       const savedEmployee = await tx.employee.update({
         where: { id: employeeId },
         data: legacySync,
+      });
+
+      await compensationHistoryClient.create({
+        data: {
+          employeeId,
+          ...parsedInput,
+        },
       });
 
       await writeAuditLog(tx, {

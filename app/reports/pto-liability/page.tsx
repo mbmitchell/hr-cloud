@@ -20,6 +20,7 @@ type SearchParams = Promise<{
   payrollFrequency?: string;
   workLocation?: string;
   liabilityStatus?: string;
+  asOfDate?: string;
   sort?: string;
   direction?: string;
   page?: string;
@@ -133,6 +134,7 @@ export default async function PtoLiabilityReportPage({
     payrollFrequency: report.filters.payrollFrequency,
     workLocation: report.filters.workLocation,
     liabilityStatus: report.filters.liabilityStatus,
+    asOfDate: report.filters.asOfDate,
   };
 
   const exportHref = `/api/reports/pto-liability/export${buildQueryString({
@@ -246,6 +248,16 @@ export default async function PtoLiabilityReportPage({
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium">As of Date</label>
+            <input
+              type="date"
+              name="asOfDate"
+              defaultValue={report.filters.asOfDate}
+              className="w-full rounded border px-3 py-2"
+            />
           </div>
 
           <div>

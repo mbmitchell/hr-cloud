@@ -27,6 +27,7 @@ export async function GET(request: Request) {
     const filters = getPtoLedgerFilters({
       employee: url.searchParams.get("employee") ?? undefined,
       entryType: url.searchParams.get("entryType") ?? undefined,
+      asOfDate: url.searchParams.get("asOfDate") ?? undefined,
       dateFrom: url.searchParams.get("dateFrom") ?? undefined,
       dateTo: url.searchParams.get("dateTo") ?? undefined,
       department: url.searchParams.get("department") ?? undefined,
@@ -83,6 +84,7 @@ export async function GET(request: Request) {
         filters: {
           employee: filters.employee || null,
           entryType: filters.entryType || null,
+          asOfDate: filters.asOfDate,
           dateFrom: filters.dateFrom || null,
           dateTo: filters.dateTo || null,
           department: filters.department || null,

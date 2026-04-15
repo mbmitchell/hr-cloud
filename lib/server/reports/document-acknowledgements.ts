@@ -15,6 +15,7 @@ export type DocumentAcknowledgementSortDirection = "asc" | "desc";
 
 export type DocumentAcknowledgementFilters = {
   status: DocumentAcknowledgementStatusFilter;
+  asOfDate: string;
   documentId: string;
   category: string;
   employee: string;
@@ -129,6 +130,26 @@ function parseDateOrNull(value: string) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+function parseAsOfDate(value: string | null | undefined) {
+  const normalized = normalizeString(value);
+
+  if (!normalized) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  }
+
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  }
+
+  parsed.setHours(0, 0, 0, 0);
+  return parsed;
+}
+
 function endOfDay(date: Date) {
   const value = new Date(date);
   value.setHours(23, 59, 59, 999);
@@ -153,6 +174,7 @@ function getAcknowledgementStatus(input: {
 
 export function getDocumentAcknowledgementFilters(input: {
   status?: string;
+  asOfDate?: string;
   document?: string;
   category?: string;
   employee?: string;
@@ -168,6 +190,7 @@ export function getDocumentAcknowledgementFilters(input: {
 }): DocumentAcknowledgementFilters {
   return {
     status: normalizeStatusFilter(input.status),
+    asOfDate: parseAsOfDate(input.asOfDate).toISOString().split("T")[0],
     documentId: normalizeString(input.document),
     category: normalizeString(input.category),
     employee: normalizeString(input.employee),
@@ -219,7 +242,9 @@ function sortRows(
   });
 }
 
-async function getDocumentAcknowledgementBaseData(): Promise<DocumentAcknowledgementBaseData> {
+async function getDocumentAcknowledgementBaseData(
+  asOfDate: Date
+): Promise<DocumentAcknowledgementBaseData> {
   const assignments = await prisma.employeeDocumentAssignment.findMany({
     include: {
       employee: {
@@ -253,9 +278,11 @@ async function getDocumentAcknowledgementBaseData(): Promise<DocumentAcknowledge
     orderBy: [{ assignedAt: "desc" }, { createdAt: "desc" }],
   });
 
-  const now = new Date();
+  const asOfEnd = endOfDay(asOfDate);
 
-  const allRows: DocumentAcknowledgementRow[] = assignments.map((assignment) => ({
+  const allRows: DocumentAcknowledgementRow[] = assignments
+    .filter((assignment) => assignment.assignedAt.getTime() <= asOfEnd.getTime())
+    .map((assignment) => ({
     assignmentId: assignment.id,
     employeeId: assignment.employeeId,
     employeeName: `${assignment.employee.firstName} ${assignment.employee.lastName}`.trim(),
@@ -266,11 +293,19 @@ async function getDocumentAcknowledgementBaseData(): Promise<DocumentAcknowledge
     documentCategory: assignment.assignableDocument.category ?? null,
     assignedAt: assignment.assignedAt.toISOString(),
     dueDate: assignment.dueDate?.toISOString() ?? null,
-    acknowledgedAt: assignment.acknowledgedAt?.toISOString() ?? null,
+    acknowledgedAt:
+      assignment.acknowledgedAt &&
+      assignment.acknowledgedAt.getTime() <= asOfEnd.getTime()
+        ? assignment.acknowledgedAt.toISOString()
+        : null,
     status: getAcknowledgementStatus({
       dueDate: assignment.dueDate,
-      acknowledgedAt: assignment.acknowledgedAt,
-      now,
+      acknowledgedAt:
+        assignment.acknowledgedAt &&
+        assignment.acknowledgedAt.getTime() <= asOfEnd.getTime()
+          ? assignment.acknowledgedAt
+          : null,
+      now: asOfEnd,
     }),
     assignedById: assignment.assignedByEmployeeId,
     assignedByName: `${assignment.assignedByEmployee.firstName} ${assignment.assignedByEmployee.lastName}`.trim(),
@@ -412,7 +447,9 @@ function buildDocumentAcknowledgementReportResult(
 export async function getDocumentAcknowledgementReport(
   filters: DocumentAcknowledgementFilters
 ): Promise<DocumentAcknowledgementReportResult> {
-  const { allRows, filterOptions } = await getDocumentAcknowledgementBaseData();
+  const { allRows, filterOptions } = await getDocumentAcknowledgementBaseData(
+    parseAsOfDate(filters.asOfDate)
+  );
 
   return buildDocumentAcknowledgementReportResult(allRows, filterOptions, filters);
 }

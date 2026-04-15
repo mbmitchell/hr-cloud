@@ -17,14 +17,6 @@ function toSnapshotDateString(date: Date) {
   return date.toISOString().split("T")[0];
 }
 
-function buildDefaultPtoLiabilityFilters() {
-  return getPtoLiabilityFilters({
-    status: "ACTIVE",
-    page: "1",
-    pageSize: "10000",
-  });
-}
-
 async function getAdminRecipients() {
   const assignments = await prisma.employeeRoleAssignment.findMany({
     where: {
@@ -80,7 +72,12 @@ function buildPdfForSnapshot(input: {
   snapshotDate: Date;
   rows: Awaited<ReturnType<typeof getPtoLiabilityExportRows>>;
 }) {
-  const filters = buildDefaultPtoLiabilityFilters();
+  const filters = getPtoLiabilityFilters({
+    status: "ACTIVE",
+    asOfDate: toSnapshotDateString(input.snapshotDate),
+    page: "1",
+    pageSize: "10000",
+  });
 
   return renderReportPdf({
     title: ptoLiabilityReportNotes.title,
@@ -89,6 +86,7 @@ function buildPdfForSnapshot(input: {
     notes: ptoLiabilityReportNotes,
     appliedFilters: [
       { label: "Status", value: "ACTIVE" },
+      { label: "As of Date", value: filters.asOfDate },
       { label: "Department", value: "All departments" },
       { label: "Payroll Frequency", value: "All payroll frequencies" },
       { label: "Work Location", value: "All work locations" },
@@ -131,8 +129,13 @@ export async function runMonthlyPtoLiabilitySnapshotJob(input?: {
     runKey: input?.runKey,
     execute: async () => {
       const snapshotDate = input?.runDate ? new Date(input.runDate) : new Date();
-      const filters = buildDefaultPtoLiabilityFilters();
-      const rows = await getPtoLiabilityExportRows(filters, snapshotDate);
+      const filters = getPtoLiabilityFilters({
+        status: "ACTIVE",
+        asOfDate: toSnapshotDateString(snapshotDate),
+        page: "1",
+        pageSize: "10000",
+      });
+      const rows = await getPtoLiabilityExportRows(filters);
       const pdf = buildPdfForSnapshot({ snapshotDate, rows });
       const totalPtoLiability = rows.reduce(
         (sum, row) => sum + row.estimatedPtoLiability,
@@ -155,6 +158,7 @@ export async function runMonthlyPtoLiabilitySnapshotJob(input?: {
           negativeBalanceReviewCount,
           filters: {
             status: filters.status,
+            asOfDate: filters.asOfDate,
           },
         },
       });

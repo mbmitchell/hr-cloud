@@ -25,6 +25,7 @@ export async function GET(request: Request) {
 
     const url = new URL(request.url);
     const filters = getAuditLogFilters({
+      asOfDate: url.searchParams.get("asOfDate") ?? undefined,
       dateFrom: url.searchParams.get("dateFrom") ?? undefined,
       dateTo: url.searchParams.get("dateTo") ?? undefined,
       actor: url.searchParams.get("actor") ?? undefined,
@@ -79,6 +80,7 @@ export async function GET(request: Request) {
       newValue: {
         rowCount: rows.length,
         filters: {
+          asOfDate: filters.asOfDate,
           dateFrom: filters.dateFrom || null,
           dateTo: filters.dateTo || null,
           actor: filters.actor || null,

@@ -16,6 +16,7 @@ import {
 type SearchParams = Promise<{
   employee?: string;
   entryType?: string;
+  asOfDate?: string;
   dateFrom?: string;
   dateTo?: string;
   department?: string;
@@ -135,6 +136,7 @@ export default async function PtoLedgerReportPage({
   const baseParams = {
     employee: report.filters.employee,
     entryType: report.filters.entryType,
+    asOfDate: report.filters.asOfDate,
     dateFrom: report.filters.dateFrom,
     dateTo: report.filters.dateTo,
     department: report.filters.department,
@@ -257,6 +259,16 @@ export default async function PtoLedgerReportPage({
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium">As of Date</label>
+            <input
+              type="date"
+              name="asOfDate"
+              defaultValue={report.filters.asOfDate}
+              className="w-full rounded border px-3 py-2"
+            />
           </div>
 
           <div>

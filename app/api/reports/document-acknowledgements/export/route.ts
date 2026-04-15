@@ -38,6 +38,7 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const filters = getDocumentAcknowledgementFilters({
       status: url.searchParams.get("status") ?? undefined,
+      asOfDate: url.searchParams.get("asOfDate") ?? undefined,
       document: url.searchParams.get("document") ?? undefined,
       category: url.searchParams.get("category") ?? undefined,
       employee: url.searchParams.get("employee") ?? undefined,
@@ -98,6 +99,7 @@ export async function GET(request: Request) {
         rowCount: rows.length,
         filters: {
           status: filters.status,
+          asOfDate: filters.asOfDate,
           documentId: filters.documentId || null,
           category: filters.category || null,
           employee: filters.employee || null,

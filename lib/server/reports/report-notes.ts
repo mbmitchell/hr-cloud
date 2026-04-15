@@ -103,12 +103,16 @@ export const jobChangeHistoryReportNotes: ReportNotesConfig = {
       text: "The primary date range filter uses createdAt so draft and submitted requests can be reviewed consistently.",
     },
     {
+      label: "As of Date",
+      text: "Status and workflow timestamps reflect the request state as of the selected date rather than always showing the latest state.",
+    },
+    {
       label: "Change Summary",
       text: "Change Summary is derived from changed field keys and shown as a readable field list instead of raw JSON.",
     },
   ],
   filterExportNote:
-    "Current filters affect both the on-screen table and exported files. This report reflects historical workflow records within the selected filter scope.",
+    "Current filters, including As of Date, affect both the on-screen table and exported files. This report reflects historical workflow records within the selected filter scope.",
 };
 
 export const documentAcknowledgementReportNotes: ReportNotesConfig = {
@@ -131,9 +135,13 @@ export const documentAcknowledgementReportNotes: ReportNotesConfig = {
       label: "Overdue",
       text: "Overdue means the assignment is not acknowledged, dueDate exists, and dueDate is in the past.",
     },
+    {
+      label: "As of Date",
+      text: "Acknowledgement state is evaluated relative to the selected date, so future acknowledgements do not count before that date is reached.",
+    },
   ],
   filterExportNote:
-    "Current filters affect both the on-screen table and exported files. This report reflects assignment history and current acknowledgement state within the selected scope.",
+    "Current filters, including As of Date, affect both the on-screen table and exported files. This report reflects assignment history and acknowledgement state within the selected scope.",
 };
 
 export const ptoLedgerReportNotes: ReportNotesConfig = {
@@ -156,9 +164,13 @@ export const ptoLedgerReportNotes: ReportNotesConfig = {
       label: "Negative Balance Employees",
       text: "Counts employees whose latest PTO ledger balance is below zero in the filtered scope.",
     },
+    {
+      label: "As of Date",
+      text: "Ledger rows and latest-balance summaries are limited to entries on or before the selected date.",
+    },
   ],
   filterExportNote:
-    "Current filters affect both the on-screen table and exported files. The report reflects PTO ledger history, while current balance summaries are derived from the latest ledger state in scope.",
+    "Current filters, including As of Date, affect both the on-screen table and exported files. The report reflects PTO ledger history through the selected date, while balance summaries use the latest ledger state in scope as of that date.",
 };
 
 export const ptoLiabilityReportNotes: ReportNotesConfig = {
@@ -167,11 +179,15 @@ export const ptoLiabilityReportNotes: ReportNotesConfig = {
   purpose:
     "Review estimated PTO payout liability by employee for HR, finance, and audit use without exposing raw balance or compensation inputs.",
   sourceOfTruth:
-    "Latest PTO ledger balance per employee from PTOLedger plus the current EmployeeCompensationProfile used for valuation.",
+    "Latest PTO ledger balance per employee from PTOLedger plus the latest effective compensation snapshot from EmployeeCompensationHistory and the current compensation profile where needed for backfill compatibility.",
   definitions: [
     {
       label: "Liability Valuation",
       text: "Salaried liability uses annual salary divided by 2080 and multiplied by current PTO hours. Hourly liability uses hourly rate multiplied by current PTO hours.",
+    },
+    {
+      label: "As of Date",
+      text: "PTO balance and compensation valuation use the latest effective records on or before the selected date.",
     },
     {
       label: "Negative Balance Review",
@@ -183,7 +199,7 @@ export const ptoLiabilityReportNotes: ReportNotesConfig = {
     },
   ],
   filterExportNote:
-    "Current filters affect both the on-screen table and exported files. The report reflects current data at run time, and scheduled month-end delivery uses the same liability rules against the current month-end snapshot.",
+    "Current filters, including As of Date, affect both the on-screen table and exported files. The report reflects point-in-time liability as of the selected date, and scheduled month-end delivery uses the same liability rules against that month-end snapshot.",
 };
 
 export const auditLogReportNotes: ReportNotesConfig = {
@@ -206,7 +222,11 @@ export const auditLogReportNotes: ReportNotesConfig = {
       label: "Actor Availability",
       text: "Some audit events may not map to a named employee actor and can appear with only a stored actor ID or no resolved actor name.",
     },
+    {
+      label: "As of Date",
+      text: "Only audit events recorded on or before the selected date are included in the report and exports.",
+    },
   ],
   filterExportNote:
-    "Current filters affect both the on-screen table and exported files. This report reflects historical audit activity within the selected filter range.",
+    "Current filters, including As of Date, affect both the on-screen table and exported files. This report reflects historical audit activity within the selected filter range.",
 };

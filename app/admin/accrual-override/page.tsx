@@ -1,16 +1,5 @@
-import { canCurrentUserManageAccrualOverride } from "../../../lib/auth/access";
-import AccrualOverrideClient from "./AccrualOverrideClient";
+import { redirect } from "next/navigation";
 
 export default async function AccrualOverridePage() {
-  const allowed = await canCurrentUserManageAccrualOverride();
-
-  if (!allowed) {
-    return (
-      <div className="text-red-600">
-        You do not have access to accrual overrides.
-      </div>
-    );
-  }
-
-  return <AccrualOverrideClient />;
+  redirect("/admin/policy");
 }

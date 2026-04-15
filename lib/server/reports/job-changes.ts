@@ -36,6 +36,7 @@ export type JobChangeHistorySortDirection = "asc" | "desc";
 export type JobChangeHistoryFilters = {
   status: JobChangeHistoryStatusFilter;
   changeType: JobChangeHistoryChangeTypeFilter;
+  asOfDate: string;
   employee: string;
   requestedById: string;
   reviewedById: string;
@@ -158,6 +159,27 @@ function parseDateOrNull(value: string) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+function parseAsOfDate(value: string | null | undefined) {
+  const normalized = normalizeString(value);
+
+  if (!normalized) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  }
+
+  const parsed = new Date(normalized);
+
+  if (Number.isNaN(parsed.getTime())) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  }
+
+  parsed.setHours(0, 0, 0, 0);
+  return parsed;
+}
+
 function endOfDay(date: Date) {
   const value = new Date(date);
   value.setHours(23, 59, 59, 999);
@@ -167,6 +189,7 @@ function endOfDay(date: Date) {
 export function getJobChangeHistoryFilters(input: {
   status?: string;
   changeType?: string;
+  asOfDate?: string;
   employee?: string;
   requestedBy?: string;
   reviewedBy?: string;
@@ -182,6 +205,7 @@ export function getJobChangeHistoryFilters(input: {
   return {
     status: normalizeStatusFilter(input.status),
     changeType: normalizeChangeTypeFilter(input.changeType),
+    asOfDate: parseAsOfDate(input.asOfDate).toISOString().split("T")[0],
     employee: normalizeString(input.employee),
     requestedById: normalizeString(input.requestedBy),
     reviewedById: normalizeString(input.reviewedBy),
@@ -193,6 +217,57 @@ export function getJobChangeHistoryFilters(input: {
     direction: normalizeSortDirection(input.direction),
     page: normalizePositiveInt(input.page, 1),
     pageSize: Math.min(normalizePositiveInt(input.pageSize, 25), 100),
+  };
+}
+
+function deriveRowAsOf(
+  row: JobChangeHistoryRow,
+  asOfEnd: Date
+): JobChangeHistoryRow | null {
+  const createdAt = new Date(row.createdAt);
+
+  if (createdAt.getTime() > asOfEnd.getTime()) {
+    return null;
+  }
+
+  const submittedAt =
+    row.submittedAt && new Date(row.submittedAt).getTime() <= asOfEnd.getTime()
+      ? row.submittedAt
+      : null;
+  const approvedAt =
+    row.approvedAt && new Date(row.approvedAt).getTime() <= asOfEnd.getTime()
+      ? row.approvedAt
+      : null;
+  const appliedAt =
+    row.appliedAt && new Date(row.appliedAt).getTime() <= asOfEnd.getTime()
+      ? row.appliedAt
+      : null;
+  const cancelledAt =
+    row.cancelledAt && new Date(row.cancelledAt).getTime() <= asOfEnd.getTime()
+      ? row.cancelledAt
+      : null;
+
+  const status: JobChangeHistoryRow["status"] = cancelledAt
+    ? "CANCELLED"
+    : appliedAt
+      ? "APPLIED"
+      : approvedAt
+        ? "APPROVED"
+        : submittedAt
+          ? "PENDING"
+          : "DRAFT";
+
+  return {
+    ...row,
+    status,
+    submittedAt,
+    approvedAt,
+    appliedAt,
+    cancelledAt,
+    actualEffectiveDate:
+      appliedAt && row.actualEffectiveDate ? row.actualEffectiveDate : null,
+    reviewedById: approvedAt ? row.reviewedById : null,
+    reviewedByName: approvedAt ? row.reviewedByName : null,
   };
 }
 
@@ -351,13 +426,17 @@ function buildJobChangeHistoryReportResult(
   filterOptions: JobChangeHistoryFilterOptions,
   filters: JobChangeHistoryFilters
 ): JobChangeHistoryReportResult {
+  const asOfEnd = endOfDay(parseAsOfDate(filters.asOfDate));
   const searchValue = filters.employee.toLowerCase();
   const dateFrom = parseDateOrNull(filters.dateFrom);
   const dateTo = parseDateOrNull(filters.dateTo);
   const effectiveDateFrom = parseDateOrNull(filters.effectiveDateFrom);
   const effectiveDateTo = parseDateOrNull(filters.effectiveDateTo);
 
-  const filteredRows = allRows.filter((row) => {
+  const filteredRows = allRows
+    .map((row) => deriveRowAsOf(row, asOfEnd))
+    .filter((row): row is JobChangeHistoryRow => row != null)
+    .filter((row) => {
     const matchesStatus =
       filters.status === "ALL" || row.status === filters.status;
     const matchesChangeType =

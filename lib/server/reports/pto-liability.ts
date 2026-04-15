@@ -1,3 +1,5 @@
+import { Prisma } from "@prisma/client";
+
 import { prisma } from "../../db";
 
 export type PtoLiabilityStatusFilter =
@@ -23,6 +25,7 @@ export type PtoLiabilityFilters = {
   payrollFrequency: string;
   workLocation: string;
   liabilityStatus: PtoLiabilityStatusFilter;
+  asOfDate: string;
   sort: PtoLiabilitySortKey;
   direction: PtoLiabilitySortDirection;
   page: number;
@@ -79,6 +82,13 @@ type PtoLiabilityBaseData = {
   snapshotDate: string;
 };
 
+type CompensationSnapshot = {
+  payType: string;
+  annualSalary: number | null;
+  hourlyRate: number | null;
+  payrollFrequency: string;
+};
+
 function normalizeString(value: string | null | undefined) {
   return value?.trim() ?? "";
 }
@@ -129,12 +139,43 @@ function normalizePositiveInt(value: string | undefined, fallback: number) {
   return Math.floor(parsed);
 }
 
+function parseAsOfDate(value: string | null | undefined) {
+  const normalized = normalizeString(value);
+
+  if (!normalized) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  }
+
+  const parsed = new Date(normalized);
+
+  if (Number.isNaN(parsed.getTime())) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  }
+
+  parsed.setHours(0, 0, 0, 0);
+  return parsed;
+}
+
+function endOfDay(date: Date) {
+  const value = new Date(date);
+  value.setHours(23, 59, 59, 999);
+  return value;
+}
+
 function toSnapshotDateString(date: Date) {
   return date.toISOString().split("T")[0];
 }
 
 function roundCurrency(value: number) {
   return Number(value.toFixed(2));
+}
+
+function decimalToNumber(value: Prisma.Decimal | null | undefined) {
+  return value == null ? null : Number(value.toString());
 }
 
 function getLiabilityStatusLabel(
@@ -209,26 +250,138 @@ function sortRows(
   });
 }
 
+function getEmployeeStatusAsOf(input: {
+  currentStatus: string;
+  statusHistory: Array<{
+    previousStatus: string;
+    newStatus: string;
+    changedAt: Date;
+  }>;
+  asOfEnd: Date;
+}) {
+  let status = input.currentStatus;
+
+  for (const history of input.statusHistory) {
+    if (history.changedAt.getTime() > input.asOfEnd.getTime()) {
+      status = history.previousStatus;
+      continue;
+    }
+
+    break;
+  }
+
+  return status;
+}
+
+function getCompensationSnapshotAsOf(input: {
+  compensationHistory: Array<{
+    payType: string;
+    annualSalary: Prisma.Decimal | null;
+    hourlyRate: Prisma.Decimal | null;
+    payrollFrequency: string;
+    effectiveDate: Date;
+    createdAt: Date;
+  }>;
+  compensationProfile: {
+    payType: string;
+    annualSalary: Prisma.Decimal | null;
+    hourlyRate: Prisma.Decimal | null;
+    payrollFrequency: string;
+    effectiveDate: Date;
+  } | null;
+  employeePayrollFrequency: string;
+  asOfEnd: Date;
+}): CompensationSnapshot | null {
+  const historyMatch = input.compensationHistory.find(
+    (entry) => entry.effectiveDate.getTime() <= input.asOfEnd.getTime()
+  );
+
+  if (historyMatch) {
+    return {
+      payType: historyMatch.payType,
+      annualSalary: decimalToNumber(historyMatch.annualSalary),
+      hourlyRate: decimalToNumber(historyMatch.hourlyRate),
+      payrollFrequency: historyMatch.payrollFrequency,
+    };
+  }
+
+  if (
+    input.compensationProfile &&
+    input.compensationProfile.effectiveDate.getTime() <= input.asOfEnd.getTime()
+  ) {
+    return {
+      payType: input.compensationProfile.payType,
+      annualSalary: decimalToNumber(input.compensationProfile.annualSalary),
+      hourlyRate: decimalToNumber(input.compensationProfile.hourlyRate),
+      payrollFrequency: input.compensationProfile.payrollFrequency,
+    };
+  }
+
+  return null;
+}
+
 async function getPtoLiabilityBaseData(
-  snapshotDate = new Date()
+  asOfDate: Date
 ): Promise<PtoLiabilityBaseData> {
-  const [employees, ledgerEntries] = await Promise.all([
+  const asOfEnd = endOfDay(asOfDate);
+  const [
+    employees,
+    compensationProfiles,
+    compensationHistoryEntries,
+    statusHistoryEntries,
+    ledgerEntries,
+  ] = await Promise.all([
     prisma.employee.findMany({
-      include: {
-        compensationProfile: {
-          select: {
-            payType: true,
-            annualSalary: true,
-            hourlyRate: true,
-            payrollFrequency: true,
-          },
-        },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        department: true,
+        status: true,
+        title: true,
+        workLocation: true,
+        payrollFrequency: true,
+        hireDate: true,
       },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    }),
+    prisma.employeeCompensationProfile.findMany({
+      select: {
+        employeeId: true,
+        payType: true,
+        annualSalary: true,
+        hourlyRate: true,
+        payrollFrequency: true,
+        effectiveDate: true,
+      },
+    }),
+    prisma.employeeCompensationHistory.findMany({
+      select: {
+        employeeId: true,
+        payType: true,
+        annualSalary: true,
+        hourlyRate: true,
+        payrollFrequency: true,
+        effectiveDate: true,
+        createdAt: true,
+      },
+      orderBy: [{ effectiveDate: "desc" }, { createdAt: "desc" }],
+    }),
+    prisma.employeeStatusHistory.findMany({
+      select: {
+        employeeId: true,
+        previousStatus: true,
+        newStatus: true,
+        changedAt: true,
+      },
+      orderBy: [{ changedAt: "desc" }],
     }),
     prisma.pTOLedger.findMany({
       where: {
         bucket: "PTO",
+        effectiveDate: {
+          lte: asOfEnd,
+        },
       },
       orderBy: [{ effectiveDate: "desc" }, { createdAt: "desc" }],
     }),
@@ -244,62 +397,89 @@ async function getPtoLiabilityBaseData(
     }
   }
 
-  const allRows: PtoLiabilityRow[] = employees.map((employee) => {
-    const currentPtoHours = latestLedgerByEmployeeId.get(employee.id)?.balance ?? 0;
-    const compensationProfile = employee.compensationProfile;
-    const payType = compensationProfile?.payType?.trim() ?? "";
-    const annualSalary =
-      compensationProfile?.annualSalary != null
-        ? Number(compensationProfile.annualSalary)
-        : null;
-    const hourlyRate =
-      compensationProfile?.hourlyRate != null
-        ? Number(compensationProfile.hourlyRate)
-        : null;
-    const hasCompleteCompensation =
-      payType === "SALARY"
-        ? annualSalary != null
-        : payType === "HOURLY"
-          ? hourlyRate != null
-          : false;
+  const compensationProfileByEmployeeId = new Map(
+    compensationProfiles.map((profile) => [profile.employeeId, profile])
+  );
+  const compensationHistoryByEmployeeId = new Map<
+    string,
+    typeof compensationHistoryEntries
+  >();
+  const statusHistoryByEmployeeId = new Map<string, typeof statusHistoryEntries>();
 
-    const liabilityStatus: Exclude<PtoLiabilityStatusFilter, "ALL"> =
-      currentPtoHours < 0
-        ? "NEGATIVE_BALANCE_REVIEW"
-        : !hasCompleteCompensation
-          ? "REVIEW_REQUIRED"
-          : currentPtoHours > 0
-            ? "WITH_LIABILITY"
-            : "NO_LIABILITY";
+  for (const entry of compensationHistoryEntries) {
+    const current = compensationHistoryByEmployeeId.get(entry.employeeId) ?? [];
+    current.push(entry);
+    compensationHistoryByEmployeeId.set(entry.employeeId, current);
+  }
 
-    const estimatedPtoLiability =
-      liabilityStatus === "WITH_LIABILITY"
-        ? calculateEstimatedPtoLiability({
-            payType,
-            annualSalary,
-            hourlyRate,
-            currentPtoHours,
-          })
-        : 0;
+  for (const entry of statusHistoryEntries) {
+    const current = statusHistoryByEmployeeId.get(entry.employeeId) ?? [];
+    current.push(entry);
+    statusHistoryByEmployeeId.set(entry.employeeId, current);
+  }
 
-    return {
-      employeeId: employee.id,
-      employeeName: `${employee.firstName} ${employee.lastName}`.trim(),
-      employeeIdentifier: employee.id,
-      department: employee.department ?? null,
-      employeeStatus: employee.status,
-      jobTitle: employee.title ?? null,
-      workLocation: employee.workLocation ?? null,
-      payrollFrequency:
-        compensationProfile?.payrollFrequency ?? employee.payrollFrequency,
-      estimatedPtoLiability,
-      liabilityStatus,
-      liabilityStatusLabel: getLiabilityStatusLabel(liabilityStatus),
-      snapshotDate: toSnapshotDateString(snapshotDate),
-      currentPtoHours,
-      hasCompleteCompensation,
-    };
-  });
+  const allRows: PtoLiabilityRow[] = employees
+    .filter((employee) => employee.hireDate.getTime() <= asOfEnd.getTime())
+    .map((employee) => {
+      const currentPtoHours = latestLedgerByEmployeeId.get(employee.id)?.balance ?? 0;
+      const employeeStatus = getEmployeeStatusAsOf({
+        currentStatus: employee.status,
+        statusHistory: statusHistoryByEmployeeId.get(employee.id) ?? [],
+        asOfEnd,
+      });
+      const compensationSnapshot = getCompensationSnapshotAsOf({
+        compensationHistory: compensationHistoryByEmployeeId.get(employee.id) ?? [],
+        compensationProfile: compensationProfileByEmployeeId.get(employee.id) ?? null,
+        employeePayrollFrequency: employee.payrollFrequency,
+        asOfEnd,
+      });
+      const payType = compensationSnapshot?.payType?.trim() ?? "";
+      const annualSalary = compensationSnapshot?.annualSalary ?? null;
+      const hourlyRate = compensationSnapshot?.hourlyRate ?? null;
+      const hasCompleteCompensation =
+        payType === "SALARY"
+          ? annualSalary != null
+          : payType === "HOURLY"
+            ? hourlyRate != null
+            : false;
+
+      const liabilityStatus: Exclude<PtoLiabilityStatusFilter, "ALL"> =
+        currentPtoHours < 0
+          ? "NEGATIVE_BALANCE_REVIEW"
+          : !hasCompleteCompensation
+            ? "REVIEW_REQUIRED"
+            : currentPtoHours > 0
+              ? "WITH_LIABILITY"
+              : "NO_LIABILITY";
+
+      const estimatedPtoLiability =
+        liabilityStatus === "WITH_LIABILITY"
+          ? calculateEstimatedPtoLiability({
+              payType,
+              annualSalary,
+              hourlyRate,
+              currentPtoHours,
+            })
+          : 0;
+
+      return {
+        employeeId: employee.id,
+        employeeName: `${employee.firstName} ${employee.lastName}`.trim(),
+        employeeIdentifier: employee.id,
+        department: employee.department ?? null,
+        employeeStatus,
+        jobTitle: employee.title ?? null,
+        workLocation: employee.workLocation ?? null,
+        payrollFrequency:
+          compensationSnapshot?.payrollFrequency ?? employee.payrollFrequency,
+        estimatedPtoLiability,
+        liabilityStatus,
+        liabilityStatusLabel: getLiabilityStatusLabel(liabilityStatus),
+        snapshotDate: toSnapshotDateString(asOfDate),
+        currentPtoHours,
+        hasCompleteCompensation,
+      };
+    });
 
   const departments = new Set<string>();
   const payrollFrequencies = new Set<string>();
@@ -324,7 +504,7 @@ async function getPtoLiabilityBaseData(
       payrollFrequencies: Array.from(payrollFrequencies).sort(),
       workLocations: Array.from(workLocations).sort(),
     },
-    snapshotDate: toSnapshotDateString(snapshotDate),
+    snapshotDate: toSnapshotDateString(asOfDate),
   };
 }
 
@@ -335,11 +515,14 @@ export function getPtoLiabilityFilters(input: {
   payrollFrequency?: string;
   workLocation?: string;
   liabilityStatus?: string;
+  asOfDate?: string;
   sort?: string;
   direction?: string;
   page?: string;
   pageSize?: string;
 }): PtoLiabilityFilters {
+  const asOfDate = parseAsOfDate(input.asOfDate);
+
   return {
     employee: normalizeString(input.employee),
     department: normalizeString(input.department),
@@ -347,6 +530,7 @@ export function getPtoLiabilityFilters(input: {
     payrollFrequency: normalizeString(input.payrollFrequency),
     workLocation: normalizeString(input.workLocation),
     liabilityStatus: normalizeLiabilityStatusFilter(input.liabilityStatus),
+    asOfDate: toSnapshotDateString(asOfDate),
     sort: normalizeSortKey(input.sort),
     direction: normalizeSortDirection(input.direction),
     page: normalizePositiveInt(input.page, 1),
@@ -403,10 +587,10 @@ function applyPtoLiabilityFilters(
 }
 
 export async function getPtoLiabilityReport(
-  filters: PtoLiabilityFilters,
-  snapshotDate = new Date()
+  filters: PtoLiabilityFilters
 ): Promise<PtoLiabilityReportResult> {
-  const baseData = await getPtoLiabilityBaseData(snapshotDate);
+  const asOfDate = parseAsOfDate(filters.asOfDate);
+  const baseData = await getPtoLiabilityBaseData(asOfDate);
   const filteredRows = applyPtoLiabilityFilters(baseData.allRows, filters);
   const sortedRows = sortRows(filteredRows, filters.sort, filters.direction);
   const totalRows = sortedRows.length;
@@ -430,6 +614,7 @@ export async function getPtoLiabilityReport(
     },
     filters: {
       ...filters,
+      asOfDate: baseData.snapshotDate,
       page,
     },
     filterOptions: baseData.filterOptions,
@@ -444,18 +629,12 @@ export async function getPtoLiabilityReport(
   };
 }
 
-export async function getPtoLiabilityExportRows(
-  filters: PtoLiabilityFilters,
-  snapshotDate = new Date()
-) {
-  const report = await getPtoLiabilityReport(
-    {
-      ...filters,
-      page: 1,
-      pageSize: 10000,
-    },
-    snapshotDate
-  );
+export async function getPtoLiabilityExportRows(filters: PtoLiabilityFilters) {
+  const report = await getPtoLiabilityReport({
+    ...filters,
+    page: 1,
+    pageSize: 10000,
+  });
 
   return report.rows;
 }

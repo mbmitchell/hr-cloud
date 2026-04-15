@@ -113,7 +113,7 @@ export function buildSidebarSections(
           ? [item("/admin/adjustments", "PTO Adjustments", "adjustments")]
           : []),
         ...(input.canSeePolicy
-          ? [item("/admin/policy", "Settings", "settings")]
+          ? [item("/admin/policy", "PTO Settings", "settings")]
           : []),
         ...(input.canManageOnboardingTemplates
           ? [item("/admin/onboarding/templates", "Onboarding Templates", "checklist")]
@@ -123,12 +123,6 @@ export function buildSidebarSections(
           : []),
         ...(input.canManageDocumentAcknowledgements
           ? [item("/admin/document-acknowledgements", "Document Acknowledgements", "checklist")]
-          : []),
-        ...(input.canSeeAdjustments
-          ? [item("/admin/accrual-override", "Accrual Settings", "clock")]
-          : []),
-        ...(input.canSeeCompensation
-          ? [item("/admin/compensation", "Compensation", "money")]
           : []),
         ...(input.isSiteAdmin
           ? [item("/admin/run-accruals", "Monthly Accrual", "clock")]

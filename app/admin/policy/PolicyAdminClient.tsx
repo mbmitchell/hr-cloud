@@ -3,6 +3,14 @@
 import { useEffect, useState } from "react";
 
 export default function PolicyAdminClient() {
+  return <PolicyAdminClientContent />;
+}
+
+export function PolicyAdminClientContent({
+  showHeader = true,
+}: {
+  showHeader?: boolean;
+}) {
   const [accrualRate0To5, setAccrualRate0To5] = useState("10");
   const [accrualRate6To10, setAccrualRate6To10] = useState("13.33");
   const [accrualRateOver10, setAccrualRateOver10] = useState("16.67");
@@ -75,12 +83,14 @@ export default function PolicyAdminClient() {
 
   return (
     <div className="max-w-3xl space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold">PTO Policy Settings</h2>
-        <p className="text-sm text-slate-600 mt-1">
-          Manage accrual tiers and year-end rollover limits.
-        </p>
-      </div>
+      {showHeader ? (
+        <div>
+          <h2 className="text-2xl font-bold">PTO Policy Settings</h2>
+          <p className="text-sm text-slate-600 mt-1">
+            Manage accrual tiers and year-end rollover limits.
+          </p>
+        </div>
+      ) : null}
 
       <div className="bg-white rounded shadow p-4 sm:p-6">
         <form onSubmit={handleSave} className="space-y-5">

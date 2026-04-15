@@ -16,6 +16,7 @@ import {
 type SearchParams = Promise<{
   status?: string;
   changeType?: string;
+  asOfDate?: string;
   employee?: string;
   requestedBy?: string;
   reviewedBy?: string;
@@ -129,6 +130,7 @@ export default async function JobChangeHistoryReportPage({
   const baseParams = {
     status: report.filters.status,
     changeType: report.filters.changeType,
+    asOfDate: report.filters.asOfDate,
     employee: report.filters.employee,
     requestedBy: report.filters.requestedById,
     reviewedBy: report.filters.reviewedById,
@@ -238,6 +240,16 @@ export default async function JobChangeHistoryReportPage({
               <option value="APPLIED">Applied</option>
               <option value="CANCELLED">Cancelled</option>
             </select>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium">As of Date</label>
+            <input
+              type="date"
+              name="asOfDate"
+              defaultValue={report.filters.asOfDate}
+              className="w-full rounded border px-3 py-2"
+            />
           </div>
 
           <div>

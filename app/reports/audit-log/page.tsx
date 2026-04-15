@@ -15,6 +15,7 @@ import {
 } from "../../../lib/server/authorization";
 
 type SearchParams = Promise<{
+  asOfDate?: string;
   dateFrom?: string;
   dateTo?: string;
   actor?: string;
@@ -131,6 +132,7 @@ export default async function AuditLogReportPage({
   const report = await getAuditLogReport(filters);
 
   const baseParams = {
+    asOfDate: report.filters.asOfDate,
     dateFrom: report.filters.dateFrom,
     dateTo: report.filters.dateTo,
     actor: report.filters.actor,
@@ -224,6 +226,16 @@ export default async function AuditLogReportPage({
 
       <div className="rounded bg-white p-4 shadow">
         <form className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
+          <div>
+            <label className="mb-2 block text-sm font-medium">As of Date</label>
+            <input
+              type="date"
+              name="asOfDate"
+              defaultValue={report.filters.asOfDate}
+              className="w-full rounded border px-3 py-2"
+            />
+          </div>
+
           <div>
             <label className="mb-2 block text-sm font-medium">Date From</label>
             <input

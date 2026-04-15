@@ -36,6 +36,14 @@ type EmployeeDetail = {
 };
 
 export default function AccrualOverrideClient() {
+  return <AccrualOverrideClientContent />;
+}
+
+export function AccrualOverrideClientContent({
+  showHeader = true,
+}: {
+  showHeader?: boolean;
+}) {
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [employeeId, setEmployeeId] = useState("");
   const [employeeDetail, setEmployeeDetail] = useState<EmployeeDetail | null>(null);
@@ -214,7 +222,7 @@ export default function AccrualOverrideClient() {
 
   return (
     <div className="max-w-3xl space-y-6">
-      <h2 className="text-2xl font-bold">Accrual Settings</h2>
+      {showHeader ? <h2 className="text-2xl font-bold">Accrual Settings</h2> : null}
 
       <div className="bg-white rounded shadow p-6">
         <form onSubmit={handleSave} className="space-y-5">

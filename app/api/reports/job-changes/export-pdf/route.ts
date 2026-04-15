@@ -28,6 +28,7 @@ export async function GET(request: Request) {
     const filters = getJobChangeHistoryFilters({
       status: url.searchParams.get("status") ?? undefined,
       changeType: url.searchParams.get("changeType") ?? undefined,
+      asOfDate: url.searchParams.get("asOfDate") ?? undefined,
       employee: url.searchParams.get("employee") ?? undefined,
       requestedBy: url.searchParams.get("requestedBy") ?? undefined,
       reviewedBy: url.searchParams.get("reviewedBy") ?? undefined,
@@ -50,6 +51,7 @@ export async function GET(request: Request) {
       appliedFilters: [
         { label: "Status", value: filters.status },
         { label: "Change Type", value: filters.changeType },
+        { label: "As of Date", value: filters.asOfDate },
         { label: "Employee", value: filters.employee || "All employees" },
         { label: "Requested By", value: filters.requestedById || "All" },
         { label: "Reviewed By", value: filters.reviewedById || "All" },
@@ -98,6 +100,7 @@ export async function GET(request: Request) {
         filters: {
           status: filters.status,
           changeType: filters.changeType,
+          asOfDate: filters.asOfDate,
           employee: filters.employee || null,
           requestedById: filters.requestedById || null,
           reviewedById: filters.reviewedById || null,
