@@ -77,7 +77,7 @@ export default function LoginForm({
               {allowMicrosoft365Auth && (
                 <div className="flex items-center gap-3 text-xs text-slate-400">
                   <div className="h-px flex-1 bg-slate-200" />
-                  <span>Development Only</span>
+                  <span>Manual / Break-Glass</span>
                   <div className="h-px flex-1 bg-slate-200" />
                 </div>
               )}
