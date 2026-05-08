@@ -1,0 +1,2 @@
+-- RenameIndex
+ALTER TABLE `EmployeeDocumentAssignment` RENAME INDEX `EmployeeDocumentAssignment_employeeId_assignableDocumentVe_key` TO `EmployeeDocumentAssignment_employeeId_assignableDocumentVers_key`;

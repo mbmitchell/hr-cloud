@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: #f8fafc;
+  color: #0f172a;
+  font-family: Arial, sans-serif;
+  overflow-x: hidden;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+button,
+input,
+select,
+textarea {
+  max-width: 100%;
+}
+.rbc-calendar {
+  font-family: Arial, sans-serif;
+}
+
+.rbc-event {
+  border: none !important;
+  padding: 2px 6px !important;
+  border-radius: 6px !important;
+  font-size: 12px !important;
+}
+
+.rbc-event-pto {
+  background: #3b82f6 !important;
+  color: white !important;
+}
+
+.rbc-event-sick {
+  background: #f97316 !important;
+  color: white !important;
+}
+
+.rbc-event-comp {
+  background: #8b5cf6 !important;
+  color: white !important;
+}
+
+.rbc-event-bereavement {
+  background: #059669 !important;
+  color: white !important;
+}
+
+.rbc-event-pending {
+  background: #6b7280 !important;
+  color: white !important;
+}
+
+.rbc-today {
+  background: #eff6ff !important;
+}
+/* PTO Calendar Colors */
+
+.rbc-event-pto {
+  background-color: #3b82f6 !important;
+  border: none !important;
+}
+
+.rbc-event-sick {
+  background-color: #f97316 !important;
+  border: none !important;
+}
+
+.rbc-event-comp {
+  background-color: #8b5cf6 !important;
+  border: none !important;
+}
+
+.rbc-event-bereavement {
+  background-color: #059669 !important;
+  border: none !important;
+}
+
+.rbc-event-default {
+  background-color: #64748b !important;
+}
+
+/* Pending overlay */
+
+.rbc-event-pending {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(255,255,255,0.3),
+    rgba(255,255,255,0.3) 6px,
+    rgba(255,255,255,0.1) 6px,
+    rgba(255,255,255,0.1) 12px
+  ) !important;
+}

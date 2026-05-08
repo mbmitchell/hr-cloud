@@ -1,0 +1,869 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum EmployeeAccrualMode {
+  STANDARD_TENURE
+  ADVANCED_TIER
+  MANUAL_ONLY
+}
+
+enum EmployeeAccrualTier {
+  YEARS_1_TO_5
+  YEARS_6_TO_10
+  YEARS_11_PLUS
+}
+
+enum EmployeeBenefitType {
+  MEDICAL
+  DENTAL
+  VISION
+  LIFE
+  OTHER
+}
+
+enum EmployeeBenefitElectionStatus {
+  ENROLLED
+  WAIVED
+}
+
+enum EmployeePayrollFrequency {
+  BIWEEKLY
+  SEMI_MONTHLY
+  MONTHLY
+}
+
+enum EmployeeChangeRequestStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  APPLIED
+  CANCELLED
+}
+
+enum EmployeeChangeType {
+  COMPENSATION
+  JOB_INFO
+  MANAGER
+  STATUS
+  LOCATION
+  CLASSIFICATION
+  OTHER
+}
+
+enum HrNotificationOutboxStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+enum HrNotificationType {
+  USER_INITIATED
+  SYSTEM_GENERATED
+}
+
+enum ScheduledJobRunStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+enum HrNotificationTemplateKey {
+  GENERIC_HR_NOTIFICATION
+  EMPLOYEE_CHANGE_REQUEST_CREATED
+  EMPLOYEE_CHANGE_REQUEST_APPROVED
+  EMPLOYEE_CHANGE_REQUEST_APPLIED
+}
+
+model Employee {
+  id         String   @id @default(uuid())
+  email      String   @unique(map: "emp_email_key")
+  entraOid   String?
+  entraTid   String?
+  firstName  String
+  lastName   String
+  title      String?
+  department String?
+  hireDate   DateTime
+  managerId  String?
+  status     String
+  employmentClassification String?
+  workLocation             String?
+
+  payType      String?
+  hourlyRate   Float?
+  annualSalary Float?
+  fte          Float?  @default(1)
+  payrollFrequency EmployeePayrollFrequency @default(BIWEEKLY)
+
+  accrualMode                 EmployeeAccrualMode @default(STANDARD_TENURE)
+  monthlyAccrualOverride Float?
+  accrualOverrideReason  String?
+  advancedAccrualTier          EmployeeAccrualTier?
+  advancedAccrualEffectiveDate DateTime?
+  advancedAccrualReason        String?
+
+
+  manager       Employee?  @relation("ManagerToReports", fields: [managerId], references: [id])
+  directReports Employee[] @relation("ManagerToReports")
+
+  requests                                 PTORequest[]
+  ledger                                   PTOLedger[]
+  statusHistory                            EmployeeStatusHistory[]
+  documents                                EmployeeDocument[]                          @relation("EmployeeDocuments")
+  uploadedDocuments                        EmployeeDocument[]                          @relation("UploadedEmployeeDocuments")
+  linkedOnboardingTaskDocumentRequirements EmployeeOnboardingTaskDocumentRequirement[] @relation("LinkedOnboardingTaskDocumentRequirements")
+  onboarding                               EmployeeOnboarding?
+  onboardingTasks                          EmployeeOnboardingTask[]                    @relation("EmployeeOnboardingTasks")
+  offboardings                             EmployeeOffboarding[]                       @relation("EmployeeOffboardings")
+  createdOffboardings                      EmployeeOffboarding[]                       @relation("CreatedEmployeeOffboardings")
+  offboardingTasks                         EmployeeOffboardingTask[]                   @relation("EmployeeOffboardingTasks")
+  assignedOffboardingTasks                 EmployeeOffboardingTask[]                   @relation("AssignedEmployeeOffboardingTasks")
+  completedOffboardingTasks                EmployeeOffboardingTask[]                   @relation("CompletedEmployeeOffboardingTasks")
+  createdAssignableDocuments               AssignableDocument[]                        @relation("CreatedAssignableDocuments")
+  createdAssignableDocumentVersions        AssignableDocumentVersion[]                 @relation("CreatedAssignableDocumentVersions")
+  documentAssignments                      EmployeeDocumentAssignment[]                @relation("EmployeeDocumentAssignments")
+  documentAssignmentNotificationOutboxEntries DocumentAssignmentEmailOutbox[]
+  documentAssignmentReminderOutboxEntries  DocumentAssignmentReminderEmailOutbox[]
+  assignedDocumentAssignments              EmployeeDocumentAssignment[]                @relation("AssignedEmployeeDocumentAssignments")
+  roleAssignments                          EmployeeRoleAssignment[]
+  contactInfo                              EmployeeContactInfo?
+  emergencyContacts                        EmployeeEmergencyContact[]
+  benefitElections                         EmployeeBenefitElection[]
+  compensationProfile                      EmployeeCompensationProfile?
+  compensationHistory                      EmployeeCompensationHistory[]
+  changeRequests                           EmployeeChangeRequest[]                  @relation("EmployeeChangeRequests")
+  requestedChangeRequests                  EmployeeChangeRequest[]                  @relation("RequestedEmployeeChangeRequests")
+  reviewedChangeRequests                   EmployeeChangeRequest[]                  @relation("ReviewedEmployeeChangeRequests")
+  hrNotifications                          HrNotificationOutbox[]                  @relation("HrNotificationEmployee")
+  receivedHrNotifications                  HrNotificationOutbox[]                  @relation("HrNotificationRecipientEmployee")
+  createdHrNotifications                   HrNotificationOutbox[]                  @relation("HrNotificationCreatedByEmployee")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([entraTid, entraOid], map: "emp_entra_key")
+  @@index([managerId], map: "emp_mgr_idx")
+}
+
+model HrNotificationOutbox {
+  id                  String                    @id @default(uuid())
+  eventType           String
+  relatedEntityType   String
+  relatedEntityId     String
+  notificationType    HrNotificationType        @default(USER_INITIATED)
+  employeeId          String?
+  recipientEmployeeId String?
+  recipientEmail      String
+  templateKey         HrNotificationTemplateKey
+  payload             Json
+  status              HrNotificationOutboxStatus @default(PENDING)
+  attemptCount        Int                       @default(0)
+  lastAttemptAt       DateTime?
+  sentAt              DateTime?
+  lastError           String?                   @db.Text
+  createdByEmployeeId String?
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+
+  employee          Employee? @relation("HrNotificationEmployee", fields: [employeeId], references: [id])
+  recipientEmployee Employee? @relation("HrNotificationRecipientEmployee", fields: [recipientEmployeeId], references: [id])
+  createdByEmployee Employee? @relation("HrNotificationCreatedByEmployee", fields: [createdByEmployeeId], references: [id])
+  documentAssignmentEmailOutbox    DocumentAssignmentEmailOutbox?
+  documentAssignmentReminderOutbox DocumentAssignmentReminderEmailOutbox?
+
+  @@index([status, createdAt], map: "hno_stat_created_idx")
+  @@index([notificationType, status, createdAt], map: "hno_type_stat_created_idx")
+  @@index([eventType, status], map: "hno_event_stat_idx")
+  @@index([relatedEntityType, relatedEntityId], map: "hno_rel_ent_idx")
+  @@index([employeeId], map: "hno_emp_idx")
+  @@index([recipientEmployeeId], map: "hno_rcpt_emp_idx")
+  @@index([createdByEmployeeId], map: "hno_created_by_idx")
+}
+
+model ScheduledJobRun {
+  id               String                 @id @default(uuid())
+  jobName          String
+  runKey           String                 @unique(map: "sjr_runkey_key")
+  startedAt        DateTime               @default(now())
+  completedAt      DateTime?
+  status           ScheduledJobRunStatus  @default(RUNNING)
+  recordsProcessed Int?
+  lastError        String?                @db.Text
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  @@index([jobName, startedAt], map: "sjr_job_started_idx")
+  @@index([status, startedAt], map: "sjr_stat_started_idx")
+}
+
+model EmployeeChangeRequest {
+  id                     String                      @id @default(uuid())
+  employeeId             String
+  status                 EmployeeChangeRequestStatus @default(DRAFT)
+  changeType             EmployeeChangeType
+  requestedByEmployeeId  String
+  reviewedByEmployeeId   String?
+  submittedAt            DateTime?
+  approvedAt             DateTime?
+  appliedAt              DateTime?
+  cancelledAt            DateTime?
+  requestedEffectiveDate DateTime
+  actualEffectiveDate    DateTime?
+  reason                 String?                     @db.Text
+  notes                  String?                     @db.Text
+  relatedDocumentId      String?
+  oldValues              Json
+  newValues              Json
+  createdAt              DateTime                    @default(now())
+  updatedAt              DateTime                    @updatedAt
+
+  employee    Employee         @relation("EmployeeChangeRequests", fields: [employeeId], references: [id], map: "ecr_emp_fk")
+  requestedBy Employee         @relation("RequestedEmployeeChangeRequests", fields: [requestedByEmployeeId], references: [id], map: "ecr_req_by_fk")
+  reviewedBy  Employee?        @relation("ReviewedEmployeeChangeRequests", fields: [reviewedByEmployeeId], references: [id], map: "ecr_rev_by_fk")
+  relatedDocument EmployeeDocument? @relation(fields: [relatedDocumentId], references: [id], map: "ecr_rel_doc_fk")
+
+  @@index([employeeId, status, requestedEffectiveDate], map: "ecr_emp_stat_eff_idx")
+  @@index([requestedByEmployeeId], map: "ecr_req_by_idx")
+  @@index([reviewedByEmployeeId], map: "ecr_rev_by_idx")
+  @@index([relatedDocumentId], map: "ecr_rel_doc_idx")
+}
+
+model EmployeeCompensationProfile {
+  id               String                   @id @default(uuid())
+  employeeId       String                   @unique(map: "ecp_emp_key")
+  payType          String
+  annualSalary     Decimal?                 @db.Decimal(12, 2)
+  hourlyRate       Decimal?                 @db.Decimal(10, 2)
+  standardHours    Decimal                  @db.Decimal(5, 2)
+  payrollFrequency EmployeePayrollFrequency @default(BIWEEKLY)
+  effectiveDate    DateTime
+  notes            String?                  @db.Text
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], map: "ecp_emp_fk")
+
+  @@index([employeeId, effectiveDate], map: "ecp_emp_eff_idx")
+}
+
+model EmployeeCompensationHistory {
+  id               String                   @id @default(uuid())
+  employeeId       String
+  payType          String
+  annualSalary     Decimal?                 @db.Decimal(12, 2)
+  hourlyRate       Decimal?                 @db.Decimal(10, 2)
+  standardHours    Decimal                  @db.Decimal(5, 2)
+  payrollFrequency EmployeePayrollFrequency @default(BIWEEKLY)
+  effectiveDate    DateTime
+  notes            String?                  @db.Text
+  createdAt        DateTime                 @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id], map: "ech_emp_fk")
+
+  @@index([employeeId, effectiveDate, createdAt], map: "ech_emp_eff_created_idx")
+  @@index([effectiveDate], map: "ech_eff_idx")
+}
+
+model EmployeeBenefitElection {
+  id                  String                        @id @default(uuid())
+  employeeId          String
+  benefitType         EmployeeBenefitType
+  planName            String
+  coverageLevel       String?
+  electionStatus      EmployeeBenefitElectionStatus
+  effectiveDate       DateTime
+  totalMonthlyCost    Decimal                       @db.Decimal(10, 2)
+  companyMonthlyCost  Decimal                       @db.Decimal(10, 2)
+  employeeMonthlyCost Decimal                       @db.Decimal(10, 2)
+  notes               String?                       @db.Text
+  createdAt           DateTime                      @default(now())
+  updatedAt           DateTime                      @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], map: "ebe_emp_fk")
+
+  @@index([employeeId, benefitType, effectiveDate], map: "ebe_emp_type_eff_idx")
+}
+
+model EmployeeContactInfo {
+  id            String   @id @default(uuid())
+  employeeId    String   @unique
+  preferredName String?
+  personalEmail String?
+  mobilePhone   String?
+  homePhone     String?
+  street1       String?
+  street2       String?
+  city          String?
+  state         String?
+  postalCode    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId])
+}
+
+model EmployeeEmergencyContact {
+  id           String   @id @default(uuid())
+  employeeId   String
+  name         String
+  relationship String
+  phone        String
+  email        String?
+  priority     Int      @default(1)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId, priority, createdAt])
+}
+
+model PTORequest {
+  id                   String    @id @default(uuid())
+  employeeId           String
+  leaveType            String
+  startDate            DateTime
+  endDate              DateTime
+  hours                Float
+  status               String
+  approverId           String?
+  graphCalendarEventId String?   @unique
+  notes                String?
+  approvalComment      String?
+  decisionAt           DateTime?
+  decidedBy            String?
+
+  employee Employee           @relation(fields: [employeeId], references: [id])
+  actions  PTORequestAction[]
+
+  createdAt DateTime @default(now())
+
+  @@index([employeeId, status])
+}
+
+model PTORequestAction {
+  id         String   @id @default(uuid())
+  requestId  String
+  action     String
+  actionById String?
+  comment    String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  request PTORequest @relation(fields: [requestId], references: [id])
+
+  @@index([requestId, createdAt])
+  @@index([action])
+}
+
+model PTOLedger {
+  id              String   @id @default(uuid())
+  employeeId      String
+  bucket          String
+  type            String
+  hours           Float
+  balance         Float
+  effectiveDate   DateTime
+  notes           String?
+  sourceRequestId String?  @unique
+  idempotencyKey  String?  @unique
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([employeeId, bucket, effectiveDate])
+  @@index([employeeId, bucket, effectiveDate, createdAt])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String
+  action     String
+  entityType String
+  entityId   String
+  oldValue   String?  @db.Text
+  newValue   String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  @@index([action])
+  @@index([entityType])
+  @@index([createdAt])
+}
+
+model EmployeeStatusHistory {
+  id                  String   @id @default(uuid())
+  employeeId          String
+  previousStatus      String
+  newStatus           String
+  changedByEmployeeId String
+  changedAt           DateTime @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId, changedAt])
+  @@index([changedByEmployeeId])
+}
+
+model EmployeeDocument {
+  id                   String   @id @default(uuid())
+  employeeId           String
+  category             String
+  originalFileName     String
+  storedFileName       String
+  storageKey           String
+  mimeType             String
+  fileSizeBytes        Int
+  description          String?  @db.Text
+  status               String   @default("ACTIVE")
+  uploadedByEmployeeId String
+  uploadedAt           DateTime @default(now())
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  employee                         Employee                                    @relation("EmployeeDocuments", fields: [employeeId], references: [id])
+  uploadedBy                       Employee                                    @relation("UploadedEmployeeDocuments", fields: [uploadedByEmployeeId], references: [id])
+  linkedOnboardingTaskRequirements EmployeeOnboardingTaskDocumentRequirement[] @relation("LinkedEmployeeDocuments")
+  assignableDocumentVersions       AssignableDocumentVersion[]                 @relation("EmployeeDocumentAssignableVersions")
+  relatedChangeRequests            EmployeeChangeRequest[]
+
+  @@index([employeeId, category, createdAt])
+  @@index([uploadedByEmployeeId])
+}
+
+model AssignableDocument {
+  id                  String   @id @default(uuid())
+  title               String
+  category            String
+  isActive            Boolean  @default(true)
+  currentVersionId    String?
+  createdByEmployeeId String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  createdBy      Employee                     @relation("CreatedAssignableDocuments", fields: [createdByEmployeeId], references: [id])
+  currentVersion AssignableDocumentVersion?   @relation("AssignableDocumentCurrentVersion", fields: [currentVersionId], references: [id])
+  versions       AssignableDocumentVersion[]  @relation("AssignableDocumentVersions")
+  assignments    EmployeeDocumentAssignment[]
+  onboardingTemplateAcknowledgementRequirements OnboardingTemplateTaskAcknowledgementRequirement[]
+  employeeOnboardingAcknowledgementRequirements EmployeeOnboardingTaskAcknowledgementRequirement[]
+
+  @@index([createdByEmployeeId])
+}
+
+model AssignableDocumentVersion {
+  id                   String   @id @default(uuid())
+  assignableDocumentId String
+  versionLabel         String
+  employeeDocumentId   String
+  notes                String?  @db.Text
+  publishedAt          DateTime
+  createdByEmployeeId  String
+  createdAt            DateTime @default(now())
+
+  assignableDocument  AssignableDocument           @relation("AssignableDocumentVersions", fields: [assignableDocumentId], references: [id])
+  employeeDocument    EmployeeDocument             @relation("EmployeeDocumentAssignableVersions", fields: [employeeDocumentId], references: [id])
+  createdBy           Employee                     @relation("CreatedAssignableDocumentVersions", fields: [createdByEmployeeId], references: [id])
+  currentForDocuments AssignableDocument[]         @relation("AssignableDocumentCurrentVersion")
+  assignments         EmployeeDocumentAssignment[]
+  onboardingAssignedAcknowledgementRequirements EmployeeOnboardingTaskAcknowledgementRequirement[]
+
+  @@index([assignableDocumentId])
+  @@index([employeeDocumentId])
+  @@index([createdByEmployeeId])
+}
+
+model EmployeeDocumentAssignment {
+  id                          String    @id @default(uuid())
+  employeeId                  String
+  assignableDocumentId        String
+  assignableDocumentVersionId String
+  assignmentSourceType        String    @default("DIRECT")
+  sourceEmployeeOnboardingTaskRequirementId String?
+  status                      String    @default("PENDING")
+  assignedByEmployeeId        String
+  assignedAt                  DateTime  @default(now())
+  dueDate                     DateTime?
+  viewedAt                    DateTime?
+  acknowledgedAt              DateTime?
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
+
+  employee                                Employee                                    @relation("EmployeeDocumentAssignments", fields: [employeeId], references: [id], map: "eda_emp_fk")
+  assignableDocument                      AssignableDocument                          @relation(fields: [assignableDocumentId], references: [id], map: "eda_doc_fk")
+  assignableDocumentVersion               AssignableDocumentVersion                   @relation(fields: [assignableDocumentVersionId], references: [id], map: "eda_doc_ver_fk")
+  assignedByEmployee                      Employee                                    @relation("AssignedEmployeeDocumentAssignments", fields: [assignedByEmployeeId], references: [id], map: "eda_assigned_by_fk")
+  sourceEmployeeOnboardingTaskRequirement EmployeeOnboardingTaskAcknowledgementRequirement? @relation("AssignmentSourceOnboardingRequirement", fields: [sourceEmployeeOnboardingTaskRequirementId], references: [id], map: "eda_src_req_fk")
+  onboardingAcknowledgementRequirements   EmployeeOnboardingTaskAcknowledgementRequirement[] @relation("OnboardingRequirementDocumentAssignment")
+  notificationOutbox                      DocumentAssignmentEmailOutbox?
+  reminderOutboxEntries                   DocumentAssignmentReminderEmailOutbox[]
+
+  @@unique([employeeId, assignableDocumentVersionId], map: "eda_emp_doc_ver_key")
+  @@index([employeeId, status], map: "eda_emp_stat_idx")
+  @@index([assignableDocumentId], map: "eda_doc_idx")
+  @@index([assignableDocumentVersionId], map: "eda_doc_ver_idx")
+  @@index([assignmentSourceType], map: "eda_src_type_idx")
+  @@index([sourceEmployeeOnboardingTaskRequirementId], map: "eda_src_req_idx")
+  @@index([dueDate], map: "eda_due_idx")
+  @@index([viewedAt], map: "eda_viewed_idx")
+}
+
+model DocumentAssignmentEmailOutbox {
+  id                           String   @id @default(uuid())
+  employeeDocumentAssignmentId String   @unique
+  employeeId                   String
+  hrNotificationOutboxId       String?  @unique
+  status                       String   @default("PENDING")
+  attemptCount                 Int      @default(0)
+  lastError                    String?  @db.Text
+  sentAt                       DateTime?
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
+
+  employeeDocumentAssignment EmployeeDocumentAssignment @relation(fields: [employeeDocumentAssignmentId], references: [id])
+  employee                   Employee                   @relation(fields: [employeeId], references: [id])
+  hrNotificationOutbox       HrNotificationOutbox?      @relation(fields: [hrNotificationOutboxId], references: [id])
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model DocumentAssignmentReminderEmailOutbox {
+  id                           String   @id @default(uuid())
+  employeeDocumentAssignmentId String
+  employeeId                   String
+  hrNotificationOutboxId       String?  @unique
+  reminderType                 String
+  reminderDay                  String
+  status                       String   @default("PENDING")
+  attemptCount                 Int      @default(0)
+  lastError                    String?  @db.Text
+  sentAt                       DateTime?
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
+
+  employeeDocumentAssignment EmployeeDocumentAssignment @relation(fields: [employeeDocumentAssignmentId], references: [id], map: "fk_doc_assign_reminder_assignment")
+  employee                   Employee                   @relation(fields: [employeeId], references: [id], map: "fk_doc_assign_reminder_employee")
+  hrNotificationOutbox       HrNotificationOutbox?      @relation(fields: [hrNotificationOutboxId], references: [id], map: "fk_doc_assign_reminder_hr_notification")
+
+  @@unique([employeeDocumentAssignmentId, reminderType, reminderDay], map: "uq_doc_assign_reminder_day")
+  @@index([status], map: "idx_doc_assign_reminder_status")
+  @@index([createdAt], map: "idx_doc_assign_reminder_created")
+  @@index([reminderDay], map: "idx_doc_assign_reminder_day")
+}
+
+model OnboardingTemplate {
+  id          String                   @id @default(uuid())
+  name        String
+  isActive    Boolean                  @default(true)
+  tasks       OnboardingTemplateTask[]
+  onboardings EmployeeOnboarding[]
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+}
+
+model OnboardingTemplateTask {
+  id            String  @id @default(uuid())
+  templateId    String
+  title         String
+  description   String? @db.Text
+  assigneeType  String
+  dueOffsetDays Int?
+  sortOrder     Int
+  isRequired    Boolean @default(true)
+
+  template             OnboardingTemplate                          @relation(fields: [templateId], references: [id])
+  onboardingTasks      EmployeeOnboardingTask[]
+  documentRequirements OnboardingTemplateTaskDocumentRequirement[]
+  acknowledgementRequirements OnboardingTemplateTaskAcknowledgementRequirement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([templateId, sortOrder])
+}
+
+model OnboardingTemplateTaskDocumentRequirement {
+  id               String   @id @default(uuid())
+  templateTaskId   String
+  label            String
+  documentCategory String
+  isRequired       Boolean  @default(true)
+  sortOrder        Int
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  templateTask OnboardingTemplateTask @relation(fields: [templateTaskId], references: [id])
+
+  @@index([templateTaskId, sortOrder], map: "ottdr_task_sort_idx")
+  @@index([documentCategory], map: "ottdr_doc_cat_idx")
+}
+
+model EmployeeOnboarding {
+  id                   String    @id @default(uuid())
+  employeeId           String    @unique
+  templateId           String?
+  status               String
+  startDate            DateTime?
+  targetCompletionDate DateTime?
+  completedAt          DateTime?
+  createdByEmployeeId  String
+
+  employee Employee                 @relation(fields: [employeeId], references: [id])
+  template OnboardingTemplate?      @relation(fields: [templateId], references: [id])
+  tasks    EmployeeOnboardingTask[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdByEmployeeId])
+}
+
+model EmployeeOnboardingTask {
+  id                    String    @id @default(uuid())
+  employeeOnboardingId  String
+  employeeId            String
+  title                 String
+  description           String?   @db.Text
+  assigneeType          String
+  assignedEmployeeId    String?
+  dueDate               DateTime?
+  status                String
+  completedAt           DateTime?
+  completedByEmployeeId String?
+  sortOrder             Int
+  sourceTemplateTaskId  String?
+
+  employeeOnboarding   EmployeeOnboarding                          @relation(fields: [employeeOnboardingId], references: [id])
+  employee             Employee                                    @relation("EmployeeOnboardingTasks", fields: [employeeId], references: [id])
+  sourceTemplateTask   OnboardingTemplateTask?                     @relation(fields: [sourceTemplateTaskId], references: [id])
+  documentRequirements EmployeeOnboardingTaskDocumentRequirement[]
+  acknowledgementRequirements EmployeeOnboardingTaskAcknowledgementRequirement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeOnboardingId, sortOrder])
+  @@index([assigneeType, status])
+  @@index([assignedEmployeeId, status])
+}
+
+model EmployeeOnboardingTaskDocumentRequirement {
+  id                       String    @id @default(uuid())
+  employeeOnboardingTaskId String
+  label                    String
+  documentCategory         String
+  isRequired               Boolean   @default(true)
+  linkedEmployeeDocumentId String?
+  linkedAt                 DateTime?
+  linkedByEmployeeId       String?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  employeeOnboardingTask EmployeeOnboardingTask @relation(fields: [employeeOnboardingTaskId], references: [id], map: "eotdr_task_fk")
+  linkedEmployeeDocument EmployeeDocument?      @relation("LinkedEmployeeDocuments", fields: [linkedEmployeeDocumentId], references: [id], map: "eotdr_link_doc_fk")
+  linkedByEmployee       Employee?              @relation("LinkedOnboardingTaskDocumentRequirements", fields: [linkedByEmployeeId], references: [id], map: "eotdr_link_by_fk")
+
+  @@index([employeeOnboardingTaskId], map: "eotdr_task_idx")
+  @@index([documentCategory], map: "eotdr_doc_cat_idx")
+}
+
+model OnboardingTemplateTaskAcknowledgementRequirement {
+  id                   String   @id @default(uuid())
+  templateTaskId       String
+  label                String
+  assignableDocumentId String
+  isRequired           Boolean  @default(true)
+  sortOrder            Int
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  templateTask        OnboardingTemplateTask @relation(fields: [templateTaskId], references: [id], map: "ottar_task_fk")
+  assignableDocument  AssignableDocument     @relation(fields: [assignableDocumentId], references: [id], map: "ottar_doc_fk")
+
+  @@index([templateTaskId, sortOrder], map: "ottar_task_sort_idx")
+  @@index([assignableDocumentId], map: "ottar_doc_idx")
+}
+
+model EmployeeOnboardingTaskAcknowledgementRequirement {
+  id                         String   @id @default(uuid())
+  employeeOnboardingTaskId   String
+  label                      String
+  assignableDocumentId       String
+  assignedDocumentVersionId  String?
+  employeeDocumentAssignmentId String?
+  isRequired                 Boolean  @default(true)
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  employeeOnboardingTask             EmployeeOnboardingTask                             @relation(fields: [employeeOnboardingTaskId], references: [id], map: "eotar_task_fk")
+  assignableDocument                 AssignableDocument                                 @relation(fields: [assignableDocumentId], references: [id], map: "eotar_doc_fk")
+  assignedDocumentVersion            AssignableDocumentVersion?                         @relation(fields: [assignedDocumentVersionId], references: [id], map: "eotar_doc_ver_fk")
+  employeeDocumentAssignment         EmployeeDocumentAssignment?                        @relation("OnboardingRequirementDocumentAssignment", fields: [employeeDocumentAssignmentId], references: [id], map: "eotar_eda_fk")
+  sourceAssignments                  EmployeeDocumentAssignment[]                       @relation("AssignmentSourceOnboardingRequirement")
+
+  @@index([employeeOnboardingTaskId], map: "eotar_task_idx")
+  @@index([assignableDocumentId], map: "eotar_doc_idx")
+  @@index([assignedDocumentVersionId], map: "eotar_doc_ver_idx")
+  @@index([employeeDocumentAssignmentId], map: "eotar_eda_idx")
+}
+
+model OffboardingTemplate {
+  id           String                    @id @default(uuid())
+  name         String
+  isActive     Boolean                   @default(true)
+  tasks        OffboardingTemplateTask[]
+  offboardings EmployeeOffboarding[]
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+}
+
+model OffboardingTemplateTask {
+  id            String   @id @default(uuid())
+  templateId    String
+  title         String
+  description   String?  @db.Text
+  assigneeType  String
+  dueOffsetDays Int?
+  sortOrder     Int
+  isRequired    Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  template         OffboardingTemplate       @relation(fields: [templateId], references: [id])
+  offboardingTasks EmployeeOffboardingTask[]
+
+  @@index([templateId, sortOrder])
+}
+
+model EmployeeOffboarding {
+  id                  String    @id @default(uuid())
+  employeeId          String
+  templateId          String?
+  status              String
+  separationType      String
+  terminationDate     DateTime
+  lastWorkingDate     DateTime?
+  eligibleForRehire   Boolean?
+  notes               String?   @db.Text
+  createdByEmployeeId String
+  completedAt         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  employee  Employee                  @relation("EmployeeOffboardings", fields: [employeeId], references: [id])
+  template  OffboardingTemplate?      @relation(fields: [templateId], references: [id])
+  createdBy Employee                  @relation("CreatedEmployeeOffboardings", fields: [createdByEmployeeId], references: [id])
+  tasks     EmployeeOffboardingTask[]
+
+  @@index([status])
+  @@index([terminationDate])
+}
+
+model EmployeeOffboardingTask {
+  id                    String    @id @default(uuid())
+  employeeOffboardingId String
+  employeeId            String
+  title                 String
+  description           String?   @db.Text
+  assigneeType          String
+  assignedEmployeeId    String?
+  dueDate               DateTime?
+  status                String
+  completedAt           DateTime?
+  completedByEmployeeId String?
+  sortOrder             Int
+  sourceTemplateTaskId  String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  employeeOffboarding EmployeeOffboarding      @relation(fields: [employeeOffboardingId], references: [id])
+  employee            Employee                 @relation("EmployeeOffboardingTasks", fields: [employeeId], references: [id])
+  assignedEmployee    Employee?                @relation("AssignedEmployeeOffboardingTasks", fields: [assignedEmployeeId], references: [id])
+  completedByEmployee Employee?                @relation("CompletedEmployeeOffboardingTasks", fields: [completedByEmployeeId], references: [id])
+  sourceTemplateTask  OffboardingTemplateTask? @relation(fields: [sourceTemplateTaskId], references: [id])
+
+  @@index([employeeOffboardingId, sortOrder])
+  @@index([assigneeType, status])
+}
+
+model Role {
+  id          String  @id @default(uuid())
+  code        String  @unique
+  name        String
+  description String?
+  isActive    Boolean @default(true)
+
+  rolePermissions RolePermission[]
+  assignments     EmployeeRoleAssignment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Permission {
+  id          String  @id @default(uuid())
+  code        String  @unique
+  name        String
+  description String?
+  category    String
+
+  rolePermissions RolePermission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model RolePermission {
+  id           String @id @default(uuid())
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+}
+
+model EmployeeRoleAssignment {
+  id                 String    @id @default(uuid())
+  employeeId         String
+  roleId             String
+  effectiveStartDate DateTime?
+  effectiveEndDate   DateTime?
+  isActive           Boolean   @default(true)
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+  role     Role     @relation(fields: [roleId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([employeeId, roleId, isActive])
+  @@index([employeeId])
+  @@index([roleId])
+}
+
+model PolicySettings {
+  id                String   @id @default(uuid())
+  accrualRate0To5   Float    @default(10)
+  accrualRate6To10  Float    @default(13.33)
+  accrualRateOver10 Float    @default(16.67)
+  rolloverCapHours  Float    @default(80)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}

@@ -1,0 +1,44 @@
+name: Deploy HR App
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to HR Server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT }}
+
+          script: |
+            echo "Starting deployment..."
+
+            cd ~/mfn-hr-app
+
+            echo "Pulling latest code"
+            git pull origin main
+
+            echo "Installing dependencies"
+            npm ci
+
+            echo "Generating Prisma client"
+            npm run prisma:generate
+
+            echo "Running migrations"
+            npx prisma migrate deploy
+
+            echo "Building Next.js app"
+            npm run build
+
+            echo "Restarting application"
+            pm2 restart mfn-hr
+
+            echo "Deployment complete"

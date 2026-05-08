@@ -1,0 +1,44 @@
+version: 1.0
+runtime: nodejs22
+
+build:
+  commands:
+    pre-build:
+      - npm ci
+    build:
+      - npx prisma generate
+      - npm run build
+
+run:
+  runtime-version: 22.14.0
+  command: sh -c "npx prisma migrate deploy && npm run start"
+  network:
+    port: 3000
+  env:
+    - name: NODE_ENV
+      value: production
+    - name: DEV_OVERRIDE
+      value: "false"
+    - name: AUTH_ENABLE_DEV_AUTH
+      value: "false"
+    - name: AUTH_ENABLE_DEV_USER_SWITCHER
+      value: "false"
+    - name: DATABASE_URL
+      value: "SET_IN_APP_RUNNER"
+    - name: NEXTAUTH_SECRET
+      value: "SET_IN_APP_RUNNER"
+    # The Entra redirect URI for this deployment must be:
+    # https://your-app.example.com/api/auth/callback/microsoft-entra-id
+    #
+    # AUTH_MICROSOFT_ENTRA_ID_ID must be the Entra Application (client) ID GUID,
+    # not the api://... Application ID URI. AUTH_MICROSOFT_ENTRA_ID_ISSUER should
+    # be tenant-specific, for example:
+    # https://login.microsoftonline.com/<TENANT_ID>/v2.0
+    - name: AUTH_MICROSOFT_ENTRA_ID_ID
+      value: "SET_IN_APP_RUNNER"
+    - name: AUTH_MICROSOFT_ENTRA_ID_SECRET
+      value: "SET_IN_APP_RUNNER"
+    - name: AUTH_MICROSOFT_ENTRA_ID_ISSUER
+      value: "https://login.microsoftonline.com/YOUR_TENANT_ID/v2.0"
+    - name: NEXTAUTH_URL
+      value: "https://your-app.example.com"
