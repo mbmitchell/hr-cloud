@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { formatDateOnlyForDisplay } from "../../lib/date-only";
 
 type Summary = {
   employeeCount: number;
@@ -477,8 +478,8 @@ export default function ReportsClient({
                         <div className="font-medium">{request.employeeName}</div>
                         <div className="text-sm text-slate-600">
                           {request.leaveType} •{" "}
-                          {new Date(request.startDate).toLocaleDateString()} -{" "}
-                          {new Date(request.endDate).toLocaleDateString()}
+                          {formatDateOnlyForDisplay(request.startDate)} -{" "}
+                          {formatDateOnlyForDisplay(request.endDate)}
                         </div>
                       </div>
                       <div className="text-sm font-medium">{request.hours.toFixed(2)} hrs</div>
@@ -508,8 +509,8 @@ export default function ReportsClient({
                         <div className="font-medium">{request.employeeName}</div>
                         <div className="text-sm text-slate-600">
                           {request.leaveType} •{" "}
-                          {new Date(request.startDate).toLocaleDateString()} -{" "}
-                          {new Date(request.endDate).toLocaleDateString()}
+                          {formatDateOnlyForDisplay(request.startDate)} -{" "}
+                          {formatDateOnlyForDisplay(request.endDate)}
                         </div>
                       </div>
                       <div className="text-sm font-medium">{request.hours.toFixed(2)} hrs</div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { formatDateOnlyForDisplay } from "../../../lib/date-only";
 
 type RecentRequest = {
   id: string;
@@ -53,7 +54,7 @@ type ApprovalRow = {
 };
 
 function fmtDate(value: string) {
-  return new Date(value).toLocaleDateString();
+  return formatDateOnlyForDisplay(value);
 }
 
 export default function ManagerApprovalsClient({

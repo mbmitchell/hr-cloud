@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { formatDateOnlyForDisplay } from "../../../lib/date-only";
 
 type ApprovalRequest = {
   id: string;
@@ -88,8 +89,8 @@ export default function ApprovalsClient({
                 <td className="p-3">{request.employeeName}</td>
                 <td className="p-3">{request.leaveType}</td>
                 <td className="p-3">
-                  {new Date(request.startDate).toLocaleDateString()} -{" "}
-                  {new Date(request.endDate).toLocaleDateString()}
+                  {formatDateOnlyForDisplay(request.startDate)} -{" "}
+                  {formatDateOnlyForDisplay(request.endDate)}
                 </td>
                 <td className="p-3">{request.hours}</td>
                 <td className="p-3">{request.notes || "-"}</td>
@@ -162,8 +163,8 @@ export default function ApprovalsClient({
                 <div>
                   <div className="text-slate-500">Dates</div>
                   <div className="font-medium text-slate-900">
-                    {new Date(request.startDate).toLocaleDateString()} -{" "}
-                    {new Date(request.endDate).toLocaleDateString()}
+                    {formatDateOnlyForDisplay(request.startDate)} -{" "}
+                    {formatDateOnlyForDisplay(request.endDate)}
                   </div>
                 </div>
                 <div>

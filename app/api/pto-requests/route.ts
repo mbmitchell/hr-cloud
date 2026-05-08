@@ -22,6 +22,7 @@ import {
   requireActor,
 } from "../../../lib/server/authorization";
 import { writeAuditLog } from "../../../lib/server/audit/write-audit-log";
+import { dateToDateOnlyString, parseDateOnly } from "../../../lib/date-only";
 import { isLeaveType } from "../../../lib/pto/leave-types";
 import { enqueuePtoNotifications } from "../../../lib/server/hr-notifications/pto";
 
@@ -52,12 +53,12 @@ export async function POST(request: Request) {
       );
     }
 
-    const parsedStartDate = new Date(startDate);
-    const parsedEndDate = new Date(endDate);
+    const parsedStartDate = parseDateOnly(startDate);
+    const parsedEndDate = parseDateOnly(endDate);
 
     if (
-      Number.isNaN(parsedStartDate.getTime()) ||
-      Number.isNaN(parsedEndDate.getTime())
+      !parsedStartDate ||
+      !parsedEndDate
     ) {
       return NextResponse.json(
         { error: "Start date and end date must be valid dates." },
@@ -122,8 +123,8 @@ export async function POST(request: Request) {
         newValue: {
           employeeId: requestRecord.employeeId,
           leaveType: requestRecord.leaveType,
-          startDate: requestRecord.startDate.toISOString(),
-          endDate: requestRecord.endDate.toISOString(),
+          startDate: dateToDateOnlyString(requestRecord.startDate),
+          endDate: dateToDateOnlyString(requestRecord.endDate),
           hours: requestRecord.hours,
           status: requestRecord.status,
           notes: requestRecord.notes,
@@ -144,7 +145,11 @@ export async function POST(request: Request) {
       console.error("Failed to enqueue PTO submitted notifications:", error);
     }
 
-    return NextResponse.json(created);
+    return NextResponse.json({
+      ...created,
+      startDate: dateToDateOnlyString(created.startDate),
+      endDate: dateToDateOnlyString(created.endDate),
+    });
   } catch (error) {
     if (isAuthorizationError(error)) {
       return NextResponse.json(

@@ -1,4 +1,5 @@
 import { prisma } from "../../../../lib/db";
+import { parseDateOnly } from "../../../../lib/date-only";
 import { getAccrualSummary, projectPtoBalance } from "../../../../lib/pto/accrual";
 import { getPolicySettings } from "../../../../lib/policy/settings";
 import { NextResponse } from "next/server";
@@ -75,9 +76,9 @@ export async function GET(
     );
 
     if (requestStartDateParam) {
-      const requestStartDate = new Date(requestStartDateParam);
+      const requestStartDate = parseDateOnly(requestStartDateParam);
 
-      if (!Number.isNaN(requestStartDate.getTime())) {
+      if (requestStartDate) {
         ptoProjection = projectPtoBalance({
           currentBalance: currentPtoBalance,
           hireDate: employee.hireDate,

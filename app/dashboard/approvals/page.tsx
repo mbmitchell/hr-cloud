@@ -1,4 +1,5 @@
 import { prisma } from "../../../lib/db";
+import { dateToDateOnlyString } from "../../../lib/date-only";
 import { getApprovalScope, getDirectReportIds } from "../../../lib/auth/access";
 import { projectPtoBalance } from "../../../lib/pto/accrual";
 import {
@@ -137,8 +138,8 @@ const requests = await prisma.pTORequest.findMany({
           ? `${employee.manager.firstName} ${employee.manager.lastName}`
           : null,
         leaveType: request.leaveType,
-        startDate: request.startDate.toISOString(),
-        endDate: request.endDate.toISOString(),
+        startDate: dateToDateOnlyString(request.startDate),
+        endDate: dateToDateOnlyString(request.endDate),
         hours: request.hours,
         status: request.status,
         requestNotes: request.notes ?? "",
@@ -156,14 +157,14 @@ const requests = await prisma.pTORequest.findMany({
           employeeName: `${conflict.employee.firstName} ${conflict.employee.lastName}`,
           leaveType: conflict.leaveType,
           status: conflict.status,
-          startDate: conflict.startDate.toISOString(),
-          endDate: conflict.endDate.toISOString(),
+          startDate: dateToDateOnlyString(conflict.startDate),
+          endDate: dateToDateOnlyString(conflict.endDate),
         })),
         recentRequests: employee.requests.map((r) => ({
           id: r.id,
           leaveType: r.leaveType,
-          startDate: r.startDate.toISOString(),
-          endDate: r.endDate.toISOString(),
+          startDate: dateToDateOnlyString(r.startDate),
+          endDate: dateToDateOnlyString(r.endDate),
           hours: r.hours,
           status: r.status,
         })),

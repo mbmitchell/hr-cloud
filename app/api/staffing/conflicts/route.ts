@@ -1,4 +1,8 @@
 import { prisma } from "../../../../lib/db";
+import {
+  dateToDateOnlyString,
+  parseDateOnly,
+} from "../../../../lib/date-only";
 import { NextResponse } from "next/server";
 import {
   assertCanViewEmployee,
@@ -20,6 +24,16 @@ export async function GET(request: Request) {
     if (!employeeId || !startDate || !endDate) {
       return NextResponse.json(
         { error: "employeeId, startDate, and endDate are required." },
+        { status: 400 }
+      );
+    }
+
+    const parsedStartDate = parseDateOnly(startDate);
+    const parsedEndDate = parseDateOnly(endDate);
+
+    if (!parsedStartDate || !parsedEndDate) {
+      return NextResponse.json(
+        { error: "startDate and endDate must be valid date-only values." },
         { status: 400 }
       );
     }
@@ -65,10 +79,10 @@ export async function GET(request: Request) {
           in: ["APPROVED", "PENDING"],
         },
         startDate: {
-          lte: new Date(endDate),
+          lte: parsedEndDate,
         },
         endDate: {
-          gte: new Date(startDate),
+          gte: parsedStartDate,
         },
       },
       include: {
@@ -87,8 +101,8 @@ export async function GET(request: Request) {
         : "Unavailable",
       leaveType: request.leaveType,
       status: request.status,
-      startDate: request.startDate.toISOString(),
-      endDate: request.endDate.toISOString(),
+      startDate: dateToDateOnlyString(request.startDate),
+      endDate: dateToDateOnlyString(request.endDate),
     }));
 
     return NextResponse.json({

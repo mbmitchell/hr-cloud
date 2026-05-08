@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { formatDateOnlyForDisplay } from "../../../lib/date-only";
 
 type PTORequestRow = {
   id: string;
@@ -13,7 +14,7 @@ type PTORequestRow = {
 };
 
 function fmtDate(value: string) {
-  return new Date(value).toLocaleDateString();
+  return formatDateOnlyForDisplay(value);
 }
 
 export default function PTORequestsClient({

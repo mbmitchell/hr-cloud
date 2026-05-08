@@ -1,4 +1,5 @@
 import { prisma } from "../../../lib/db";
+import { dateToDateOnlyString } from "../../../lib/date-only";
 import ApprovalsClient from "./ui";
 import { getApprovalScope, getDirectReportIds } from "../../../lib/auth/access";
 
@@ -50,8 +51,8 @@ export default async function PTOApprovalsPage() {
     employeeId: request.employeeId,
     employeeName: `${request.employee.firstName} ${request.employee.lastName}`,
     leaveType: request.leaveType,
-    startDate: request.startDate.toISOString(),
-    endDate: request.endDate.toISOString(),
+    startDate: dateToDateOnlyString(request.startDate),
+    endDate: dateToDateOnlyString(request.endDate),
     hours: request.hours,
     status: request.status,
     notes: request.notes ?? "",

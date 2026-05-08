@@ -1,4 +1,5 @@
 import { prisma } from "../../../lib/db";
+import { dateToDateOnlyString } from "../../../lib/date-only";
 import { auth } from "../../../auth";
 import { redirect } from "next/navigation";
 import PTORequestsClient from "./PTORequestsClient";
@@ -29,8 +30,8 @@ export default async function PTORequestsPage() {
   const rows = requests.map((request) => ({
     id: request.id,
     leaveType: request.leaveType,
-    startDate: request.startDate.toISOString(),
-    endDate: request.endDate.toISOString(),
+    startDate: dateToDateOnlyString(request.startDate),
+    endDate: dateToDateOnlyString(request.endDate),
     hours: request.hours,
     status: request.status,
     notes: request.notes ?? "",

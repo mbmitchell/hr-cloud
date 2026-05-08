@@ -1,8 +1,9 @@
 import EmployeeProfileSection from "./EmployeeProfileSection";
+import { formatDateOnlyForDisplay } from "../../../lib/date-only";
 import type { AccrualSummary } from "../../../lib/pto/accrual";
 
-function formatDate(value: Date) {
-  return new Date(value).toLocaleDateString();
+function formatDate(value: Date | string) {
+  return formatDateOnlyForDisplay(value);
 }
 
 export default function EmployeePtoTab({

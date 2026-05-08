@@ -1,4 +1,5 @@
 import { prisma } from "../../../../lib/db";
+import { dateToDateOnlyString } from "../../../../lib/date-only";
 import { NextResponse } from "next/server";
 import { getApprovalScope } from "../../../../lib/auth/access";
 import { isManagerOf } from "../../../../lib/auth/permissions";
@@ -52,8 +53,8 @@ export async function GET(
       employeeId: requestRecord.employeeId,
       employeeName: `${requestRecord.employee.firstName} ${requestRecord.employee.lastName}`,
       leaveType: requestRecord.leaveType,
-      startDate: requestRecord.startDate.toISOString(),
-      endDate: requestRecord.endDate.toISOString(),
+      startDate: dateToDateOnlyString(requestRecord.startDate),
+      endDate: dateToDateOnlyString(requestRecord.endDate),
       hours: requestRecord.hours,
       status: requestRecord.status,
       notes: requestRecord.notes ?? "",

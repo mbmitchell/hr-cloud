@@ -18,33 +18,44 @@
  * changed or canceled.
  */
 import { prisma } from "../../db";
+import { dateToDateOnlyString, parseDateOnly } from "../../date-only";
 import { getEmailRuntimeConfig } from "../email/send-email";
 import { createGraphCalendarEvent } from "./graph-calendar-transport";
 import { logCalendarNotificationEvent } from "./logger";
 
 function toDateOnly(value: Date) {
-  return value.toISOString().slice(0, 10);
+  return dateToDateOnlyString(value);
 }
 
 function addDays(dateOnly: string, days: number) {
-  const value = new Date(`${dateOnly}T12:00:00Z`);
-  value.setUTCDate(value.getUTCDate() + days);
-  return value.toISOString().slice(0, 10);
+  const value = parseDateOnly(dateOnly);
+
+  if (!value) {
+    throw new Error(`Invalid date-only value: ${dateOnly}`);
+  }
+
+  value.setDate(value.getDate() + days);
+  return dateToDateOnlyString(value);
 }
 
 function countWeekdaysInclusive(start: Date, end: Date) {
-  const current = new Date(`${toDateOnly(start)}T12:00:00Z`);
-  const finalDate = new Date(`${toDateOnly(end)}T12:00:00Z`);
+  const current = parseDateOnly(toDateOnly(start));
+  const finalDate = parseDateOnly(toDateOnly(end));
+
+  if (!current || !finalDate) {
+    return 0;
+  }
+
   let count = 0;
 
   while (current <= finalDate) {
-    const day = current.getUTCDay();
+    const day = current.getDay();
 
     if (day !== 0 && day !== 6) {
       count += 1;
     }
 
-    current.setUTCDate(current.getUTCDate() + 1);
+    current.setDate(current.getDate() + 1);
   }
 
   return count;

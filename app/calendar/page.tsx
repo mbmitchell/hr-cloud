@@ -2,6 +2,7 @@ import { auth } from "../../auth";
 import { redirect } from "next/navigation";
 import CompanyCalendar from "../../components/calendar/company-calendar";
 import { prisma } from "../../lib/db";
+import { dateToDateOnlyString } from "../../lib/date-only";
 
 export default async function CalendarPage() {
   const session = await auth();
@@ -27,8 +28,8 @@ export default async function CalendarPage() {
     employeeId: request.employeeId,
     employeeName: `${request.employee.firstName} ${request.employee.lastName}`,
     leaveType: request.leaveType,
-    start: request.startDate.toISOString(),
-    end: request.endDate.toISOString(),
+    start: dateToDateOnlyString(request.startDate),
+    end: dateToDateOnlyString(request.endDate),
     hours: request.hours,
     status: request.status,
   }));

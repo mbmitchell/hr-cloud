@@ -4,6 +4,7 @@ import { Calendar, dateFnsLocalizer, View } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay, addDays } from "date-fns";
 import { enUS } from "date-fns/locale";
 import { useEffect, useMemo, useState } from "react";
+import { formatDateOnlyForDisplay } from "../../lib/date-only";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 
 type CalendarEvent = {
@@ -338,10 +339,10 @@ const todayEvents = useMemo(() => {
               <b>Hours:</b> {selectedEvent.hours}
             </div>
             <div>
-              <b>Start:</b> {new Date(selectedEvent.startDate).toLocaleDateString()}
+              <b>Start:</b> {formatDateOnlyForDisplay(selectedEvent.startDate)}
             </div>
             <div>
-              <b>End:</b> {new Date(selectedEvent.endDate).toLocaleDateString()}
+              <b>End:</b> {formatDateOnlyForDisplay(selectedEvent.endDate)}
             </div>
             <div className="md:col-span-2">
               <b>Request Notes:</b> {selectedEvent.notes || "-"}

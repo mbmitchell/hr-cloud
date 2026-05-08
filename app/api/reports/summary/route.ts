@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "../../../../lib/db";
+import { dateToDateOnlyString } from "../../../../lib/date-only";
 import { calculatePtoLiability } from "../../../../lib/finance/liability";
 import {
   isAuthorizationError,
@@ -116,8 +117,8 @@ export async function GET() {
         employeeName: `${request.employee.firstName} ${request.employee.lastName}`,
         department: request.employee.department,
         leaveType: request.leaveType,
-        startDate: request.startDate.toISOString(),
-        endDate: request.endDate.toISOString(),
+        startDate: dateToDateOnlyString(request.startDate),
+        endDate: dateToDateOnlyString(request.endDate),
         hours: request.hours,
         notes: request.notes ?? "",
         status: request.status,
@@ -127,8 +128,8 @@ export async function GET() {
         employeeName: `${request.employee.firstName} ${request.employee.lastName}`,
         department: request.employee.department,
         leaveType: request.leaveType,
-        startDate: request.startDate.toISOString(),
-        endDate: request.endDate.toISOString(),
+        startDate: dateToDateOnlyString(request.startDate),
+        endDate: dateToDateOnlyString(request.endDate),
         hours: request.hours,
         notes: request.notes ?? "",
         status: request.status,

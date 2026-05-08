@@ -1,4 +1,5 @@
 import { prisma } from "../../../lib/db";
+import { dateToDateOnlyString } from "../../../lib/date-only";
 import { NextResponse } from "next/server";
 import {
   isAuthorizationError,
@@ -27,8 +28,8 @@ export async function GET() {
       employeeId: request.employeeId,
       employeeName: `${request.employee.firstName} ${request.employee.lastName}`,
       leaveType: request.leaveType,
-      start: request.startDate,
-      end: request.endDate,
+      start: dateToDateOnlyString(request.startDate),
+      end: dateToDateOnlyString(request.endDate),
       hours: request.hours,
       status: request.status,
     }));
