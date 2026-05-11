@@ -1,5 +1,7 @@
 import type { NextRequest } from "next/server";
 
+import { AuthError } from "next-auth";
+import { NextResponse } from "next/server";
 import { handlers } from "../../../../auth";
 import { logSecurityEvent } from "../../../../lib/server/audit/security-events";
 import {
@@ -17,6 +19,71 @@ function buildAuthRateLimitResponse(retryAfterSeconds: number) {
       "Retry-After": String(retryAfterSeconds),
     },
   });
+}
+
+function getAuthErrorType(error: unknown) {
+  if (error instanceof AuthError) {
+    return error.type;
+  }
+
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "type" in error &&
+    typeof error.type === "string"
+  ) {
+    return error.type;
+  }
+
+  if (error instanceof Error) {
+    return error.name;
+  }
+
+  return "Callback";
+}
+
+function buildLoginErrorRedirect(request: NextRequest, errorType: string) {
+  const loginUrl = new URL("/login", request.url);
+  loginUrl.searchParams.set("error", errorType);
+  return NextResponse.redirect(loginUrl);
+}
+
+function logAuthRouteError(request: NextRequest, error: unknown) {
+  const errorType = getAuthErrorType(error);
+  const details =
+    error instanceof Error
+      ? {
+          message: error.message,
+          causeType:
+            typeof error.cause === "object" &&
+            error.cause !== null &&
+            "err" in error.cause &&
+            error.cause.err instanceof Error
+              ? error.cause.err.name
+              : undefined,
+          causeMessage:
+            typeof error.cause === "object" &&
+            error.cause !== null &&
+            "err" in error.cause &&
+            error.cause.err instanceof Error
+              ? error.cause.err.message
+              : undefined,
+        }
+      : {
+          message: String(error),
+        };
+
+  console.error(
+    JSON.stringify({
+      timestamp: new Date().toISOString(),
+      scope: "auth-route",
+      event: "auth.error",
+      type: errorType,
+      method: request.method,
+      path: new URL(request.url).pathname,
+      ...details,
+    })
+  );
 }
 
 async function enforceAuthRouteRateLimit(request: NextRequest) {
@@ -64,7 +131,12 @@ export async function GET(request: NextRequest) {
     return rateLimitResponse;
   }
 
-  return handlers.GET(request);
+  try {
+    return await handlers.GET(request);
+  } catch (error) {
+    logAuthRouteError(request, error);
+    return buildLoginErrorRedirect(request, getAuthErrorType(error));
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -74,5 +146,10 @@ export async function POST(request: NextRequest) {
     return rateLimitResponse;
   }
 
-  return handlers.POST(request);
+  try {
+    return await handlers.POST(request);
+  } catch (error) {
+    logAuthRouteError(request, error);
+    return buildLoginErrorRedirect(request, getAuthErrorType(error));
+  }
 }

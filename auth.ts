@@ -26,6 +26,8 @@ import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
 import { resolveAuthenticatedEmployeeByEmail } from "./lib/auth/resolve-authenticated-employee";
 import {
   allowedMicrosoftEmailDomain,
+  type InternalAuthenticatedUser,
+  type MicrosoftEntraSignInResult,
   authorizeMicrosoftEntraSignIn,
   normalizeEmail,
 } from "./lib/auth/microsoft-entra-sso";
@@ -69,6 +71,11 @@ const devAuthEmailAllowlist = new Set(
     .filter(Boolean)
 );
 
+type MicrosoftSignInSessionContext = InternalAuthenticatedUser & {
+  matchedBy: "entra_identity" | "email_fallback";
+  bindingCreated: boolean;
+};
+
 function stripSensitiveTokenFields(token: Record<string, unknown>) {
   delete token.access_token;
   delete token.refresh_token;
@@ -80,6 +87,155 @@ function stripSensitiveTokenFields(token: Record<string, unknown>) {
   delete token.ext_expires_in;
   delete token.oid;
   delete token.tid;
+}
+
+function logAuthFlow(
+  level: "info" | "warn" | "error",
+  event: string,
+  metadata: Record<string, unknown> = {}
+) {
+  const logger =
+    level === "error"
+      ? console.error
+      : level === "warn"
+        ? console.warn
+        : console.info;
+
+  logger(
+    JSON.stringify({
+      timestamp: new Date().toISOString(),
+      scope: "auth-flow",
+      event,
+      ...metadata,
+    })
+  );
+}
+
+function getSafeErrorDetails(error: unknown) {
+  if (!(error instanceof Error)) {
+    return { type: "UnknownError", message: String(error) };
+  }
+
+  const authError = error as Error & { type?: string };
+
+  return {
+    type: authError.type ?? authError.name,
+    message: error.message,
+    causeType:
+      typeof error.cause === "object" &&
+      error.cause !== null &&
+      "err" in error.cause &&
+      error.cause.err instanceof Error
+        ? error.cause.err.name
+        : undefined,
+    causeMessage:
+      typeof error.cause === "object" &&
+      error.cause !== null &&
+      "err" in error.cause &&
+      error.cause.err instanceof Error
+        ? error.cause.err.message
+        : undefined,
+  };
+}
+
+async function logSecurityEventSafely(
+  input: Parameters<typeof logSecurityEvent>[0]
+) {
+  try {
+    await logSecurityEvent(input);
+  } catch (error) {
+    logAuthFlow("error", "security-event.error", {
+      eventType: input.eventType,
+      provider: input.provider,
+      outcome: input.outcome,
+      ...getSafeErrorDetails(error),
+    });
+  }
+}
+
+function writeMicrosoftSignInSessionContext(
+  target: Record<string, unknown>,
+  context: MicrosoftSignInSessionContext
+) {
+  target.id = context.employeeId;
+  target.employeeId = context.employeeId;
+  target.email = context.email;
+  target.name = context.name;
+  target.entraOid = context.oid;
+  target.entraTid = context.tid;
+  target.matchedBy = context.matchedBy;
+  target.bindingCreated = context.bindingCreated;
+}
+
+function readMicrosoftSignInSessionContext(
+  value: unknown
+): MicrosoftSignInSessionContext | null {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const employeeId = String(record.employeeId ?? record.id ?? "").trim();
+  const email = String(record.email ?? "").trim().toLowerCase();
+  const name = String(record.name ?? "").trim();
+  const oid = String(record.entraOid ?? "").trim();
+  const tid = String(record.entraTid ?? "").trim().toLowerCase();
+  const matchedBy = record.matchedBy;
+
+  if (
+    !employeeId ||
+    !email ||
+    !name ||
+    !oid ||
+    !tid ||
+    (matchedBy !== "entra_identity" && matchedBy !== "email_fallback")
+  ) {
+    return null;
+  }
+
+  return {
+    employeeId,
+    email,
+    name,
+    oid,
+    tid,
+    matchedBy,
+    bindingCreated: record.bindingCreated === true,
+  };
+}
+
+async function resolveMicrosoftSignInSessionContext(input: {
+  user: Record<string, unknown>;
+  profile: Record<string, unknown> | null;
+}) {
+  const existingContext = readMicrosoftSignInSessionContext(input.user);
+
+  if (existingContext) {
+    return existingContext;
+  }
+
+  const result = await authorizeMicrosoftEntraSignIn({
+    user: {
+      id:
+        typeof input.user.id === "string" ? input.user.id : undefined,
+      email:
+        typeof input.user.email === "string" ? input.user.email : undefined,
+      name:
+        typeof input.user.name === "string" ? input.user.name : undefined,
+    },
+    profile: input.profile,
+    issuer: process.env.AUTH_MICROSOFT_ENTRA_ID_ISSUER || "",
+  });
+
+  if (!result.ok) {
+    return null;
+  }
+
+  return {
+    ...result.authenticatedUser,
+    matchedBy: result.matchedBy,
+    bindingCreated: result.bindingCreated,
+  };
 }
 
 /**
@@ -116,6 +272,8 @@ logAuthStartupWarnings();
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: process.env.NEXTAUTH_SECRET,
+  trustHost: process.env.AUTH_TRUST_HOST === "true",
+  useSecureCookies: !isDevelopment,
   session: {
     strategy: "jwt",
     maxAge: 60 * 60 * 8,
@@ -304,11 +462,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
+      logAuthFlow("info", "signIn.callback.start", {
+        provider: account?.provider ?? "unknown",
+        normalizedEmail: normalizeEmail(user?.email) ?? null,
+      });
+
       if (account?.provider === "credentials") {
+        logAuthFlow("info", "signIn.callback.end", {
+          provider: account.provider,
+          allowed: true,
+          employeeId: user.id ?? null,
+        });
         return true;
       }
 
       if (account?.provider !== "microsoft-entra-id") {
+        logAuthFlow("warn", "signIn.callback.end", {
+          provider: account?.provider ?? "unknown",
+          allowed: false,
+          reason: "unsupported_provider",
+        });
         return false;
       }
 
@@ -377,11 +550,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           });
         }
 
+        logAuthFlow("warn", "signIn.callback.end", {
+          provider: account.provider,
+          allowed: false,
+          reason: result.reason,
+          normalizedEmail: result.claims.emailCandidates[0] ?? null,
+        });
         return false;
       }
 
       if (result.bindingCreated) {
-        await logSecurityEvent({
+        await logSecurityEventSafely({
           eventType: "AUTH_MICROSOFT_ENTRA_IDENTITY_BOUND",
           provider: "microsoft-entra-id",
           outcome: "success",
@@ -397,59 +576,145 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
       }
 
-      await logSecurityEvent({
-        eventType: "AUTH_MICROSOFT_ENTRA_SIGN_IN_SUCCESS",
-        provider: "microsoft-entra-id",
-        outcome: "success",
-        normalizedEmail: result.authenticatedUser.email,
-        employeeId: result.authenticatedUser.employeeId,
-        entityType: "Employee",
-        entityId: result.authenticatedUser.employeeId,
-        metadata: {
-          entraOid: result.authenticatedUser.oid,
-          entraTid: result.authenticatedUser.tid,
+      writeMicrosoftSignInSessionContext(
+        user as Record<string, unknown>,
+        {
+          ...result.authenticatedUser,
           matchedBy: result.matchedBy,
-        },
-      });
+          bindingCreated: result.bindingCreated,
+        }
+      );
 
-      user.id = result.authenticatedUser.employeeId;
-      user.email = result.authenticatedUser.email;
-      user.name = result.authenticatedUser.name;
+      logAuthFlow("info", "signIn.callback.end", {
+        provider: account.provider,
+        allowed: true,
+        employeeId: result.authenticatedUser.employeeId,
+        normalizedEmail: result.authenticatedUser.email,
+        matchedBy: result.matchedBy,
+        bindingCreated: result.bindingCreated,
+      });
       return true;
     },
-    async jwt({ token, user }) {
-      stripSensitiveTokenFields(token as Record<string, unknown>);
+    async jwt({ token, user, account, profile, trigger }) {
+      const mutableToken = token as Record<string, unknown>;
 
-      if (user) {
-        token.employeeId = user.id;
-        token.email = user.email;
-        token.name = user.name;
+      logAuthFlow("info", "jwt.callback.start", {
+        trigger: trigger ?? "session",
+        provider: account?.provider ?? null,
+        hasUser: Boolean(user),
+        existingEmployeeId:
+          typeof mutableToken.employeeId === "string"
+            ? mutableToken.employeeId
+            : null,
+      });
+
+      stripSensitiveTokenFields(mutableToken);
+
+      try {
+        if (
+          trigger === "signIn" &&
+          account?.provider === "microsoft-entra-id" &&
+          user &&
+          typeof user === "object"
+        ) {
+          const microsoftContext = await resolveMicrosoftSignInSessionContext({
+            user: user as Record<string, unknown>,
+            profile: (profile as Record<string, unknown> | null) ?? null,
+          });
+
+          if (!microsoftContext) {
+            logAuthFlow("warn", "jwt.callback.end", {
+              trigger,
+              provider: account.provider,
+              status: "missing_internal_identity",
+            });
+            return null;
+          }
+
+          mutableToken.employeeId = microsoftContext.employeeId;
+          mutableToken.email = microsoftContext.email;
+          mutableToken.name = microsoftContext.name;
+
+          await logSecurityEventSafely({
+            eventType: "AUTH_MICROSOFT_ENTRA_SIGN_IN_SUCCESS",
+            provider: "microsoft-entra-id",
+            outcome: "success",
+            normalizedEmail: microsoftContext.email,
+            employeeId: microsoftContext.employeeId,
+            entityType: "Employee",
+            entityId: microsoftContext.employeeId,
+            metadata: {
+              entraOid: microsoftContext.oid,
+              entraTid: microsoftContext.tid,
+              matchedBy: microsoftContext.matchedBy,
+              bindingCreated: microsoftContext.bindingCreated,
+            },
+          });
+        } else if (user) {
+          mutableToken.employeeId = user.id;
+          mutableToken.email = user.email;
+          mutableToken.name = user.name;
+        }
+
+        // SECURITY:
+        // Microsoft Entra sign-ins must be tied to an internal employee record
+        // before we allow a JWT to exist. If that binding is missing, we fail
+        // closed here so the session cannot continue with a partial identity.
+        if (
+          mutableToken.employeeId == null ||
+          String(mutableToken.employeeId).trim() === ""
+        ) {
+          logAuthFlow("warn", "jwt.callback.end", {
+            trigger: trigger ?? "session",
+            provider: account?.provider ?? null,
+            status: "missing_employee_id",
+          });
+          return null;
+        }
+
+        logAuthFlow("info", "jwt.callback.end", {
+          trigger: trigger ?? "session",
+          provider: account?.provider ?? null,
+          employeeId: String(mutableToken.employeeId),
+          normalizedEmail:
+            typeof mutableToken.email === "string" ? mutableToken.email : null,
+        });
+        return token;
+      } catch (error) {
+        logAuthFlow("error", "jwt.callback.error", {
+          trigger: trigger ?? "session",
+          provider: account?.provider ?? null,
+          ...getSafeErrorDetails(error),
+        });
+        throw error;
       }
-
-      // SECURITY:
-      // Microsoft Entra sign-ins must be tied to an internal employee record
-      // before we allow a JWT to exist. If that binding is missing, we fail
-      // closed here so the session cannot continue with a partial identity.
-      if (
-        token.employeeId == null ||
-        String(token.employeeId).trim() === ""
-      ) {
-        return null;
-      }
-
-      return token;
     },
     async session({ session, token }) {
+      logAuthFlow("info", "session.callback.start", {
+        hasSessionUser: Boolean(session.user),
+        tokenEmployeeId:
+          typeof token.employeeId === "string" ? token.employeeId : null,
+      });
+
       // Keep the client session intentionally minimal. Authorization is
       // enforced server-side from internal employee/role data rather than a
       // broad client-visible auth payload.
       if (!session.user) {
+        logAuthFlow("info", "session.callback.end", {
+          hasSessionUser: false,
+          employeeId: null,
+        });
         return session;
       }
 
       const employeeId = String(token.employeeId || "").trim();
 
       if (!employeeId) {
+        logAuthFlow("warn", "session.callback.end", {
+          hasSessionUser: true,
+          employeeId: null,
+          status: "missing_employee_id",
+        });
         return {
           ...session,
           user: undefined,
@@ -460,7 +725,34 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.user.email = String(token.email || "");
       session.user.name = String(token.name || "");
 
+      logAuthFlow("info", "session.callback.end", {
+        hasSessionUser: true,
+        employeeId,
+        normalizedEmail: session.user.email,
+      });
       return session;
+    },
+    async redirect({ url, baseUrl }) {
+      let resolvedUrl = baseUrl;
+
+      if (url.startsWith("/")) {
+        resolvedUrl = `${baseUrl}${url}`;
+      } else {
+        try {
+          const parsedUrl = new URL(url);
+          resolvedUrl = parsedUrl.origin === baseUrl ? url : baseUrl;
+        } catch {
+          resolvedUrl = baseUrl;
+        }
+      }
+
+      logAuthFlow("info", "redirect.callback", {
+        requestedUrl: url,
+        baseUrl,
+        resolvedUrl,
+      });
+
+      return resolvedUrl;
     },
   },
 });

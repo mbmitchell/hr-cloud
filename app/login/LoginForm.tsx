@@ -4,6 +4,30 @@ import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 
+function getAuthErrorMessage(authError: string | null) {
+  if (!authError) {
+    return "";
+  }
+
+  if (authError === "AccessDenied") {
+    return "Your Microsoft 365 account is not linked to an employee record in this HR system.";
+  }
+
+  if (authError === "OAuthCallbackError") {
+    return "Microsoft sign-in expired or was already used. Close extra sign-in tabs and try again.";
+  }
+
+  if (authError === "CallbackRouteError") {
+    return "We could not finish creating your sign-in session. Please try again.";
+  }
+
+  if (authError === "SessionRequired") {
+    return "Please sign in to continue.";
+  }
+
+  return "Unable to sign in.";
+}
+
 export default function LoginForm({
   allowDevAuth,
   allowMicrosoft365Auth,
@@ -20,6 +44,11 @@ export default function LoginForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    if (loading) {
+      return;
+    }
+
     setLoading(true);
     setMessage("");
 
@@ -40,6 +69,10 @@ export default function LoginForm({
   }
 
   async function handleMicrosoftSignIn() {
+    if (loading) {
+      return;
+    }
+
     setLoading(true);
     setMessage("");
     await signIn("microsoft-entra-id", {
@@ -47,13 +80,7 @@ export default function LoginForm({
     });
   }
 
-  const errorMessage =
-    message ||
-    (authError === "AccessDenied"
-      ? "Your Microsoft 365 account is not linked to an employee record in this HR system."
-      : authError
-        ? "Unable to sign in."
-        : "");
+  const errorMessage = message || getAuthErrorMessage(authError);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-6 sm:p-6">
