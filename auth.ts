@@ -29,6 +29,13 @@ import {
   authorizeMicrosoftEntraSignIn,
   normalizeEmail,
 } from "./lib/auth/microsoft-entra-sso";
+import {
+  isDevelopmentEnvironment,
+  isDevAuthEnabled,
+  isDevAuthFlagEnabled,
+  isDevUserSwitcherEnabled,
+  isDevUserSwitcherFlagEnabled,
+} from "./lib/auth/dev-auth-flags";
 import { logSecurityEvent } from "./lib/server/audit/security-events";
 import {
   AUTH_RATE_LIMITS,
@@ -43,12 +50,11 @@ declare global {
   var __mfnAuthWarningsLogged: boolean | undefined;
 }
 
-const isDevelopment = process.env.NODE_ENV === "development";
-const allowDevAuth = process.env.AUTH_ENABLE_DEV_AUTH === "true";
-const allowDevUserSwitcher =
-  isDevelopment &&
-  process.env.AUTH_ENABLE_DEV_AUTH === "true" &&
-  process.env.AUTH_ENABLE_DEV_USER_SWITCHER === "true";
+const isDevelopment = isDevelopmentEnvironment();
+const devAuthFlagEnabled = isDevAuthFlagEnabled();
+const devUserSwitcherFlagEnabled = isDevUserSwitcherFlagEnabled();
+const allowDevAuth = isDevAuthEnabled();
+const allowDevUserSwitcher = isDevUserSwitcherEnabled();
 const allowMicrosoftEntraAuth = Boolean(
   process.env.AUTH_MICROSOFT_ENTRA_ID_ID &&
     process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET &&
@@ -87,15 +93,15 @@ function logAuthStartupWarnings() {
 
   globalThis.__mfnAuthWarningsLogged = true;
 
-  if (!isDevelopment && allowDevAuth) {
+  if (!isDevelopment && devAuthFlagEnabled) {
     console.warn(
-      "[auth] AUTH_ENABLE_DEV_AUTH=true outside development. This temporary break-glass login path should be disabled once Microsoft Entra sign-in is verified."
+      "[auth] AUTH_ENABLE_DEV_AUTH=true outside development. The dev credentials provider remains disabled until the app runs in local development."
     );
   }
 
-  if (!isDevelopment && allowDevUserSwitcher) {
+  if (!isDevelopment && devUserSwitcherFlagEnabled) {
     console.warn(
-      "[auth] AUTH_ENABLE_DEV_USER_SWITCHER=true outside development. The dev user switcher should remain disabled in deployed environments."
+      "[auth] AUTH_ENABLE_DEV_USER_SWITCHER=true outside development. The dev user switcher remains disabled until the app runs in local development."
     );
   }
 

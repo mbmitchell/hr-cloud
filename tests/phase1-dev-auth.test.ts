@@ -7,9 +7,20 @@ async function importSwitchUserRoute() {
   );
 }
 
+function setEnvValue(key: string, value: string | undefined) {
+  if (value === undefined) {
+    delete process.env[key];
+    return;
+  }
+
+  process.env[key] = value;
+}
+
 test("dev switch-user route is disabled when AUTH_ENABLE_DEV_AUTH is not true", async () => {
   const previous = process.env.AUTH_ENABLE_DEV_AUTH;
   const previousSwitcher = process.env.AUTH_ENABLE_DEV_USER_SWITCHER;
+  const previousNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = "development";
   process.env.AUTH_ENABLE_DEV_AUTH = "false";
   process.env.AUTH_ENABLE_DEV_USER_SWITCHER = "false";
 
@@ -29,23 +40,17 @@ test("dev switch-user route is disabled when AUTH_ENABLE_DEV_AUTH is not true", 
     const body = await response.json();
     assert.equal(body.error, "Dev switcher is disabled.");
   } finally {
-    if (previous === undefined) {
-      delete process.env.AUTH_ENABLE_DEV_AUTH;
-    } else {
-      process.env.AUTH_ENABLE_DEV_AUTH = previous;
-    }
-
-    if (previousSwitcher === undefined) {
-      delete process.env.AUTH_ENABLE_DEV_USER_SWITCHER;
-    } else {
-      process.env.AUTH_ENABLE_DEV_USER_SWITCHER = previousSwitcher;
-    }
+    setEnvValue("AUTH_ENABLE_DEV_AUTH", previous);
+    setEnvValue("AUTH_ENABLE_DEV_USER_SWITCHER", previousSwitcher);
+    setEnvValue("NODE_ENV", previousNodeEnv);
   }
 });
 
 test("dev switch-user route can set the impersonation cookie only in explicit dev mode", async () => {
   const previous = process.env.AUTH_ENABLE_DEV_AUTH;
   const previousSwitcher = process.env.AUTH_ENABLE_DEV_USER_SWITCHER;
+  const previousNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = "development";
   process.env.AUTH_ENABLE_DEV_AUTH = "true";
   process.env.AUTH_ENABLE_DEV_USER_SWITCHER = "true";
 
@@ -64,23 +69,17 @@ test("dev switch-user route can set the impersonation cookie only in explicit de
     assert.equal(response.status, 200);
     assert.match(response.headers.get("set-cookie") ?? "", /dev_employee_id=emp-1/);
   } finally {
-    if (previous === undefined) {
-      delete process.env.AUTH_ENABLE_DEV_AUTH;
-    } else {
-      process.env.AUTH_ENABLE_DEV_AUTH = previous;
-    }
-
-    if (previousSwitcher === undefined) {
-      delete process.env.AUTH_ENABLE_DEV_USER_SWITCHER;
-    } else {
-      process.env.AUTH_ENABLE_DEV_USER_SWITCHER = previousSwitcher;
-    }
+    setEnvValue("AUTH_ENABLE_DEV_AUTH", previous);
+    setEnvValue("AUTH_ENABLE_DEV_USER_SWITCHER", previousSwitcher);
+    setEnvValue("NODE_ENV", previousNodeEnv);
   }
 });
 
 test("dev switch-user route is disabled when the dedicated switcher flag is off", async () => {
   const previous = process.env.AUTH_ENABLE_DEV_AUTH;
   const previousSwitcher = process.env.AUTH_ENABLE_DEV_USER_SWITCHER;
+  const previousNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = "development";
   process.env.AUTH_ENABLE_DEV_AUTH = "true";
   process.env.AUTH_ENABLE_DEV_USER_SWITCHER = "false";
 
@@ -100,16 +99,8 @@ test("dev switch-user route is disabled when the dedicated switcher flag is off"
     const body = await response.json();
     assert.equal(body.error, "Dev switcher is disabled.");
   } finally {
-    if (previous === undefined) {
-      delete process.env.AUTH_ENABLE_DEV_AUTH;
-    } else {
-      process.env.AUTH_ENABLE_DEV_AUTH = previous;
-    }
-
-    if (previousSwitcher === undefined) {
-      delete process.env.AUTH_ENABLE_DEV_USER_SWITCHER;
-    } else {
-      process.env.AUTH_ENABLE_DEV_USER_SWITCHER = previousSwitcher;
-    }
+    setEnvValue("AUTH_ENABLE_DEV_AUTH", previous);
+    setEnvValue("AUTH_ENABLE_DEV_USER_SWITCHER", previousSwitcher);
+    setEnvValue("NODE_ENV", previousNodeEnv);
   }
 });

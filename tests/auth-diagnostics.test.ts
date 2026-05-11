@@ -5,6 +5,7 @@ import { buildAuthDiagnostics } from "../lib/server/auth-diagnostics";
 
 test("auth diagnostics reports presence-only Entra and dev-auth state", () => {
   const diagnostics = buildAuthDiagnostics({
+    NODE_ENV: "production",
     AUTH_MICROSOFT_ENTRA_ID_ID: "00000000-0000-0000-0000-000000000000",
     AUTH_MICROSOFT_ENTRA_ID_SECRET: "super-secret",
     AUTH_MICROSOFT_ENTRA_ID_ISSUER:
@@ -38,6 +39,7 @@ test("auth diagnostics reports presence-only Entra and dev-auth state", () => {
 
 test("auth diagnostics flags api-style client ids and missing values without exposing them", () => {
   const diagnostics = buildAuthDiagnostics({
+    NODE_ENV: "development",
     AUTH_MICROSOFT_ENTRA_ID_ID: "api://example-app-id-uri",
     AUTH_ENABLE_DEV_AUTH: "true",
   });
@@ -52,4 +54,16 @@ test("auth diagnostics flags api-style client ids and missing values without exp
   });
   assert.equal(diagnostics.entra.clientIdLooksLikeApplicationIdUri, true);
   assert.equal(diagnostics.entra.callbackUrl, null);
+});
+
+test("auth diagnostics keeps dev auth effectively disabled in production even when the flag is true", () => {
+  const diagnostics = buildAuthDiagnostics({
+    NODE_ENV: "production",
+    AUTH_ENABLE_DEV_AUTH: "true",
+    AUTH_ENABLE_DEV_USER_SWITCHER: "true",
+  });
+
+  assert.equal(diagnostics.providers.devCredentials, false);
+  assert.equal(diagnostics.devAuth.enabled, false);
+  assert.equal(diagnostics.devAuth.userSwitcherEnabled, false);
 });

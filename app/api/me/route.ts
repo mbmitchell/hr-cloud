@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "../../../lib/auth/current-user";
+import {
+  isDevAuthEnabled,
+  isDevUserSwitcherEnabled,
+} from "../../../lib/auth/dev-auth-flags";
 import { getEmployeeRoles } from "../../../lib/auth/permissions";
 import { withPrivateNoStoreHeaders } from "../../../lib/server/http/headers";
 
-const allowDevAuth = process.env.AUTH_ENABLE_DEV_AUTH === "true";
-const allowDevUserSwitcher =
-  process.env.NODE_ENV === "development" &&
-  process.env.AUTH_ENABLE_DEV_AUTH === "true" &&
-  process.env.AUTH_ENABLE_DEV_USER_SWITCHER === "true";
+const allowDevAuth = isDevAuthEnabled();
+const allowDevUserSwitcher = isDevUserSwitcherEnabled();
 const allowMicrosoft365Auth = Boolean(
   process.env.AUTH_MICROSOFT_ENTRA_ID_ID &&
     process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET &&

@@ -2,6 +2,10 @@ import {
   allowedMicrosoftEmailDomain,
   getConfiguredTenantIdFromIssuer,
 } from "../auth/microsoft-entra-sso";
+import {
+  isDevAuthEnabled,
+  isDevUserSwitcherEnabled,
+} from "../auth/dev-auth-flags";
 
 type AuthDiagnosticsEnv = Record<string, string | undefined>;
 
@@ -36,7 +40,7 @@ export function buildAuthDiagnostics(env: AuthDiagnosticsEnv = process.env) {
         entraEnvPresence.clientId &&
         entraEnvPresence.clientSecret &&
         entraEnvPresence.issuer,
-      devCredentials: env.AUTH_ENABLE_DEV_AUTH === "true",
+      devCredentials: isDevAuthEnabled(env),
     },
     entra: {
       envPresence: entraEnvPresence,
@@ -47,8 +51,8 @@ export function buildAuthDiagnostics(env: AuthDiagnosticsEnv = process.env) {
       callbackUrl: getMicrosoftCallbackUrl(nextAuthUrl),
     },
     devAuth: {
-      enabled: env.AUTH_ENABLE_DEV_AUTH === "true",
-      userSwitcherEnabled: env.AUTH_ENABLE_DEV_USER_SWITCHER === "true",
+      enabled: isDevAuthEnabled(env),
+      userSwitcherEnabled: isDevUserSwitcherEnabled(env),
       passwordConfigured: isPresent(env.AUTH_DEV_PASSWORD),
       allowlistConfigured: isPresent(env.AUTH_DEV_AUTH_EMAIL_ALLOWLIST),
     },

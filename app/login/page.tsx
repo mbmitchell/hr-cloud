@@ -1,6 +1,7 @@
 import { auth } from "../../auth";
 import { redirect } from "next/navigation";
 import LoginForm from "./LoginForm";
+import { isDevAuthEnabled } from "../../lib/auth/dev-auth-flags";
 
 export default async function LoginPage() {
   const session = await auth();
@@ -11,7 +12,7 @@ export default async function LoginPage() {
 
   return (
     <LoginForm
-      allowDevAuth={process.env.AUTH_ENABLE_DEV_AUTH === "true"}
+      allowDevAuth={isDevAuthEnabled()}
       allowMicrosoft365Auth={Boolean(
         process.env.AUTH_MICROSOFT_ENTRA_ID_ID &&
           process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET &&

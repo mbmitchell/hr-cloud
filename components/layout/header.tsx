@@ -1,4 +1,8 @@
 import { getCurrentUser } from "../../lib/auth/current-user";
+import {
+  isDevelopmentEnvironment,
+  isDevUserSwitcherEnabled,
+} from "../../lib/auth/dev-auth-flags";
 import { getEmployeeRoles } from "../../lib/auth/permissions";
 import { prisma } from "../../lib/db";
 import DevUserSwitcher from "../dev/dev-user-switcher";
@@ -9,11 +13,8 @@ export default async function Header() {
   const session = await auth();
   const user = await getCurrentUser();
   const roles = user ? await getEmployeeRoles(user.id) : [];
-  const isDev = process.env.NODE_ENV !== "production";
-  const allowDevUserSwitcher =
-    process.env.NODE_ENV === "development" &&
-    process.env.AUTH_ENABLE_DEV_AUTH === "true" &&
-    process.env.AUTH_ENABLE_DEV_USER_SWITCHER === "true";
+  const isDev = isDevelopmentEnvironment();
+  const allowDevUserSwitcher = isDevUserSwitcherEnabled();
 
   const employees = isDev && allowDevUserSwitcher
     ? await prisma.employee.findMany({

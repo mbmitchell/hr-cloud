@@ -1,16 +1,13 @@
 import { prisma } from "../db";
 import { cookies } from "next/headers";
 import { auth } from "../../auth";
-
-const allowDevAuth =
-  process.env.NODE_ENV === "development" &&
-  process.env.AUTH_ENABLE_DEV_AUTH === "true";
+import { isDevAuthEnabled } from "./dev-auth-flags";
 
 export async function getCurrentUser() {
   const session = await auth();
   const cookieStore = await cookies();
 
-  const devEmployeeId = allowDevAuth
+  const devEmployeeId = isDevAuthEnabled()
     ? cookieStore.get("dev_employee_id")?.value
     : undefined;
 

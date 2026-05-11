@@ -1,34 +1,27 @@
 import { NextResponse } from "next/server";
 import { logSecurityEvent } from "../../../../lib/server/audit/security-events";
-
-function isDevAuthEnabled() {
-  return (
-    process.env.NODE_ENV === "development" &&
-    process.env.AUTH_ENABLE_DEV_AUTH === "true"
-  );
-}
-
-function isDevUserSwitcherEnabled() {
-  return (
-    process.env.NODE_ENV === "development" &&
-    process.env.AUTH_ENABLE_DEV_AUTH === "true" &&
-    process.env.AUTH_ENABLE_DEV_USER_SWITCHER === "true"
-  );
-}
+import {
+  isDevelopmentEnvironment,
+  isDevAuthEnabled,
+  isDevUserSwitcherEnabled,
+} from "../../../../lib/auth/dev-auth-flags";
 
 export async function POST(request: Request) {
-  if (process.env.NODE_ENV !== "development") {
+  if (!isDevelopmentEnvironment()) {
     await logSecurityEvent({
       eventType: "AUTH_DEV_USER_SWITCH_DENIED",
       provider: "internal",
       outcome: "denied",
-      reasonCode: "dev_only_route_blocked_outside_development",
+      reasonCode: "dev_route_blocked_outside_local_development",
       entityType: "AuthSession",
       entityId: "dev-user-switcher",
     });
 
     return NextResponse.json(
-      { error: "Dev user switching is only available in local development." },
+      {
+        error:
+          "Dev user switching is only available when local development auth is enabled.",
+      },
       { status: 403 }
     );
   }
