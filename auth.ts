@@ -23,6 +23,7 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
+import { prisma } from "./lib/db";
 import { resolveAuthenticatedEmployeeByEmail } from "./lib/auth/resolve-authenticated-employee";
 import {
   allowedMicrosoftEmailDomain,
@@ -87,6 +88,163 @@ function stripSensitiveTokenFields(token: Record<string, unknown>) {
   delete token.ext_expires_in;
   delete token.oid;
   delete token.tid;
+  delete token.picture;
+  delete token.image;
+  delete token.user;
+  delete token.profile;
+}
+
+function buildSessionDisplayName(input: {
+  name: unknown;
+  email: string;
+}) {
+  const normalizedName =
+    typeof input.name === "string" ? input.name.trim() : "";
+
+  if (normalizedName) {
+    return normalizedName;
+  }
+
+  return input.email;
+}
+
+function buildSessionIdentity(input: {
+  employeeId: unknown;
+  email: unknown;
+  name: unknown;
+}) {
+  const employeeId = String(input.employeeId ?? "").trim();
+  const email = normalizeEmail(input.email);
+
+  if (!employeeId || !email) {
+    return null;
+  }
+
+  return {
+    employeeId,
+    email,
+    name: buildSessionDisplayName({
+      name: input.name,
+      email,
+    }),
+  };
+}
+
+function summarizeToken(token: Record<string, unknown>) {
+  const tokenKeys = Object.keys(token).sort();
+
+  try {
+    return {
+      tokenKeys,
+      tokenBytes: Buffer.byteLength(JSON.stringify(token), "utf8"),
+    };
+  } catch (error) {
+    return {
+      tokenKeys,
+      tokenBytes: null,
+      serializationError: getSafeErrorDetails(error),
+    };
+  }
+}
+
+async function getEmployeeSessionSnapshot(employeeId: string) {
+  const employee = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    select: {
+      id: true,
+      email: true,
+      status: true,
+      managerId: true,
+      manager: {
+        select: {
+          id: true,
+        },
+      },
+      contactInfo: {
+        select: {
+          id: true,
+        },
+      },
+      _count: {
+        select: {
+          directReports: true,
+        },
+      },
+      roleAssignments: {
+        where: {
+          isActive: true,
+        },
+        select: {
+          role: {
+            select: {
+              code: true,
+              isActive: true,
+              rolePermissions: {
+                select: {
+                  permission: {
+                    select: {
+                      code: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!employee) {
+    return null;
+  }
+
+  const permissionCodes = new Set<string>();
+  const inactiveRoleCodes: string[] = [];
+
+  for (const assignment of employee.roleAssignments) {
+    if (!assignment.role.isActive) {
+      inactiveRoleCodes.push(assignment.role.code);
+    }
+
+    for (const rolePermission of assignment.role.rolePermissions) {
+      permissionCodes.add(rolePermission.permission.code);
+    }
+  }
+
+  return {
+    employeeId: employee.id,
+    normalizedEmail: normalizeEmail(employee.email),
+    status: employee.status,
+    managerId: employee.managerId,
+    managerExists: employee.managerId ? Boolean(employee.manager) : null,
+    directReportCount: employee._count.directReports,
+    contactInfoExists: Boolean(employee.contactInfo),
+    roleCount: employee.roleAssignments.length,
+    permissionCount: permissionCodes.size,
+    inactiveRoleCodes,
+  };
+}
+
+function getAuthLoggerDetails(error: Error) {
+  const details = getSafeErrorDetails(error);
+  const errorWithCause = error as Error & {
+    type?: string;
+    cause?: unknown;
+  };
+  const provider =
+    typeof errorWithCause.cause === "object" &&
+    errorWithCause.cause !== null &&
+    "provider" in errorWithCause.cause &&
+    typeof errorWithCause.cause.provider === "string"
+      ? errorWithCause.cause.provider
+      : undefined;
+
+  return {
+    authType: errorWithCause.type ?? error.name,
+    provider,
+    ...details,
+  };
 }
 
 function logAuthFlow(
@@ -175,17 +333,17 @@ function readMicrosoftSignInSessionContext(
   }
 
   const record = value as Record<string, unknown>;
-  const employeeId = String(record.employeeId ?? record.id ?? "").trim();
-  const email = String(record.email ?? "").trim().toLowerCase();
-  const name = String(record.name ?? "").trim();
+  const identity = buildSessionIdentity({
+    employeeId: record.employeeId ?? record.id,
+    email: record.email,
+    name: record.name,
+  });
   const oid = String(record.entraOid ?? "").trim();
   const tid = String(record.entraTid ?? "").trim().toLowerCase();
   const matchedBy = record.matchedBy;
 
   if (
-    !employeeId ||
-    !email ||
-    !name ||
+    !identity ||
     !oid ||
     !tid ||
     (matchedBy !== "entra_identity" && matchedBy !== "email_fallback")
@@ -194,9 +352,7 @@ function readMicrosoftSignInSessionContext(
   }
 
   return {
-    employeeId,
-    email,
-    name,
+    ...identity,
     oid,
     tid,
     matchedBy,
@@ -273,6 +429,31 @@ logAuthStartupWarnings();
 export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: process.env.NEXTAUTH_SECRET,
   trustHost: process.env.AUTH_TRUST_HOST === "true",
+  logger: {
+    error(error) {
+      logAuthFlow("error", "authjs.logger.error", getAuthLoggerDetails(error));
+    },
+    warn(code) {
+      logAuthFlow("warn", "authjs.logger.warn", {
+        code,
+      });
+    },
+    debug(message, metadata) {
+      if (message !== "CHUNKING_SESSION_COOKIE") {
+        return;
+      }
+
+      const safeMetadata =
+        typeof metadata === "object" && metadata !== null
+          ? metadata
+          : undefined;
+
+      logAuthFlow("warn", "authjs.logger.debug", {
+        message,
+        ...(safeMetadata ? { metadata: safeMetadata } : {}),
+      });
+    },
+  },
   useSecureCookies: !isDevelopment,
   session: {
     strategy: "jwt",
@@ -631,29 +812,88 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             return null;
           }
 
-          mutableToken.employeeId = microsoftContext.employeeId;
-          mutableToken.email = microsoftContext.email;
-          mutableToken.name = microsoftContext.name;
-
-          await logSecurityEventSafely({
-            eventType: "AUTH_MICROSOFT_ENTRA_SIGN_IN_SUCCESS",
-            provider: "microsoft-entra-id",
-            outcome: "success",
-            normalizedEmail: microsoftContext.email,
+          const sessionIdentity = buildSessionIdentity({
             employeeId: microsoftContext.employeeId,
-            entityType: "Employee",
-            entityId: microsoftContext.employeeId,
-            metadata: {
-              entraOid: microsoftContext.oid,
-              entraTid: microsoftContext.tid,
-              matchedBy: microsoftContext.matchedBy,
-              bindingCreated: microsoftContext.bindingCreated,
-            },
+            email: microsoftContext.email,
+            name: microsoftContext.name,
+          });
+
+          if (!sessionIdentity) {
+            logAuthFlow("warn", "jwt.callback.end", {
+              trigger,
+              provider: account.provider,
+              status: "invalid_session_identity",
+              employeeId: microsoftContext.employeeId,
+              normalizedEmail: normalizeEmail(microsoftContext.email),
+            });
+            return null;
+          }
+
+          mutableToken.employeeId = sessionIdentity.employeeId;
+          mutableToken.email = sessionIdentity.email;
+          mutableToken.name = sessionIdentity.name;
+
+          const sessionSnapshot = await getEmployeeSessionSnapshot(
+            sessionIdentity.employeeId
+          );
+
+          if (!sessionSnapshot) {
+            logAuthFlow("warn", "jwt.callback.end", {
+              trigger,
+              provider: account.provider,
+              status: "missing_employee_row",
+              employeeId: sessionIdentity.employeeId,
+              normalizedEmail: sessionIdentity.email,
+            });
+            return null;
+          }
+
+          if (sessionSnapshot.status !== "ACTIVE") {
+            logAuthFlow("warn", "jwt.callback.end", {
+              trigger,
+              provider: account.provider,
+              status: "inactive_employee_snapshot",
+              employeeId: sessionIdentity.employeeId,
+              normalizedEmail: sessionIdentity.email,
+              employeeStatus: sessionSnapshot.status,
+            });
+            return null;
+          }
+
+          logAuthFlow("info", "jwt.callback.identity.ready", {
+            trigger,
+            provider: account.provider,
+            employeeId: sessionIdentity.employeeId,
+            normalizedEmail: sessionIdentity.email,
+            employeeStatus: sessionSnapshot.status,
+            roleCount: sessionSnapshot.roleCount,
+            permissionCount: sessionSnapshot.permissionCount,
+            managerId: sessionSnapshot.managerId,
+            managerExists: sessionSnapshot.managerExists,
+            directReportCount: sessionSnapshot.directReportCount,
+            contactInfoExists: sessionSnapshot.contactInfoExists,
+            inactiveRoleCodes: sessionSnapshot.inactiveRoleCodes,
+            ...summarizeToken(mutableToken),
           });
         } else if (user) {
-          mutableToken.employeeId = user.id;
-          mutableToken.email = user.email;
-          mutableToken.name = user.name;
+          const sessionIdentity = buildSessionIdentity({
+            employeeId: user.id,
+            email: user.email,
+            name: user.name,
+          });
+
+          if (!sessionIdentity) {
+            logAuthFlow("warn", "jwt.callback.end", {
+              trigger: trigger ?? "session",
+              provider: account?.provider ?? null,
+              status: "invalid_session_identity",
+            });
+            return null;
+          }
+
+          mutableToken.employeeId = sessionIdentity.employeeId;
+          mutableToken.email = sessionIdentity.email;
+          mutableToken.name = sessionIdentity.name;
         }
 
         // SECURITY:
@@ -677,7 +917,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           provider: account?.provider ?? null,
           employeeId: String(mutableToken.employeeId),
           normalizedEmail:
-            typeof mutableToken.email === "string" ? mutableToken.email : null,
+            typeof mutableToken.email === "string"
+              ? normalizeEmail(mutableToken.email)
+              : null,
+          ...summarizeToken(mutableToken),
         });
         return token;
       } catch (error) {
@@ -722,8 +965,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
 
       session.user.employeeId = employeeId;
-      session.user.email = String(token.email || "");
-      session.user.name = String(token.name || "");
+      session.user.email = normalizeEmail(token.email) ?? "";
+      session.user.name = buildSessionDisplayName({
+        name: token.name,
+        email: session.user.email,
+      });
 
       logAuthFlow("info", "session.callback.end", {
         hasSessionUser: true,
@@ -753,6 +999,86 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       });
 
       return resolvedUrl;
+    },
+  },
+  events: {
+    async signIn({ user, account, profile }) {
+      if (account?.provider !== "microsoft-entra-id") {
+        return;
+      }
+
+      try {
+        const microsoftContext = await resolveMicrosoftSignInSessionContext({
+          user: user as Record<string, unknown>,
+          profile: (profile as Record<string, unknown> | null) ?? null,
+        });
+
+        if (!microsoftContext) {
+          logAuthFlow("warn", "events.signIn.end", {
+            provider: account.provider,
+            status: "missing_internal_identity",
+          });
+          return;
+        }
+
+        const sessionIdentity = buildSessionIdentity({
+          employeeId: microsoftContext.employeeId,
+          email: microsoftContext.email,
+          name: microsoftContext.name,
+        });
+
+        if (!sessionIdentity) {
+          logAuthFlow("warn", "events.signIn.end", {
+            provider: account.provider,
+            status: "invalid_session_identity",
+            employeeId: microsoftContext.employeeId,
+            normalizedEmail: normalizeEmail(microsoftContext.email),
+          });
+          return;
+        }
+
+        const sessionSnapshot = await getEmployeeSessionSnapshot(
+          sessionIdentity.employeeId
+        );
+
+        await logSecurityEventSafely({
+          eventType: "AUTH_MICROSOFT_ENTRA_SIGN_IN_SUCCESS",
+          provider: "microsoft-entra-id",
+          outcome: "success",
+          normalizedEmail: sessionIdentity.email,
+          employeeId: sessionIdentity.employeeId,
+          entityType: "Employee",
+          entityId: sessionIdentity.employeeId,
+          metadata: {
+            entraOid: microsoftContext.oid,
+            entraTid: microsoftContext.tid,
+            matchedBy: microsoftContext.matchedBy,
+            bindingCreated: microsoftContext.bindingCreated,
+            roleCount: sessionSnapshot?.roleCount ?? null,
+            permissionCount: sessionSnapshot?.permissionCount ?? null,
+            managerId: sessionSnapshot?.managerId ?? null,
+            managerExists: sessionSnapshot?.managerExists ?? null,
+            directReportCount: sessionSnapshot?.directReportCount ?? null,
+            contactInfoExists: sessionSnapshot?.contactInfoExists ?? null,
+            employeeStatus: sessionSnapshot?.status ?? null,
+            inactiveRoleCodes: sessionSnapshot?.inactiveRoleCodes ?? [],
+          },
+        });
+
+        logAuthFlow("info", "events.signIn.end", {
+          provider: account.provider,
+          status: "session_cookie_prepared",
+          employeeId: sessionIdentity.employeeId,
+          normalizedEmail: sessionIdentity.email,
+          roleCount: sessionSnapshot?.roleCount ?? null,
+          permissionCount: sessionSnapshot?.permissionCount ?? null,
+        });
+      } catch (error) {
+        logAuthFlow("error", "events.signIn.error", {
+          provider: account.provider,
+          ...getSafeErrorDetails(error),
+        });
+      }
     },
   },
 });

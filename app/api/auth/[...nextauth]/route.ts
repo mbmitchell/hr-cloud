@@ -22,6 +22,33 @@ function buildAuthRateLimitResponse(retryAfterSeconds: number) {
 }
 
 function getAuthErrorType(error: unknown) {
+  const nestedError =
+    typeof error === "object" &&
+    error !== null &&
+    "cause" in error &&
+    typeof error.cause === "object" &&
+    error.cause !== null &&
+    "err" in error.cause
+      ? error.cause.err
+      : null;
+
+  if (nestedError instanceof AuthError) {
+    return nestedError.type;
+  }
+
+  if (
+    typeof nestedError === "object" &&
+    nestedError !== null &&
+    "type" in nestedError &&
+    typeof nestedError.type === "string"
+  ) {
+    return nestedError.type;
+  }
+
+  if (nestedError instanceof Error) {
+    return nestedError.name;
+  }
+
   if (error instanceof AuthError) {
     return error.type;
   }
@@ -50,6 +77,7 @@ function buildLoginErrorRedirect(request: NextRequest, errorType: string) {
 
 function logAuthRouteError(request: NextRequest, error: unknown) {
   const errorType = getAuthErrorType(error);
+  const url = new URL(request.url);
   const details =
     error instanceof Error
       ? {
@@ -80,7 +108,16 @@ function logAuthRouteError(request: NextRequest, error: unknown) {
       event: "auth.error",
       type: errorType,
       method: request.method,
-      path: new URL(request.url).pathname,
+      path: url.pathname,
+      hasCsrfCookie: Boolean(request.cookies.get("authjs.csrf-token")),
+      hasCallbackUrlCookie: Boolean(request.cookies.get("authjs.callback-url")),
+      hasPkceCookie: Boolean(
+        request.cookies.get("authjs.pkce.code_verifier")
+      ),
+      hasSessionCookie: request.cookies
+        .getAll()
+        .some((cookie) => cookie.name.startsWith("authjs.session-token")),
+      hasStateParam: url.searchParams.has("state"),
       ...details,
     })
   );

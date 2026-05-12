@@ -21,6 +21,10 @@ function getAuthErrorMessage(authError: string | null) {
     return "We could not finish creating your sign-in session. Please try again.";
   }
 
+  if (authError === "JWTSessionError" || authError === "SessionTokenError") {
+    return "We could not finish writing your sign-in session. Please try again.";
+  }
+
   if (authError === "SessionRequired") {
     return "Please sign in to continue.";
   }
