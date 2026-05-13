@@ -1,6 +1,9 @@
 import { getCurrentUser } from "../../lib/auth/current-user";
 import { getEmployeeRoles } from "../../lib/auth/permissions";
-import { canCurrentUserAccessAdjustmentsPage } from "../../lib/auth/access";
+import {
+  canCurrentUserAccessAdjustmentsPage,
+  canCurrentUserManageDocumentAcknowledgements,
+} from "../../lib/auth/access";
 import SidebarClient from "./sidebar-client";
 import { buildSidebarSections } from "./sidebar-nav";
 
@@ -41,7 +44,9 @@ export default async function Sidebar({
     isSiteAdmin || isHrAdmin || isManager || roles.includes("IT") || roles.includes("IT_ADMIN");
   const canManageOnboardingTemplates = isSiteAdmin || isHrAdmin;
   const canManageOffboardingTemplates = isSiteAdmin || isHrAdmin;
-  const canManageDocumentAcknowledgements = isSiteAdmin || isHrAdmin;
+  const canManageDocumentAcknowledgements = user
+    ? await canCurrentUserManageDocumentAcknowledgements()
+    : false;
 
   const sections = buildSidebarSections({
     canSeeMyDocuments: !!user,

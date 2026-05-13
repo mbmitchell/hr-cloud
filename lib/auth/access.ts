@@ -49,6 +49,14 @@ export async function canCurrentUserManageNotifications() {
   ]);
 }
 
+export async function canCurrentUserManageDocumentAcknowledgements() {
+  return currentUserHasAnyRole([
+    "SITE_ADMIN",
+    "HR_ADMIN",
+    "DOCUMENTS_ADMIN",
+  ]);
+}
+
 export async function canCurrentUserManageAdjustments() {
   return currentUserHasAnyRole([
     "SITE_ADMIN",

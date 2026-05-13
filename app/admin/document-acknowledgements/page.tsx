@@ -1,8 +1,8 @@
-import { currentUserHasAnyRole } from "../../../lib/auth/access";
+import { canCurrentUserManageDocumentAcknowledgements } from "../../../lib/auth/access";
 import DocumentAcknowledgementsAdminClient from "./DocumentAcknowledgementsAdminClient";
 
 export default async function DocumentAcknowledgementsPage() {
-  const allowed = await currentUserHasAnyRole(["SITE_ADMIN", "HR_ADMIN"]);
+  const allowed = await canCurrentUserManageDocumentAcknowledgements();
 
   if (!allowed) {
     return (

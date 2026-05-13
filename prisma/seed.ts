@@ -54,6 +54,7 @@ async function seedRoles() {
   const roles = [
     ["SITE_ADMIN", "Site Admin"],
     ["HR_ADMIN", "HR Admin"],
+    ["DOCUMENTS_ADMIN", "Documents Admin"],
     ["ACCOUNTING", "Accounting"],
     ["MANAGER", "Manager"],
     ["EMPLOYEE", "Employee"],
