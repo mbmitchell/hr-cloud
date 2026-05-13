@@ -1,7 +1,12 @@
+import type { Metadata } from "next";
 import { auth } from "../auth";
 import { redirect } from "next/navigation";
 import { prisma } from "../lib/db";
 import { getCurrentUser } from "../lib/auth/current-user";
+
+export const metadata: Metadata = {
+  title: "Dashboard",
+};
 
 export default async function DashboardPage() {
 

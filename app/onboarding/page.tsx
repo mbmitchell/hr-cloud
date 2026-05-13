@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { requireOnboardingActor, listVisibleOnboardings, isOnboardingAdmin } from "../../lib/server/onboarding";
@@ -7,6 +8,10 @@ type SearchParams = Promise<{
   assigneeType?: string;
   employee?: string;
 }>;
+
+export const metadata: Metadata = {
+  title: "Onboarding",
+};
 
 function formatDate(value: Date | null) {
   if (!value) {

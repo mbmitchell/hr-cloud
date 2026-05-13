@@ -1,7 +1,12 @@
+import type { Metadata } from "next";
 import { auth } from "../../auth";
 import { redirect } from "next/navigation";
 import LoginForm from "./LoginForm";
 import { isDevAuthEnabled } from "../../lib/auth/dev-auth-flags";
+
+export const metadata: Metadata = {
+  title: "Sign In",
+};
 
 export default async function LoginPage() {
   const session = await auth();

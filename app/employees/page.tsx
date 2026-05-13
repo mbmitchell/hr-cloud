@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getCurrentUser } from "../../lib/auth/current-user";
 import { getEmployeeRoles } from "../../lib/auth/permissions";
@@ -13,6 +14,10 @@ type SearchParams = Promise<{
   department?: string;
   manager?: string;
 }>;
+
+export const metadata: Metadata = {
+  title: "Employees",
+};
 
 export default async function EmployeesPage({
   searchParams,

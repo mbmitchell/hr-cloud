@@ -1,9 +1,14 @@
+import type { Metadata } from "next";
 import { prisma } from "../../../lib/db";
 import { dateToDateOnlyString } from "../../../lib/date-only";
 import { auth } from "../../../auth";
 import { redirect } from "next/navigation";
 import PTORequestsClient from "./PTORequestsClient";
 import { getCurrentUser } from "../../../lib/auth/current-user";
+
+export const metadata: Metadata = {
+  title: "PTO Requests",
+};
 
 export default async function PTORequestsPage() {
   const session = await auth();

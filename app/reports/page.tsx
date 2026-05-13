@@ -1,8 +1,13 @@
+import type { Metadata } from "next";
 import { auth } from "../../auth";
 import { redirect } from "next/navigation";
 import ReportsClient from "./ReportsClient";
 import { getCurrentUser } from "../../lib/auth/current-user";
 import { getEmployeeRoles } from "../../lib/auth/permissions";
+
+export const metadata: Metadata = {
+  title: "Reports",
+};
 
 export default async function ReportsPage() {
   const session = await auth();

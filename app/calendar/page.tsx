@@ -1,9 +1,14 @@
+import type { Metadata } from "next";
 import { auth } from "../../auth";
 import { redirect } from "next/navigation";
 import CompanyCalendar from "../../components/calendar/company-calendar";
 import { prisma } from "../../lib/db";
 import { dateToDateOnlyString } from "../../lib/date-only";
 import { buildCompanyCalendarEventId } from "../../lib/calendar/company-event-id";
+
+export const metadata: Metadata = {
+  title: "PTO Calendar",
+};
 
 export default async function CalendarPage() {
   const session = await auth();

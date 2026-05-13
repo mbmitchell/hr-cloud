@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import {
@@ -12,6 +13,10 @@ type SearchParams = Promise<{
   separationType?: string;
   employee?: string;
 }>;
+
+export const metadata: Metadata = {
+  title: "Offboarding",
+};
 
 function formatDate(value: Date | null) {
   if (!value) {
