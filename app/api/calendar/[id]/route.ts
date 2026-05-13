@@ -35,18 +35,21 @@ export async function GET(
 
     const approvalAccess = await getApprovalScope();
 
-    let canAct = false;
+    let canManage = false;
 
     if (approvalAccess.allowed) {
       if (approvalAccess.scope === "ALL") {
-        canAct = true;
+        canManage = true;
       } else if (approvalAccess.scope === "DIRECT_REPORTS") {
-        canAct = await isManagerOf(
+        canManage = await isManagerOf(
           approvalAccess.user.id,
           requestRecord.employeeId
         );
       }
     }
+
+    const canSelfCancel =
+      actor.id === requestRecord.employeeId && requestRecord.status === "PENDING";
 
     return NextResponse.json({
       id: requestRecord.id,
@@ -59,7 +62,9 @@ export async function GET(
       status: requestRecord.status,
       notes: requestRecord.notes ?? "",
       approvalComment: requestRecord.approvalComment ?? "",
-      canAct,
+      canAct: canManage && requestRecord.status === "PENDING",
+      canManage,
+      canSelfCancel,
     });
   } catch (error) {
     if (isAuthorizationError(error)) {

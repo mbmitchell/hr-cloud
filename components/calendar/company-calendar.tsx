@@ -4,7 +4,12 @@ import { Calendar, dateFnsLocalizer, View } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay, addDays } from "date-fns";
 import { enUS } from "date-fns/locale";
 import { useEffect, useMemo, useState } from "react";
-import { formatDateOnlyForDisplay } from "../../lib/date-only";
+import { useRouter } from "next/navigation";
+import {
+  formatDateOnlyForDisplay,
+  parseDateOnly,
+} from "../../lib/date-only";
+import { LEAVE_TYPES } from "../../lib/pto/leave-types";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 
 type CalendarEvent = {
@@ -39,7 +44,11 @@ type EventDetail = {
   notes: string;
   approvalComment: string;
   canAct: boolean;
+  canManage: boolean;
+  canSelfCancel: boolean;
 };
+
+const STATUS_OPTIONS = ["PENDING", "APPROVED", "DENIED", "CANCELLED"] as const;
 
 const locales = {
   "en-US": enUS,
@@ -70,12 +79,6 @@ function eventClassName(event: CalendarItem) {
   return base;
 }
 
-function parseDateOnly(value: string) {
-  const datePart = value.split("T")[0];
-  const [year, month, day] = datePart.split("-").map(Number);
-  return new Date(year, month - 1, day);
-}
-
 function isDateBetween(date: Date, start: Date, end: Date) {
   const d = new Date(date);
   d.setHours(0,0,0,0);
@@ -94,6 +97,7 @@ export default function CompanyCalendar({
 }: {
   events: CalendarEvent[];
 }) {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [view, setView] = useState<View>("month");
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -102,6 +106,12 @@ export default function CompanyCalendar({
   const [message, setMessage] = useState("");
   const [approvalComment, setApprovalComment] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+  const [leaveType, setLeaveType] = useState("PTO");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [hours, setHours] = useState("");
+  const [status, setStatus] = useState<string>("PENDING");
+  const [notes, setNotes] = useState("");
 
   useEffect(() => {
     setMounted(true);
@@ -110,10 +120,24 @@ export default function CompanyCalendar({
     }
   }, []);
 
+  useEffect(() => {
+    if (!selectedEvent) {
+      return;
+    }
+
+    setLeaveType(selectedEvent.leaveType);
+    setStartDate(selectedEvent.startDate);
+    setEndDate(selectedEvent.endDate);
+    setHours(String(selectedEvent.hours));
+    setStatus(selectedEvent.status);
+    setNotes(selectedEvent.notes || "");
+    setApprovalComment(selectedEvent.approvalComment || "");
+  }, [selectedEvent]);
+
  const mappedEvents = useMemo<CalendarItem[]>(() => {
   return events.map((event) => {
-    const start = parseDateOnly(event.start);
-    const endInclusive = parseDateOnly(event.end);
+    const start = parseDateOnly(event.start) ?? new Date();
+    const endInclusive = parseDateOnly(event.end) ?? start;
     const endExclusive = addDays(endInclusive, 1);
 
     const initials = event.employeeName
@@ -170,8 +194,13 @@ const todayEvents = useMemo(() => {
     }
   }
 
-  async function handleDecision(status: "APPROVED" | "DENIED") {
+  async function handleSaveChanges() {
     if (!selectedEvent) return;
+
+    if (!leaveType || !startDate || !endDate || !hours.trim() || !status.trim()) {
+      setMessage("Leave type, dates, hours, and status are required.");
+      return;
+    }
 
     if (status === "DENIED" && !approvalComment.trim()) {
       setMessage("A deny reason is required.");
@@ -182,14 +211,18 @@ const todayEvents = useMemo(() => {
     setMessage("");
 
     try {
-      const response = await fetch("/api/pto-approvals", {
-        method: "POST",
+      const response = await fetch(`/api/pto-requests/${selectedEvent.id}`, {
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          requestId: selectedEvent.id,
+          leaveType,
+          startDate,
+          endDate,
+          hours: Number(hours),
           status,
+          notes,
           approvalComment,
         }),
       });
@@ -197,14 +230,72 @@ const todayEvents = useMemo(() => {
       const data = await response.json();
 
       if (!response.ok) {
-        setMessage(data.error || "Unable to process request.");
+        setMessage(data.error || "Unable to save PTO request changes.");
         return;
       }
 
-      setMessage(`Request ${status.toLowerCase()} successfully.`);
-      window.location.reload();
+      setMessage(
+        data.unchanged
+          ? "No PTO request changes were needed."
+          : "PTO request updated successfully."
+      );
+      if (data.request) {
+        setSelectedEvent((current) =>
+          current
+            ? {
+                ...current,
+                ...data.request,
+              }
+            : current
+        );
+      }
+      router.refresh();
     } catch {
-      setMessage("Unable to process request.");
+      setMessage("Unable to save PTO request changes.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleCancelRequest() {
+    if (!selectedEvent) return;
+
+    setActionLoading(true);
+    setMessage("");
+
+    try {
+      const response = await fetch(`/api/pto-requests/${selectedEvent.id}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          approvalComment,
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        setMessage(data.error || "Unable to cancel PTO request.");
+        return;
+      }
+
+      setMessage("PTO request cancelled successfully.");
+      if (data.request) {
+        setSelectedEvent((current) =>
+          current
+            ? {
+                ...current,
+                ...data.request,
+                canAct: false,
+                canSelfCancel: false,
+              }
+            : current
+        );
+      }
+      router.refresh();
+    } catch {
+      setMessage("Unable to cancel PTO request.");
     } finally {
       setActionLoading(false);
     }
@@ -318,6 +409,7 @@ const todayEvents = useMemo(() => {
               onClick={() => {
                 setSelectedEvent(null);
                 setApprovalComment("");
+                setNotes("");
               }}
               className="border border-slate-300 px-3 py-1 rounded hover:bg-slate-50"
             >
@@ -349,42 +441,147 @@ const todayEvents = useMemo(() => {
             </div>
           </div>
 
-          {selectedEvent.status === "PENDING" && selectedEvent.canAct ? (
+          {selectedEvent.canManage ? (
             <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Approval Comment / Deny Reason
-                </label>
-                <textarea
-                  value={approvalComment}
-                  onChange={(e) => setApprovalComment(e.target.value)}
-                  className="w-full border rounded px-3 py-2 min-h-24"
-                  placeholder="Optional approval comment. Required for denial."
-                />
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-medium">Leave Type</label>
+                  <select
+                    value={leaveType}
+                    onChange={(event) => setLeaveType(event.target.value)}
+                    className="w-full rounded border px-3 py-2"
+                    disabled={actionLoading}
+                  >
+                    {LEAVE_TYPES.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium">Status</label>
+                  <select
+                    value={status}
+                    onChange={(event) => setStatus(event.target.value)}
+                    className="w-full rounded border px-3 py-2"
+                    disabled={actionLoading}
+                  >
+                    {STATUS_OPTIONS.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium">Start Date</label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(event) => setStartDate(event.target.value)}
+                    className="w-full rounded border px-3 py-2"
+                    disabled={actionLoading}
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium">End Date</label>
+                  <input
+                    type="date"
+                    value={endDate}
+                    min={startDate || undefined}
+                    onChange={(event) => setEndDate(event.target.value)}
+                    className="w-full rounded border px-3 py-2"
+                    disabled={actionLoading}
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium">Hours</label>
+                  <input
+                    type="number"
+                    min="0.25"
+                    step="0.25"
+                    value={hours}
+                    onChange={(event) => setHours(event.target.value)}
+                    className="w-full rounded border px-3 py-2"
+                    disabled={actionLoading}
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="mb-2 block text-sm font-medium">Request Notes</label>
+                  <textarea
+                    value={notes}
+                    onChange={(event) => setNotes(event.target.value)}
+                    className="w-full rounded border px-3 py-2 min-h-24"
+                    placeholder="Optional employee or admin notes."
+                    disabled={actionLoading}
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="mb-2 block text-sm font-medium">
+                    Decision Comment / Cancel Reason
+                  </label>
+                  <textarea
+                    value={approvalComment}
+                    onChange={(event) => setApprovalComment(event.target.value)}
+                    className="w-full rounded border px-3 py-2 min-h-24"
+                    placeholder="Optional unless denying the request."
+                    disabled={actionLoading}
+                  />
+                </div>
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row">
                 <button
-                  onClick={() => handleDecision("APPROVED")}
+                  onClick={handleSaveChanges}
                   disabled={actionLoading}
                   className="w-full rounded bg-green-600 px-4 py-2.5 text-white hover:bg-green-500 disabled:opacity-50 sm:w-auto"
                 >
-                  {actionLoading ? "Working..." : "Approve"}
+                  {actionLoading ? "Working..." : "Save Changes"}
                 </button>
 
                 <button
-                  onClick={() => handleDecision("DENIED")}
+                  onClick={handleCancelRequest}
                   disabled={actionLoading}
                   className="w-full rounded bg-red-600 px-4 py-2.5 text-white hover:bg-red-500 disabled:opacity-50 sm:w-auto"
                 >
-                  {actionLoading ? "Working..." : "Deny"}
+                  {actionLoading ? "Working..." : "Cancel Request"}
                 </button>
               </div>
+            </div>
+          ) : selectedEvent.canSelfCancel ? (
+            <div className="space-y-3">
+              <div>
+                <label className="mb-2 block text-sm font-medium">
+                  Cancel Reason
+                </label>
+                <textarea
+                  value={approvalComment}
+                  onChange={(event) => setApprovalComment(event.target.value)}
+                  className="w-full rounded border px-3 py-2 min-h-24"
+                  placeholder="Optional cancellation note."
+                  disabled={actionLoading}
+                />
+              </div>
+
+              <button
+                onClick={handleCancelRequest}
+                disabled={actionLoading}
+                className="w-full rounded bg-slate-900 px-4 py-2.5 text-white hover:bg-slate-800 disabled:opacity-50 sm:w-auto"
+              >
+                {actionLoading ? "Working..." : "Cancel Request"}
+              </button>
             </div>
           ) : (
             <div className="text-sm text-slate-600">
               {selectedEvent.status === "PENDING"
-                ? "You can view this request, but you do not have approval authority for it."
+                ? "You can view this request, but you do not have edit authority for it."
                 : `Decision Comment: ${selectedEvent.approvalComment || "-"}`}
             </div>
           )}

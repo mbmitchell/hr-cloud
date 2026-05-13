@@ -451,6 +451,103 @@ export async function assertCanApproveRequest(
   };
 }
 
+export async function assertCanManagePtoRequest(
+  actorId: string,
+  requestId: string,
+  options?: { allowSelfPendingCancel?: boolean }
+) {
+  const context: AuthorizationContext = {
+    attemptedAction: "PTO_REQUEST_MANAGE",
+    entityType: "PTORequest",
+    entityId: requestId,
+  };
+  const actor = await requireAuthenticatedEmployee(context);
+
+  if (actor.id !== actorId) {
+    await auditAuthorizationFailure(context, {
+      actorId: actor.id,
+      status: 401,
+      reason: "Actor mismatch while checking PTO request management access.",
+    });
+    throw unauthorized();
+  }
+
+  const request = await prisma.pTORequest.findUnique({
+    where: { id: requestId },
+    select: {
+      id: true,
+      employeeId: true,
+      status: true,
+    },
+  });
+
+  if (!request) {
+    await auditAuthorizationFailure(context, {
+      actorId: actor.id,
+      status: 403,
+      reason: "PTO request management target not found.",
+    });
+    throw forbidden("PTO request not found.");
+  }
+
+  if (
+    options?.allowSelfPendingCancel &&
+    request.employeeId === actor.id &&
+    request.status === "PENDING"
+  ) {
+    return {
+      actor,
+      request,
+      scope: "SELF_PENDING_CANCEL" as const,
+    };
+  }
+
+  const approvalScope = await getApprovalScope();
+
+  if (approvalScope.user.id !== actor.id) {
+    await auditAuthorizationFailure(context, {
+      actorId: actor.id,
+      status: 401,
+      reason: "PTO management scope resolved for a different actor.",
+    });
+    throw unauthorized();
+  }
+
+  if (!approvalScope.allowed) {
+    await auditAuthorizationFailure(context, {
+      actorId: actor.id,
+      status: 403,
+      reason: "Actor does not have PTO request management permission.",
+    });
+    throw forbidden("You do not have permission to manage this PTO request.");
+  }
+
+  if (approvalScope.scope === "ALL") {
+    return {
+      actor,
+      request,
+      scope: approvalScope.scope,
+    };
+  }
+
+  const managesEmployee = await isManagerOf(actor.id, request.employeeId);
+
+  if (approvalScope.scope === "DIRECT_REPORTS" && managesEmployee) {
+    return {
+      actor,
+      request,
+      scope: approvalScope.scope,
+    };
+  }
+
+  await auditAuthorizationFailure(context, {
+    actorId: actor.id,
+    status: 403,
+    reason: "Actor attempted to manage a PTO request for a non-direct-report employee.",
+  });
+  throw forbidden("You can only manage PTO requests for your direct reports.");
+}
+
 async function isRequestForDirectReport(actorId: string, employeeId: string) {
   const actor = await getActorById(actorId);
 
