@@ -1,6 +1,11 @@
 version: 1.0
 runtime: nodejs22
 
+# HR Cloud deployment template
+# Replace all placeholder values with hr-cloud-specific infrastructure settings
+# before use. Do not reuse MFN HR production URLs, secrets, mailbox identities,
+# databases, storage roots, or internal job keys.
+
 build:
   commands:
     pre-build:
@@ -24,21 +29,41 @@ run:
     - name: AUTH_ENABLE_DEV_USER_SWITCHER
       value: "false"
     - name: DATABASE_URL
-      value: "SET_IN_APP_RUNNER"
+      value: "SET_HR_CLOUD_DATABASE_URL"
     - name: NEXTAUTH_SECRET
-      value: "SET_IN_APP_RUNNER"
+      value: "SET_HR_CLOUD_NEXTAUTH_SECRET"
     # The Entra redirect URI for this deployment must be:
-    # https://your-app.example.com/api/auth/callback/microsoft-entra-id
+    # https://hr-cloud.example.com/api/auth/callback/microsoft-entra-id
     #
     # AUTH_MICROSOFT_ENTRA_ID_ID must be the Entra Application (client) ID GUID,
     # not the api://... Application ID URI. AUTH_MICROSOFT_ENTRA_ID_ISSUER should
     # be tenant-specific, for example:
-    # https://login.microsoftonline.com/<TENANT_ID>/v2.0
+    # https://login.microsoftonline.com/HR_CLOUD_TENANT_ID/v2.0
     - name: AUTH_MICROSOFT_ENTRA_ID_ID
-      value: "SET_IN_APP_RUNNER"
+      value: "SET_HR_CLOUD_ENTRA_APP_CLIENT_ID_GUID"
     - name: AUTH_MICROSOFT_ENTRA_ID_SECRET
-      value: "SET_IN_APP_RUNNER"
+      value: "SET_HR_CLOUD_ENTRA_APP_CLIENT_SECRET"
     - name: AUTH_MICROSOFT_ENTRA_ID_ISSUER
-      value: "https://login.microsoftonline.com/YOUR_TENANT_ID/v2.0"
+      value: "https://login.microsoftonline.com/HR_CLOUD_TENANT_ID/v2.0"
     - name: NEXTAUTH_URL
-      value: "https://your-app.example.com"
+      value: "https://hr-cloud.example.com"
+    - name: APP_BASE_URL
+      value: "https://hr-cloud.example.com"
+    - name: EMAIL_TRANSPORT
+      value: "graph"
+    - name: EMAIL_FROM
+      value: "notifications@hr-cloud.example.com"
+    - name: EMAIL_REPLY_TO
+      value: "hr@hr-cloud.example.com"
+    - name: GRAPH_TENANT_ID
+      value: "SET_HR_CLOUD_GRAPH_TENANT_ID"
+    - name: GRAPH_CLIENT_ID
+      value: "SET_HR_CLOUD_GRAPH_CLIENT_ID"
+    - name: GRAPH_CLIENT_SECRET
+      value: "SET_HR_CLOUD_GRAPH_CLIENT_SECRET"
+    - name: GRAPH_MAILBOX_USER_ID
+      value: "notifications@hr-cloud.example.com"
+    - name: DOCUMENT_STORAGE_ROOT
+      value: "/var/lib/hr-cloud-documents"
+    - name: INTERNAL_JOB_SECRET
+      value: "SET_HR_CLOUD_INTERNAL_JOB_SECRET"

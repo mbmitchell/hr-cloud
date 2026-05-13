@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Pin tracing to this repo root so parent-level lockfiles do not confuse
+  // Next.js workspace-root inference during local builds.
+  outputFileTracingRoot: process.cwd(),
   async headers() {
     return [
       {

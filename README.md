@@ -2,6 +2,36 @@
 
 Internal HR and PTO management platform for Managed Financial Networks (MFN).
 
+## HR Cloud Fork Safety
+
+This repository is the `hr-cloud` fork of the existing MFN HR application.
+
+It must be treated as a separate deployment target and must not be deployed over the current MFN HR production app. Until cloud-specific configuration is completed, assume that inherited deployment paths, process names, email settings, storage paths, and authentication assumptions are still MFN-oriented.
+
+Before any deployment of this fork:
+
+- use a separate database
+- use separate secrets and environment variables
+- use separate document storage
+- use separate server/container paths and process names
+- review Microsoft Entra, Microsoft Graph, and email mailbox settings independently
+
+The initial migration inventory is documented in [docs/hr-cloud-migration-plan.md](/Users/mmitchell/dev/hr-cloud/docs/hr-cloud-migration-plan.md).
+
+## Environment Separation Required
+
+Before deploying this fork anywhere outside local development, create fully separate operational configuration for `hr-cloud`, including its own deployment directory, process name, database, Entra app registration, mailbox identity, document storage root, secrets, and backup/log locations.
+
+See [docs/hr-cloud-environment-separation.md](/Users/mmitchell/dev/hr-cloud/docs/hr-cloud-environment-separation.md) for the recommended separation values and the current Next.js lockfile warning note.
+
+## SaaS Backend Planning
+
+The Phase 2 backend conversion plan for turning this single-company app into a cloud SaaS HR platform is documented in [docs/saas-backend-architecture-plan.md](/Users/mmitchell/dev/hr-cloud/docs/saas-backend-architecture-plan.md).
+
+## PostgreSQL Compatibility
+
+The PostgreSQL migration readiness review is documented in [docs/postgres-compatibility-review.md](/Users/mmitchell/dev/hr-cloud/docs/postgres-compatibility-review.md).
+
 ## 1. Project Overview
 
 The MFN HR Platform is a Next.js application for employee self-service and HR operations. It supports employee directory management, PTO request workflows, manager approvals, PTO/COMP balance tracking, audit logging, Microsoft 365 notifications, and Outlook calendar visibility for approved PTO.
@@ -110,19 +140,33 @@ npm run dev
 
 ## 7. Deployment Process
 
-Current deployment is GitHub-driven:
+The checked-in deployment references for this fork must use dedicated hr-cloud infrastructure only:
+
+- repository: this `hr-cloud` fork
+- server path: `/home/hr-cloud/hr-cloud-app`
+- PM2 process name: `hr-cloud`
+- production URL: `https://hr-cloud.example.com`
+- database target: dedicated `hr_cloud` database
+- document storage target: `/var/lib/hr-cloud-documents`
+- mailbox/sender identity: `notifications@hr-cloud.example.com`
+- internal job key: dedicated `INTERNAL_JOB_SECRET`
+- deployment secrets: dedicated `HR_CLOUD_*` GitHub or platform secrets
+
+The GitHub Actions workflow and App Runner template are examples and must be verified against dedicated hr-cloud infrastructure before use.
+
+Current hr-cloud deployment template is GitHub-driven:
 
 1. Push to `main`
-2. GitHub Actions SSHes into the Ubuntu server
+2. GitHub Actions SSHes into the dedicated hr-cloud server
 3. Server runs:
    - `git pull`
    - `npm ci`
    - `npm run prisma:generate`
    - `npx prisma migrate deploy`
    - `npm run build`
-   - `pm2 restart mfn-hr`
+   - `pm2 restart hr-cloud`
 
-Nginx terminates TLS and proxies traffic to the Next.js app on port `3000`.
+Nginx or the chosen cloud edge should terminate TLS for the dedicated hr-cloud hostname and proxy traffic to the Next.js app on port `3000`.
 
 ## 8. Environment Variables
 
@@ -158,7 +202,7 @@ Email / calendar:
 - `DOCUMENT_ACKNOWLEDGEMENT_REMINDERS_ENABLED`
 - `DOCUMENT_ACKNOWLEDGEMENT_REMINDER_STALE_DAYS`
 
-See [.env.example](/Users/mmitchell/dev/mfn-hr-app/.env.example) for current examples and inline notes.
+See [.env.example](/Users/mmitchell/dev/hr-cloud/.env.example) for current examples and inline notes.
 
 ## 8.1 Scheduled Acknowledgement Reminders
 
@@ -171,7 +215,7 @@ npm run reminders:acknowledgements
 Recommended Ubuntu cron entry for a once-daily run:
 
 ```bash
-0 8 * * * cd /home/mfn-hr/mfn-hr-app && /usr/bin/npm run reminders:acknowledgements >> /var/log/mfn-hr-acknowledgement-reminders.log 2>&1
+0 8 * * * cd /home/hr-cloud/hr-cloud-app && /usr/bin/npm run reminders:acknowledgements >> /var/log/hr-cloud/acknowledgement-reminders.log 2>&1
 ```
 
 Notes:
@@ -180,6 +224,7 @@ Notes:
 - `DOCUMENT_ACKNOWLEDGEMENT_REMINDERS_ENABLED="false"` cleanly skips scheduled runs.
 - `DOCUMENT_ACKNOWLEDGEMENT_REMINDER_STALE_DAYS` controls the non-overdue pending threshold.
 - The script logs one JSON summary line per run for easy tailing or log shipping.
+- The cron host, working directory, log path, and internal job key must be dedicated to hr-cloud.
 
 ## 9. Folder Structure Overview
 
@@ -235,5 +280,5 @@ Nginx should still enforce edge concerns that are deployment-specific, especiall
 
 ## Documentation Notes
 
-- See [ARCHITECTURE.md](/Users/mmitchell/dev/mfn-hr-app/ARCHITECTURE.md) for the detailed developer guide.
-- See [AUTH_VERIFICATION.md](/Users/mmitchell/dev/mfn-hr-app/AUTH_VERIFICATION.md) for production auth verification checks.
+- See [ARCHITECTURE.md](/Users/mmitchell/dev/hr-cloud/ARCHITECTURE.md) for the detailed developer guide.
+- See [AUTH_VERIFICATION.md](/Users/mmitchell/dev/hr-cloud/AUTH_VERIFICATION.md) for production auth verification checks.

@@ -1,4 +1,4 @@
-name: Deploy HR App
+name: Deploy HR Cloud App
 
 on:
   push:
@@ -10,18 +10,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy to HR Server
+      - name: Deploy to HR Cloud Server
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          port: ${{ secrets.SERVER_PORT }}
+          # These secrets must point to dedicated hr-cloud infrastructure.
+          # Do not reuse the MFN HR production host, user, SSH key, or port.
+          host: ${{ secrets.HR_CLOUD_SERVER_HOST }}
+          username: ${{ secrets.HR_CLOUD_SERVER_USER }}
+          key: ${{ secrets.HR_CLOUD_SERVER_SSH_KEY }}
+          port: ${{ secrets.HR_CLOUD_SERVER_PORT }}
 
           script: |
-            echo "Starting deployment..."
+            echo "Starting hr-cloud deployment..."
 
-            cd ~/mfn-hr-app
+            # This directory must contain the hr-cloud fork checkout, not the
+            # original MFN HR application.
+            cd /home/hr-cloud/hr-cloud-app
 
             echo "Pulling latest code"
             git pull origin main
@@ -39,6 +43,7 @@ jobs:
             npm run build
 
             echo "Restarting application"
-            pm2 restart mfn-hr
+            # This PM2 app name must remain distinct from the MFN HR process.
+            pm2 restart hr-cloud
 
-            echo "Deployment complete"
+            echo "hr-cloud deployment complete"
