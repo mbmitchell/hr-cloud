@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { formatDateOnlyForDisplay } from "../../../lib/date-only";
 import {
   isBalanceTrackedLeaveType,
   isCompLeaveType,
@@ -79,30 +80,12 @@ type StaffingConflict = {
   }>;
 };
 
-
-function countWeekdaysInclusive(start: string, end: string) {
-  if (!start || !end) return 0;
-
-  const startDate = new Date(`${start}T12:00:00`);
-  const endDate = new Date(`${end}T12:00:00`);
-
-  if (endDate < startDate) return 0;
-
-  let count = 0;
-  const current = new Date(startDate);
-
-  while (current <= endDate) {
-    const day = current.getDay();
-
-    if (day !== 0 && day !== 6) {
-      count += 1;
-    }
-
-    current.setDate(current.getDate() + 1);
-  }
-
-  return count;
-}
+type HolidaySummary = {
+  businessDayCount: number;
+  holidayDates: string[];
+  weekendDates: string[];
+  eligibleHours: number;
+};
 
 export default function PTORequestClient() {
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
@@ -120,6 +103,8 @@ export default function PTORequestClient() {
   const [loadingEmployees, setLoadingEmployees] = useState(true);
   const [loadingBalance, setLoadingBalance] = useState(false);
   const [loadingConflicts, setLoadingConflicts] = useState(false);
+  const [loadingHolidaySummary, setLoadingHolidaySummary] = useState(false);
+  const [holidaySummary, setHolidaySummary] = useState<HolidaySummary | null>(null);
 
   useEffect(() => {
     async function loadInitialData() {
@@ -232,14 +217,47 @@ export default function PTORequestClient() {
 
   useEffect(() => {
     if (!startDate || !endDate) return;
-    if (isCompLeaveType(leaveType)) return;
 
-    const workdayCount = countWeekdaysInclusive(startDate, endDate);
-    const calculatedHours = workdayCount * 8;
+    let isCancelled = false;
 
-    if (calculatedHours > 0) {
-      setHours(String(calculatedHours));
+    async function loadHolidaySummary() {
+      setLoadingHolidaySummary(true);
+
+      try {
+        const params = new URLSearchParams({
+          startDate,
+          endDate,
+        });
+        const response = await fetch(`/api/company-holidays?${params.toString()}`);
+        const data = await response.json();
+
+        if (!response.ok || !data.summary) {
+          if (!isCancelled) {
+            setHolidaySummary(null);
+          }
+          return;
+        }
+
+        if (!isCancelled) {
+          setHolidaySummary(data.summary);
+          setHours(String(data.summary.eligibleHours));
+        }
+      } catch {
+        if (!isCancelled) {
+          setHolidaySummary(null);
+        }
+      } finally {
+        if (!isCancelled) {
+          setLoadingHolidaySummary(false);
+        }
+      }
     }
+
+    loadHolidaySummary();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [startDate, endDate, leaveType]);
 
   const requestedHours = useMemo(() => Number(hours || 0), [hours]);
@@ -266,6 +284,27 @@ export default function PTORequestClient() {
     e.preventDefault();
     setLoading(true);
     setMessage("");
+
+    if (holidaySummary && holidaySummary.businessDayCount === 0) {
+      setMessage(
+        "Selected dates fall only on weekends or company holidays, so this request would deduct zero hours."
+      );
+      setLoading(false);
+      return;
+    }
+
+    if (
+      holidaySummary &&
+      requestedHours - holidaySummary.eligibleHours > 0.01
+    ) {
+      setMessage(
+        `Selected dates allow up to ${holidaySummary.eligibleHours.toFixed(
+          2
+        )} hours after excluding weekends and company holidays.`
+      );
+      setLoading(false);
+      return;
+    }
 
     try {
       const response = await fetch("/api/pto-requests", {
@@ -300,6 +339,7 @@ export default function PTORequestClient() {
         setHours("8");
         setNotes("");
         setStaffingConflict(null);
+        setHolidaySummary(null);
       }
     } catch {
       setMessage("An unexpected error occurred.");
@@ -385,7 +425,7 @@ export default function PTORequestClient() {
           {isPtoBucketRequest && startDate && employeeBalance?.ptoProjection && (
             <div className="bg-blue-50 border border-blue-200 rounded p-4 space-y-2">
               <div className="text-sm font-medium text-blue-900">
-                Projected PTO Balance on {new Date(startDate).toLocaleDateString()}
+                Projected PTO Balance on {formatDateOnlyForDisplay(startDate)}
               </div>
               <div className="text-lg font-semibold text-blue-900">
                 {employeeBalance.ptoProjection.projectedBalance.toFixed(2)} hours
@@ -474,13 +514,34 @@ export default function PTORequestClient() {
                 required
               />
               <p className="text-xs text-slate-500 mt-1">
-  Hours default based on weekdays selected, but can be adjusted for partial days.
-</p>
-{Number(hours) === 0 && startDate && endDate && (
-  <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded p-3 mt-2">
-    Selected dates do not include any weekdays. PTO is normally requested for workdays only.
-  </div>
-)}
+                Hours default based on business days after excluding weekends and active company holidays, and can be adjusted for partial days.
+              </p>
+              {loadingHolidaySummary && startDate && endDate ? (
+                <div className="mt-2 text-xs text-slate-500">
+                  Calculating holiday-aware request hours...
+                </div>
+              ) : null}
+              {holidaySummary && startDate && endDate ? (
+                <div className="mt-2 space-y-2">
+                  <div className="text-xs text-slate-600">
+                    {holidaySummary.businessDayCount} business day(s) selected •
+                    full-day equivalent {holidaySummary.eligibleHours.toFixed(2)} hours
+                  </div>
+                  {holidaySummary.holidayDates.length > 0 ? (
+                    <div className="text-xs text-blue-700">
+                      Company holidays excluded:{" "}
+                      {holidaySummary.holidayDates
+                        .map((date) => formatDateOnlyForDisplay(date))
+                        .join(", ")}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+              {Number(hours) === 0 && startDate && endDate && (
+                <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded p-3 mt-2">
+                  Selected dates do not include any working days after weekends and company holidays.
+                </div>
+              )}
             </div>
           </div>
 
@@ -525,7 +586,12 @@ export default function PTORequestClient() {
 
           <button
             type="submit"
-            disabled={loading || loadingEmployees || employees.length === 0}
+            disabled={
+              loading ||
+              loadingEmployees ||
+              loadingHolidaySummary ||
+              employees.length === 0
+            }
             className="w-full rounded bg-slate-900 px-4 py-3 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50 sm:w-auto"
           >
             {loading ? "Submitting..." : "Submit Request"}

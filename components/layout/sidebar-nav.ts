@@ -115,6 +115,9 @@ export function buildSidebarSections(
         ...(input.canSeePolicy
           ? [item("/admin/policy", "PTO Settings", "settings")]
           : []),
+        ...(input.canSeePolicy
+          ? [item("/admin/holidays", "Company Holidays", "calendar")]
+          : []),
         ...(input.canManageOnboardingTemplates
           ? [item("/admin/onboarding/templates", "Onboarding Templates", "checklist")]
           : []),

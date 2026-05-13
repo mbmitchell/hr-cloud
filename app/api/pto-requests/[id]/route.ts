@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 
 import { NextResponse } from "next/server";
 import { prisma } from "../../../../lib/db";
+import { resolvePtoRequestHours } from "../../../../lib/company-holidays/service";
 import { dateToDateOnlyString, parseDateOnly } from "../../../../lib/date-only";
 import { dispatchCalendarSyncInBackground } from "../../../../lib/notifications/calendar/dispatch";
 import { createApprovedPtoCalendarEvent } from "../../../../lib/notifications/calendar/create-event";
@@ -99,13 +100,6 @@ export async function PATCH(
       );
     }
 
-    if (hours <= 0) {
-      return NextResponse.json(
-        { error: "Hours must be greater than zero." },
-        { status: 400 }
-      );
-    }
-
     if (statusValue === "DENIED" && !approvalComment) {
       return NextResponse.json(
         { error: "A deny reason is required." },
@@ -137,12 +131,28 @@ export async function PATCH(
 
     await assertCanManagePtoRequest(actorId, requestId);
 
+    const resolvedHours = await resolvePtoRequestHours(prisma, {
+      startDate: parsedStartDate,
+      endDate: parsedEndDate,
+      requestedHours: hours,
+    });
+
+    if (!resolvedHours.ok) {
+      return NextResponse.json(
+        {
+          error: resolvedHours.error,
+          summary: resolvedHours.summary,
+        },
+        { status: 400 }
+      );
+    }
+
     const nextStatus = statusValue as PtoRequestStatus;
     const unchanged =
       existingRequest.leaveType === leaveType &&
       dateToDateOnlyString(existingRequest.startDate) === startDate &&
       dateToDateOnlyString(existingRequest.endDate) === endDate &&
-      Math.abs(existingRequest.hours - hours) < 0.01 &&
+      Math.abs(existingRequest.hours - resolvedHours.value.hours) < 0.01 &&
       existingRequest.status === nextStatus &&
       (existingRequest.notes ?? null) === notes &&
       (existingRequest.approvalComment ?? null) ===
@@ -165,10 +175,11 @@ export async function PATCH(
             leaveType,
             startDate: parsedStartDate,
             endDate: parsedEndDate,
-            hours,
+            hours: resolvedHours.value.hours,
             status: nextStatus,
             notes,
             approvalComment,
+            calculationSummary: resolvedHours.value.summary,
           },
         }),
       {
@@ -208,6 +219,7 @@ export async function PATCH(
       success: true,
       request: serializeRequest(result.updatedRequest),
       ledgerAdjusted: result.ledgerAdjusted,
+      calculationSummary: resolvedHours.value.summary,
     });
   } catch (error) {
     if (isAuthorizationError(error)) {

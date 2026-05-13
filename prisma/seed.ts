@@ -1,5 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 
+import { seedFederalCompanyHolidays } from "../lib/company-holidays/service";
+
 const prisma = new PrismaClient();
 
 async function seedPermissions() {
@@ -208,6 +210,7 @@ async function seedBalances(employeeId: string, pto: number, comp: number) {
 
 async function main() {
   await prisma.auditLog.deleteMany();
+  await prisma.companyHoliday.deleteMany();
   await prisma.pTOLedger.deleteMany();
   await prisma.pTORequest.deleteMany();
   await prisma.employeeRoleAssignment.deleteMany();
@@ -226,6 +229,11 @@ await prisma.policySettings.create({
     rolloverCapHours: 80,
   },
 });
+
+  await seedFederalCompanyHolidays(
+    prisma,
+    Number(new Date().getFullYear())
+  );
 
   await seedPermissions();
   await seedRoles();

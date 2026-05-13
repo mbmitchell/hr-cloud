@@ -82,6 +82,11 @@ enum HrNotificationTemplateKey {
   EMPLOYEE_CHANGE_REQUEST_APPLIED
 }
 
+enum CompanyHolidaySource {
+  FEDERAL_SEED
+  MANUAL
+}
+
 model Employee {
   id         String   @id @default(uuid())
   email      String   @unique(map: "emp_email_key")
@@ -349,6 +354,22 @@ model PTORequest {
   createdAt DateTime @default(now())
 
   @@index([employeeId, status])
+}
+
+model CompanyHoliday {
+  id                     String               @id @default(uuid())
+  code                   String?              @unique(map: "company_holiday_code_key")
+  name                   String
+  date                   DateTime             @unique(map: "company_holiday_date_key")
+  year                   Int
+  source                 CompanyHolidaySource
+  countsAsCompanyHoliday Boolean              @default(true)
+  isActive               Boolean              @default(true)
+  notes                  String?              @db.Text
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+
+  @@index([year, isActive], map: "company_holiday_year_active_idx")
 }
 
 model PTORequestAction {

@@ -23,6 +23,7 @@ import {
 } from "../../../lib/server/authorization";
 import { writeAuditLog } from "../../../lib/server/audit/write-audit-log";
 import { dateToDateOnlyString, parseDateOnly } from "../../../lib/date-only";
+import { resolvePtoRequestHours } from "../../../lib/company-holidays/service";
 import { isLeaveType } from "../../../lib/pto/leave-types";
 import { enqueuePtoNotifications } from "../../../lib/server/hr-notifications/pto";
 
@@ -39,7 +40,13 @@ export async function POST(request: Request) {
     const notes = body.notes ? String(body.notes).trim() : null;
     const employeeId = requestedEmployeeId || actor.id;
 
-    if (!employeeId || !leaveType || !startDate || !endDate || !hours) {
+    if (
+      !employeeId ||
+      !leaveType ||
+      !startDate ||
+      !endDate ||
+      !Number.isFinite(hours)
+    ) {
       return NextResponse.json(
         { error: "Missing required fields." },
         { status: 400 }
@@ -66,9 +73,25 @@ export async function POST(request: Request) {
       );
     }
 
-    if (hours <= 0) {
+    if (parsedEndDate < parsedStartDate) {
       return NextResponse.json(
-        { error: "Hours must be greater than zero." },
+        { error: "End date cannot be earlier than start date." },
+        { status: 400 }
+      );
+    }
+
+    const resolvedHours = await resolvePtoRequestHours(prisma, {
+      startDate: parsedStartDate,
+      endDate: parsedEndDate,
+      requestedHours: hours,
+    });
+
+    if (!resolvedHours.ok) {
+      return NextResponse.json(
+        {
+          error: resolvedHours.error,
+          summary: resolvedHours.summary,
+        },
         { status: 400 }
       );
     }
@@ -100,7 +123,7 @@ export async function POST(request: Request) {
           leaveType,
           startDate: parsedStartDate,
           endDate: parsedEndDate,
-          hours,
+          hours: resolvedHours.value.hours,
           status: "PENDING",
           notes,
         },
@@ -126,6 +149,10 @@ export async function POST(request: Request) {
           startDate: dateToDateOnlyString(requestRecord.startDate),
           endDate: dateToDateOnlyString(requestRecord.endDate),
           hours: requestRecord.hours,
+          businessDayCount: resolvedHours.value.summary.businessDayCount,
+          holidayDatesExcluded: resolvedHours.value.summary.holidayDates,
+          weekendDatesExcluded: resolvedHours.value.summary.weekendDates,
+          eligibleHours: resolvedHours.value.summary.eligibleHours,
           status: requestRecord.status,
           notes: requestRecord.notes,
           submittedBy: actor.id,
@@ -149,6 +176,7 @@ export async function POST(request: Request) {
       ...created,
       startDate: dateToDateOnlyString(created.startDate),
       endDate: dateToDateOnlyString(created.endDate),
+      calculationSummary: resolvedHours.value.summary,
     });
   } catch (error) {
     if (isAuthorizationError(error)) {

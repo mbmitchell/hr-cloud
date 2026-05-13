@@ -1,4 +1,5 @@
 import { dateToDateOnlyString, parseDateOnly } from "../date-only";
+import type { BusinessDaySummary } from "../company-holidays/business-days";
 import {
   getLedgerBucketForLeaveType,
   isBalanceTrackedLeaveType,
@@ -193,6 +194,7 @@ export async function mutatePtoRequest(
       status: PtoRequestStatus;
       notes: string | null;
       approvalComment: string | null;
+      calculationSummary?: BusinessDaySummary;
     };
   }
 ) {
@@ -331,6 +333,10 @@ export async function mutatePtoRequest(
       ledgerAdjusted: needsLedgerAdjustment,
       oldLedgerBucket: oldEffect?.bucket ?? null,
       newLedgerBucket: newEffect?.bucket ?? null,
+      businessDayCount: nextValues.calculationSummary?.businessDayCount ?? null,
+      holidayDatesExcluded: nextValues.calculationSummary?.holidayDates ?? [],
+      weekendDatesExcluded: nextValues.calculationSummary?.weekendDates ?? [],
+      eligibleHours: nextValues.calculationSummary?.eligibleHours ?? null,
     },
   });
 

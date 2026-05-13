@@ -1,6 +1,7 @@
 import { prisma } from "../../../lib/db";
 import { dateToDateOnlyString } from "../../../lib/date-only";
 import { NextResponse } from "next/server";
+import { buildCompanyCalendarEventId } from "../../../lib/calendar/company-event-id";
 import {
   isAuthorizationError,
   requireActor,
@@ -22,17 +23,44 @@ export async function GET() {
         employee: true,
       },
     });
+    const holidays = await prisma.companyHoliday.findMany({
+      where: {
+        isActive: true,
+      },
+      orderBy: [{ date: "asc" }, { name: "asc" }],
+    });
 
-    const events = requests.map((request) => ({
-      id: request.id,
-      employeeId: request.employeeId,
-      employeeName: `${request.employee.firstName} ${request.employee.lastName}`,
-      leaveType: request.leaveType,
-      start: dateToDateOnlyString(request.startDate),
-      end: dateToDateOnlyString(request.endDate),
-      hours: request.hours,
-      status: request.status,
-    }));
+    const events = [
+      ...requests.map((request) => ({
+        id: buildCompanyCalendarEventId("PTO", request.id),
+        sourceId: request.id,
+        eventType: "PTO" as const,
+        employeeId: request.employeeId,
+        employeeName: `${request.employee.firstName} ${request.employee.lastName}`,
+        title: `${request.employee.firstName} ${request.employee.lastName} • ${request.leaveType}`,
+        leaveType: request.leaveType,
+        start: dateToDateOnlyString(request.startDate),
+        end: dateToDateOnlyString(request.endDate),
+        hours: request.hours,
+        status: request.status,
+        notes: request.notes ?? "",
+      })),
+      ...holidays.map((holiday) => {
+        const dateOnly = dateToDateOnlyString(holiday.date);
+
+        return {
+          id: buildCompanyCalendarEventId("HOLIDAY", holiday.id),
+          sourceId: holiday.id,
+          eventType: "HOLIDAY" as const,
+          title: `Holiday - ${holiday.name}`,
+          holidayName: holiday.name,
+          start: dateOnly,
+          end: dateOnly,
+          status: "ACTIVE",
+          notes: holiday.notes ?? "",
+        };
+      }),
+    ];
 
     return NextResponse.json(events);
   } catch (error) {
