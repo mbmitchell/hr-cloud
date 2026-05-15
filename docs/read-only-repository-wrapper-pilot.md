@@ -10,25 +10,30 @@ tenant-aware query shaping begins.
 
 ## Pilot Scope
 
-Chosen pilot query:
+Chosen pilot queries:
 
 - identity linkage coverage preview used by
   [app/api/admin/auth/identity-linkage/route.ts](/Users/mmitchell/dev/hr-cloud/app/api/admin/auth/identity-linkage/route.ts:1)
+- organization membership preview used by
+  [app/api/admin/auth/organization-memberships/route.ts](/Users/mmitchell/dev/hr-cloud/app/api/admin/auth/organization-memberships/route.ts:1)
 
-New wrapper:
+New wrappers:
 
 - [lib/server/auth/identity-linkage-readonly-repository.ts](/Users/mmitchell/dev/hr-cloud/lib/server/auth/identity-linkage-readonly-repository.ts:1)
+- [lib/server/auth/organization-membership-readonly-repository.ts](/Users/mmitchell/dev/hr-cloud/lib/server/auth/organization-membership-readonly-repository.ts:1)
 
 ## What Changed
 
-The route now calls:
+The identity linkage route now calls:
 
 - `getIdentityLinkageCoverageSummaryForTenantContext(tenantContext)`
 
-instead of calling the underlying diagnostics query directly.
+The organization membership preview route now calls:
 
-The wrapper accepts `TenantContext` and records only lightweight diagnostics
-metadata in local scope. It does not apply any organization filter, employee
+- `previewOrganizationMembershipBackfillForTenantContext(tenantContext)`
+
+Both wrappers accept `TenantContext` and record only lightweight diagnostics
+metadata in local scope. They do not apply any organization filter, employee
 filter, permission filter, or query rewrite.
 
 ## Expected Parity
@@ -37,7 +42,7 @@ Expected behavior remains identical:
 
 - same Prisma query behavior
 - same query filters
-- same returned coverage payload
+- same returned payloads
 - same authorization requirements
 - same status codes
 
@@ -48,8 +53,8 @@ response fields.
 ## Why This Is A Safe Pilot
 
 - the query is diagnostics-only
-- the route is admin-only
-- the wrapper delegates directly to the existing query
+- the routes are admin-only
+- each wrapper delegates directly to the existing query
 - no business-module behavior depends on this result for mutation or approval logic
 
 ## Testing Notes
@@ -60,13 +65,15 @@ Parity expectation is documented instead:
 
 - the wrapper currently delegates directly to the existing
   `getIdentityLinkageCoverageSummary()` implementation
+- the second wrapper currently delegates directly to the existing
+  `previewOrganizationMembershipBackfill()` implementation
 - any response difference from this phase would be unintended
 
 ## Recommended Next Phase
 
-The next safest step is another read-only pilot at a slightly lower layer:
+The next safest step is a read-only pilot at a slightly broader read path:
 
-1. choose one low-risk read-only employee-directory or diagnostics query
+1. choose one low-risk employee-directory or report read path
 2. add a similar `TenantContext`-accepting wrapper
 3. keep returned data unchanged again
-4. only after two or more successful pilots, consider a report/export read path
+4. only after that, consider report/export diagnostics adoption

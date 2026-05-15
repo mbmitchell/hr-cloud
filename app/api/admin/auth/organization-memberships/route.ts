@@ -7,8 +7,8 @@ import {
 } from "../../../../../lib/server/authorization";
 import {
   backfillOrganizationMemberships,
-  previewOrganizationMembershipBackfill,
 } from "../../../../../lib/server/auth/organization-membership-backfill";
+import { previewOrganizationMembershipBackfillForTenantContext } from "../../../../../lib/server/auth/organization-membership-readonly-repository";
 import { requireRoleWithTenantContext } from "../../../../../lib/server/tenant-context-route";
 
 export async function GET() {
@@ -22,7 +22,9 @@ export async function GET() {
       }
     );
 
-    const preview = await previewOrganizationMembershipBackfill();
+    const preview = await previewOrganizationMembershipBackfillForTenantContext(
+      tenantContext
+    );
 
     return NextResponse.json(
       {

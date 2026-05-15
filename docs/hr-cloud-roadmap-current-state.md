@@ -32,6 +32,7 @@ Completed so far on this branch:
 17. request-edge tenant context helper pattern
 18. limited tenant-context diagnostics adoption
 19. read-only repository wrapper pilot
+20. second read-only repository wrapper pilot
 
 ## Current Architecture State
 
@@ -53,7 +54,7 @@ Current branch state:
   - current resolved tenant context
 - low-risk admin diagnostics routes can now resolve `TenantContext` once at the route edge after existing authorization succeeds
 - the route-edge helper is now reused across multiple preview-only admin diagnostics routes
-- one low-risk diagnostics query now has a `TenantContext`-accepting read-only wrapper with documented parity expectations
+- two low-risk diagnostics queries now have `TenantContext`-accepting read-only wrappers with documented parity expectations
 
 ## Remaining Risks
 
@@ -69,22 +70,21 @@ The biggest remaining risks before tenant enforcement are:
 
 ## Next 5 Recommended Phases
 
-1. second read-only repository wrapper pilot
-   - introduce one more low-risk `TenantContext`-accepting wrapper around an employee-directory or diagnostics query
-   - keep returned data unchanged again to validate the pattern twice
-
-2. read-only report scoping design and pilot
+1. read-only report scoping design and pilot
    - choose one low-risk report and make tenant-context inputs explicit without changing visible output yet
    - validate where later organization filters will belong
 
-3. internal job scope design
+2. internal job scope design
    - define how scheduled jobs will carry organization scope, system actor identity, and platform-wide admin modes before changing PTO or notification jobs
 
-4. tenant-aware authorization design
+3. tenant-aware authorization design
    - plan how global employee roles and permissions will later interact with organization membership without changing current access rules yet
 
-5. tenant-context report/export diagnostics adoption
+4. tenant-context report/export diagnostics adoption
    - use the same pattern in one low-risk report or export route before any query scoping begins
+
+5. read-only employee-directory wrapper pilot
+   - introduce the same pattern to one employee-directory or employee-profile read helper while preserving existing visibility behavior
 
 ## Guardrails
 
@@ -104,10 +104,10 @@ Do not do these yet:
 
 The safest next implementation phase is:
 
-- second read-only repository wrapper pilot on another low-risk employee-directory or diagnostics query
+- read-only report scoping design and pilot on one low-risk report path
 
 Why:
 
-- it builds on the first repository-wrapper pilot without jumping into report scoping too quickly
-- it helps confirm the pattern works in more than one read path
+- it builds on two successful repository-wrapper pilots
+- it expands the pattern into a slightly broader read surface without changing filters yet
 - it still keeps business-module behavior and query filters unchanged
