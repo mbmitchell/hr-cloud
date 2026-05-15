@@ -37,6 +37,7 @@ Completed so far on this branch:
 22. employee read tenant-filter pilot design
 23. employee directory tenant shadow compare
 24. employee directory shadow results UI
+25. employee master report shadow compare
 
 ## Current Architecture State
 
@@ -63,6 +64,7 @@ Current branch state:
 - the first actual tenant-filter pilot is now designed as a shadow comparison on employee read paths before any live filtering is introduced
 - the employee directory now has an admin-only tenant shadow compare path while the live directory behavior remains unchanged
 - the admin auth diagnostics page now surfaces employee directory shadow results so operators can verify parity before any real tenant filtering is enabled
+- the employee master report now also has an admin-only shadow compare path while the live report page and exports remain unchanged
 
 ## Remaining Risks
 
@@ -78,9 +80,9 @@ The biggest remaining risks before tenant enforcement are:
 
 ## Next 5 Recommended Phases
 
-1. employee master report shadow tenant-filter pilot
-   - add the same unscoped versus scoped comparison pattern to the employee master read path
-   - keep the live report and exports unchanged
+1. employee master report shadow results UI
+   - surface the employee master shadow compare in an admin-only diagnostics view
+   - keep the live report page and exports unchanged
 
 2. read-only report scoping design and pilot
    - choose one low-risk report and make tenant-context inputs explicit without changing visible output yet
