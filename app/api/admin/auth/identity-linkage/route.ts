@@ -7,8 +7,8 @@ import {
 } from "../../../../../lib/server/authorization";
 import {
   backfillIdentityLinkage,
-  getIdentityLinkageCoverageSummary,
 } from "../../../../../lib/server/auth/identity-linkage";
+import { getIdentityLinkageCoverageSummaryForTenantContext } from "../../../../../lib/server/auth/identity-linkage-readonly-repository";
 import { requireRoleWithTenantContext } from "../../../../../lib/server/tenant-context-route";
 
 export async function GET() {
@@ -22,7 +22,9 @@ export async function GET() {
       }
     );
 
-    const coverage = await getIdentityLinkageCoverageSummary();
+    const coverage = await getIdentityLinkageCoverageSummaryForTenantContext(
+      tenantContext
+    );
 
     return NextResponse.json(
       {
