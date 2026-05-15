@@ -58,6 +58,13 @@ Implemented in the next operator playbook phase:
 - explicit guidance on when not to auto-fix ambiguous identity states
 - playbook reference linked from the admin diagnostics documentation
 
+Implemented in the next organization membership scaffolding phase:
+
+- preview-first `OrganizationMembership` backfill helper
+- idempotent apply mode for linked `Employee.organizationId` plus `Employee.userId`
+- admin-only route for membership preview and explicit apply
+- conservative default membership role/status without tenant enforcement
+
 ## 1. Current Backend Architecture Summary
 
 The current backend is a single-company internal HR system built around one global employee directory and one global policy/role space.
