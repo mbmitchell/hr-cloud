@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import EmployeeDirectoryShadowResultsPanel from "./EmployeeDirectoryShadowResultsPanel";
+import EmployeeMasterExportParityDiagnosticsPanel from "./EmployeeMasterExportParityDiagnosticsPanel";
 import EmployeeMasterShadowResultsPanel from "./EmployeeMasterShadowResultsPanel";
 import {
   isAuthorizationError,
@@ -461,6 +462,23 @@ export default async function AuthDiagnosticsPage() {
 
         <div className="mt-5">
           <EmployeeMasterShadowResultsPanel />
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-6">
+        <div>
+          <h2 className="text-lg font-medium text-slate-900">
+            Employee Master Export Parity Diagnostics
+          </h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Read-only comparison of the live employee master page, CSV export,
+            PDF export, and tenant-shadow counts. This does not change live
+            report or export behavior.
+          </p>
+        </div>
+
+        <div className="mt-5">
+          <EmployeeMasterExportParityDiagnosticsPanel />
         </div>
       </section>
 
