@@ -3,19 +3,16 @@ import { NextResponse } from "next/server";
 import { withPrivateNoStoreHeaders } from "../../../../../lib/server/http/headers";
 import {
   isAuthorizationError,
-  requireAdmin,
 } from "../../../../../lib/server/authorization";
-import { resolveTenantContext } from "../../../../../lib/server/tenant-context";
+import { requireAdminWithTenantContext } from "../../../../../lib/server/tenant-context-route";
 
 export async function GET() {
   try {
-    await requireAdmin({
+    const { tenantContext } = await requireAdminWithTenantContext({
       attemptedAction: "TENANT_CONTEXT_VIEW",
       entityType: "TenantContext",
       entityId: "current-admin",
     });
-
-    const tenantContext = await resolveTenantContext();
 
     return NextResponse.json(
       {

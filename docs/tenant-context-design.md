@@ -24,6 +24,9 @@ It does not change:
 The branch now also has an initial read-only resolver scaffold described in
 [docs/tenant-context-resolver-scaffolding.md](/Users/mmitchell/dev/hr-cloud/docs/tenant-context-resolver-scaffolding.md:1).
 
+The branch now also has a request-edge route helper pattern described in
+[docs/request-edge-tenant-context-pattern.md](/Users/mmitchell/dev/hr-cloud/docs/request-edge-tenant-context-pattern.md:1).
+
 ## Current Backend Resolution Pattern
 
 The current app is still employee-centric.
@@ -325,6 +328,7 @@ Current branch status:
 - it preserves current role and permission resolution
 - it may use the known `default-org` only as a diagnostics fallback
 - it is not used for authorization or data scoping yet
+- a thin request-edge helper pattern now exists for low-risk admin diagnostics routes
 
 ## Proposed Migration Order By Module
 

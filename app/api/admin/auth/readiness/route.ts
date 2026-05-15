@@ -4,22 +4,26 @@ import { getUnifiedIdentityOrganizationReadinessSummary } from "../../../../../l
 import { withPrivateNoStoreHeaders } from "../../../../../lib/server/http/headers";
 import {
   isAuthorizationError,
-  requireRole,
 } from "../../../../../lib/server/authorization";
+import { requireRoleWithTenantContext } from "../../../../../lib/server/tenant-context-route";
 
 export async function GET() {
   try {
-    await requireRole(["SITE_ADMIN", "HR_ADMIN"], {
+    const { tenantContext } = await requireRoleWithTenantContext(
+      ["SITE_ADMIN", "HR_ADMIN"],
+      {
       attemptedAction: "AUTH_READINESS_VIEW",
       entityType: "AuthReadiness",
       entityId: "identity-organization-readiness",
-    });
+      }
+    );
 
     const readiness = await getUnifiedIdentityOrganizationReadinessSummary();
 
     return NextResponse.json(
       {
         readiness,
+        tenantContext,
       },
       withPrivateNoStoreHeaders()
     );

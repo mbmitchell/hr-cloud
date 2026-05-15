@@ -29,6 +29,7 @@ Completed so far on this branch:
 14. unified identity and organization readiness diagnostics
 15. tenant context design
 16. tenant context resolver scaffolding
+17. request-edge tenant context helper pattern
 
 ## Current Architecture State
 
@@ -48,6 +49,7 @@ Current branch state:
   - organization membership readiness
   - unified readiness summary
   - current resolved tenant context
+- low-risk admin diagnostics routes can now resolve `TenantContext` once at the route edge after existing authorization succeeds
 
 ## Remaining Risks
 
@@ -63,24 +65,23 @@ The biggest remaining risks before tenant enforcement are:
 
 ## Next 5 Recommended Phases
 
-1. request-edge tenant context helper pattern
-   - add a small helper for read-only internal/admin routes to resolve `TenantContext` once per request
-   - do not change repository behavior yet
-
-2. tenant-context diagnostics adoption
+1. tenant-context diagnostics adoption
    - use the new request-edge helper in one or two existing internal/admin diagnostics or report routes
    - confirm the resolved context is stable before any enforcement work
 
-3. read-only repository wrapper pilot
+2. read-only repository wrapper pilot
    - introduce one low-risk read-only wrapper around employee-directory or report queries that accepts `TenantContext`
    - keep returned data unchanged for now
 
-4. read-only report scoping design and pilot
+3. read-only report scoping design and pilot
    - choose one low-risk report and make tenant-context inputs explicit without changing visible output yet
    - validate where later organization filters will belong
 
-5. internal job scope design
+4. internal job scope design
    - define how scheduled jobs will carry organization scope, system actor identity, and platform-wide admin modes before changing PTO or notification jobs
+
+5. tenant-aware authorization design
+   - plan how global employee roles and permissions will later interact with organization membership without changing current access rules yet
 
 ## Guardrails
 
@@ -100,10 +101,10 @@ Do not do these yet:
 
 The safest next implementation phase is:
 
-- request-edge tenant context helper pattern for read-only internal/admin routes only
+- tenant-context diagnostics adoption in one or two additional low-risk internal/admin routes
 
 Why:
 
-- it reuses the new resolver without changing auth or business logic
-- it starts building a stable calling convention for future services and routes
-- it lets the branch validate tenant-context plumbing before data scoping begins
+- it builds on the new route-edge helper without changing auth or business logic
+- it expands validation coverage for tenant-context plumbing before data scoping begins
+- it still keeps repository and business-module behavior unchanged
