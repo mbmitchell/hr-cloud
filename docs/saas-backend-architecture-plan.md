@@ -2,6 +2,15 @@
 
 ## Current Rehearsal Status
 
+Current state summary as of this checkpoint:
+
+- PostgreSQL rehearsal lineage exists and builds cleanly on this branch
+- platform identity foundation exists in schema and rehearsal migration artifacts
+- auth still signs users in as `Employee` and session shape is still `employeeId`-centric
+- best-effort `User`, `UserIdentity`, and `Employee.userId` linkage scaffolding exists
+- admin-only diagnostics now cover identity linkage, organization readiness, and current tenant-context resolution
+- no tenant enforcement, repository scoping, auth-session redesign, or business-module scoping has started yet
+
 Implemented on the `postgres-rehearsal` branch in the low-risk platform identity foundation phase:
 
 - added `Organization`
