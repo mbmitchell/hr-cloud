@@ -79,6 +79,13 @@ Implemented in the next unified readiness diagnostics phase:
 - read-only readiness status on the existing admin auth diagnostics page
 - references to identity linkage coverage, membership backfill, and the operator remediation playbook
 
+Planned in the next tenant context design phase:
+
+- define the future `TenantContext` shape before any organization enforcement begins
+- document how tenant context should resolve from the current employee-based session plus linked `User` and `OrganizationMembership`
+- identify the migration order for routes, services, reports, and internal jobs
+- keep the phase documentation-only so current runtime behavior stays unchanged
+
 ## 1. Current Backend Architecture Summary
 
 The current backend is a single-company internal HR system built around one global employee directory and one global policy/role space.
