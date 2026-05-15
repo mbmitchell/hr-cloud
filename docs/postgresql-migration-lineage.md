@@ -131,3 +131,86 @@ cloud branch only:
 2. confirm the baseline and `platform_identity_foundation` migrations apply cleanly
 3. decide the exact branch step where `prisma/postgresql-migrations/` becomes the active Prisma migrations directory
 4. only after that, continue with the next low-risk SaaS phase such as linking auth identities to `User` and `Employee` without changing login behavior yet
+
+## Cutover Rehearsal Result
+
+Validated on branch `postgres-rehearsal` against a scratch Neon PostgreSQL
+database.
+
+### Temporary activation strategy used
+
+The safest rehearsal path was:
+
+1. keep the repo's legacy [prisma/migrations](/Users/mmitchell/dev/hr-cloud/prisma/migrations/) untouched
+2. create a temporary Prisma workspace under `/private/tmp`
+3. copy [prisma/schema.prisma](/Users/mmitchell/dev/hr-cloud/prisma/schema.prisma:1) into that temp workspace
+4. populate the temp workspace `prisma/migrations/` folder from [prisma/postgresql-migrations](/Users/mmitchell/dev/hr-cloud/prisma/postgresql-migrations/)
+5. run Prisma migration commands against the temp schema path
+
+This let Prisma validate the PostgreSQL lineage as the active chain without
+rewriting the repository's historical MySQL migrations directory.
+
+### Commands exercised
+
+Baseline reset/apply:
+
+```bash
+npx prisma migrate reset --force --skip-generate --skip-seed --schema /private/tmp/.../prisma/schema.prisma
+```
+
+Platform identity follow-up apply:
+
+```bash
+npx prisma migrate deploy --schema /private/tmp/.../prisma/schema.prisma
+```
+
+### Outcome
+
+- baseline migration applied cleanly
+- `platform_identity_foundation` applied cleanly
+- Prisma recorded both PostgreSQL migrations in `_prisma_migrations`
+- no legacy MySQL migration files were modified or deleted
+
+### Scratch database verification
+
+Observed public tables after cutover rehearsal:
+
+- 42 base tables total, including `_prisma_migrations`
+- 37 baseline app tables
+- 4 new identity foundation tables:
+  - `Organization`
+  - `User`
+  - `OrganizationMembership`
+  - `UserIdentity`
+- 1 Prisma migration metadata table:
+  - `_prisma_migrations`
+
+Default organization result:
+
+- one row created successfully
+- `slug = 'default-org'`
+- `id = '00000000-0000-4000-8000-000000000001'`
+
+Employee backfill result:
+
+- one pre-existing rehearsal employee was inserted after the baseline step
+- after `platform_identity_foundation`, that employee had `organizationId = '00000000-0000-4000-8000-000000000001'`
+- `userId` remained `NULL`, which is the intended low-risk behavior for this phase
+
+### Interpretation
+
+This confirms the new PostgreSQL lineage is viable for cloud/SaaS branch
+cutover rehearsal.
+
+What it proves:
+
+- the PostgreSQL lineage can be activated safely through a temporary workspace
+- the baseline and identity-foundation migrations apply cleanly to scratch PostgreSQL
+- the default organization seed logic works
+- the `Employee.organizationId` backfill logic works for pre-existing rows
+
+What it does not prove yet:
+
+- production data migration from MySQL
+- auth identity linking behavior
+- tenant enforcement across business tables and APIs

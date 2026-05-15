@@ -97,8 +97,8 @@ Result:
 
 Reason:
 
-- the current local `.env` still points at a MySQL `DATABASE_URL`
-- no scratch PostgreSQL database was available in this workspace for safe rehearsal use
+- this branch moved to the safer cutover-rehearsal path using a temporary PostgreSQL migration workspace instead of generating a new `migrate dev` baseline inside the legacy MySQL migration directory
+- the active validation path is documented below under `PostgreSQL cutover rehearsal via temporary migration workspace`
 
 ### Platform identity migration via `migrate dev`
 
@@ -120,8 +120,43 @@ Error validating datasource `db`: the URL must start with the protocol `postgres
 
 Reason:
 
-- the current local `.env` still points at a MySQL-style `DATABASE_URL`
-- Prisma rejected the datasource configuration before it could create or apply a PostgreSQL migration
+- at that earlier point, the local datasource was not yet wired to scratch PostgreSQL
+- Prisma rejected the attempted `migrate dev` run before migration execution
+
+### PostgreSQL cutover rehearsal via temporary migration workspace
+
+After Neon scratch connectivity was confirmed, the PostgreSQL lineage was
+validated without changing the repo's legacy MySQL migrations directory.
+
+Temporary strategy used:
+
+1. create a temporary Prisma workspace under `/private/tmp`
+2. copy [prisma/schema.prisma](/Users/mmitchell/dev/hr-cloud/prisma/schema.prisma:1) into that temp workspace
+3. copy PostgreSQL lineage files from [prisma/postgresql-migrations](/Users/mmitchell/dev/hr-cloud/prisma/postgresql-migrations/) into the temp workspace `prisma/migrations/` folder
+4. run Prisma migration commands against the temp schema path
+
+Commands run:
+
+```bash
+npx prisma migrate reset --force --skip-generate --skip-seed --schema /private/tmp/.../prisma/schema.prisma
+```
+
+```bash
+npx prisma migrate deploy --schema /private/tmp/.../prisma/schema.prisma
+```
+
+Results:
+
+- baseline applied cleanly
+- `platform_identity_foundation` applied cleanly
+- the scratch database `_prisma_migrations` table recorded both PostgreSQL migrations
+
+Scratch-data verification:
+
+- inserted one rehearsal `Employee` row after the baseline migration
+- verified one `Organization` row created with slug `default-org`
+- verified the rehearsal employee was backfilled to `organizationId = '00000000-0000-4000-8000-000000000001'`
+- verified `userId` remained null, as intended for this phase
 
 ## Baseline Generation Outcome
 
@@ -144,7 +179,8 @@ Observed compatibility signals from the generated SQL:
 
 - no Prisma schema errors encountered in this rehearsal
 - no PostgreSQL baseline generation errors encountered
-- `npx prisma migrate dev --name platform_identity_foundation` failed with datasource URL validation because the local `.env` is still MySQL-formatted
+- an earlier `npx prisma migrate dev --name platform_identity_foundation` attempt failed with datasource URL validation before the scratch PostgreSQL datasource was wired up
+- the first sandboxed `prisma migrate reset` attempt returned a generic schema engine error; rerunning outside the sandbox against the scratch database succeeded
 
 ## Build Result
 
@@ -157,6 +193,7 @@ npm run build
 Result:
 
 - succeeded
+- still succeeded after the cutover rehearsal validation
 
 ## Warnings Observed
 
@@ -181,13 +218,17 @@ This comes from the current local `.env` and is unrelated to the PostgreSQL rehe
 - the current logical Prisma schema can be rendered into PostgreSQL DDL
 - Prisma Client generation still works with the schema provider set to PostgreSQL
 - the application still builds after the provider switch
+- the separate PostgreSQL migration lineage can be validated safely without mutating the legacy MySQL migrations folder
+- the PostgreSQL baseline and `platform_identity_foundation` migrations apply cleanly to a scratch Neon database
+- the default organization insert and `Employee.organizationId` backfill logic work as intended
 
 ## What This Rehearsal Does Not Prove Yet
 
-- that the baseline applies successfully to a real PostgreSQL database
 - that production MySQL data migrates cleanly
 - that all application workflows behave identically against PostgreSQL
 - that the existing MySQL migration history can be reused on PostgreSQL
+- that auth identity linking works against the new `User` and `UserIdentity` tables
+- that tenant enforcement is correct across business tables and APIs
 
 ## Rollback Instructions
 
@@ -214,22 +255,9 @@ If you want to roll back only the platform identity foundation work:
 
 ## Recommended Next Step
 
-The next exact step should be a real scratch-database rehearsal:
+The next exact step should be the first post-cutover application phase:
 
-1. provision a disposable PostgreSQL database
-2. set a temporary PostgreSQL `DATABASE_URL` outside git
-3. run:
-
-```bash
-npx prisma migrate dev --name postgres_baseline_rehearsal
-```
-
-4. re-run:
-
-```bash
-npx prisma generate
-npm run build
-```
-
-5. validate that the generated baseline applies cleanly without manual SQL edits
-6. rerun `npx prisma migrate dev --name platform_identity_foundation` once the scratch PostgreSQL URL is in place
+1. keep the PostgreSQL lineage as the cloud branch migration source of truth
+2. do not begin tenant enforcement yet
+3. add low-risk auth identity linkage between existing employee login flow and the new `User` / `UserIdentity` records
+4. keep login behavior unchanged while introducing the linkage scaffolding
