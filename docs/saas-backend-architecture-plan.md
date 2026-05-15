@@ -65,6 +65,20 @@ Implemented in the next organization membership scaffolding phase:
 - admin-only route for membership preview and explicit apply
 - conservative default membership role/status without tenant enforcement
 
+Implemented in the next read-only organization visibility phase:
+
+- employee-level diagnostics for `organizationId` and resolved organization metadata
+- visibility into whether the linked user has membership in the employee organization
+- membership role/status visibility and mismatch flags
+- read-only operator guidance for organization and membership readiness
+
+Implemented in the next unified readiness diagnostics phase:
+
+- one admin-only readiness summary for Employee to User to UserIdentity to OrganizationMembership state
+- aggregate counts for missing linkage, missing organization, missing memberships, duplicate-email risks, and inactive memberships
+- read-only readiness status on the existing admin auth diagnostics page
+- references to identity linkage coverage, membership backfill, and the operator remediation playbook
+
 ## 1. Current Backend Architecture Summary
 
 The current backend is a single-company internal HR system built around one global employee directory and one global policy/role space.

@@ -36,6 +36,20 @@ type BackfillResultRow = BackfillPreviewRow & {
   linkedUserId: string | null;
 };
 
+type LinkedIdentityFlag =
+  | "EMPLOYEE_NOT_LINKED"
+  | "EMPLOYEE_EMAIL_DUPLICATE"
+  | "USER_EMAIL_DUPLICATE"
+  | "EMPLOYEE_USER_EMAIL_MISMATCH"
+  | "USER_LINKED_TO_MULTIPLE_EMPLOYEES"
+  | "USER_WITHOUT_IDENTITY"
+  | "EMPLOYEE_MISSING_ORGANIZATION"
+  | "USER_MISSING_MEMBERSHIP_IN_EMPLOYEE_ORGANIZATION"
+  | "USER_HAS_MEMBERSHIP_IN_DIFFERENT_ORGANIZATION"
+  | "MEMBERSHIP_INACTIVE";
+
+type UnifiedReadinessStatus = "READY" | "NEEDS_REVIEW" | "NOT_READY";
+
 function normalizeEmail(value: string | null | undefined) {
   const normalizedValue = String(value || "").trim().toLowerCase();
   return normalizedValue || null;
@@ -77,8 +91,63 @@ function buildUserToEmployeeIndex(
   return map;
 }
 
+function buildUserIdentityIndex(
+  userIdentities: Array<{ userId: string }>
+) {
+  const map = new Map<string, Array<{ userId: string }>>();
+
+  for (const identity of userIdentities) {
+    const existing = map.get(identity.userId) ?? [];
+    existing.push(identity);
+    map.set(identity.userId, existing);
+  }
+
+  return map;
+}
+
+function buildMembershipByUserIndex(
+  memberships: Array<{
+    id: string;
+    organizationId: string;
+    userId: string;
+    role: string | null;
+    status: string;
+  }>
+) {
+  const map = new Map<
+    string,
+    Array<{
+      id: string;
+      organizationId: string;
+      userId: string;
+      role: string | null;
+      status: string;
+    }>
+  >();
+
+  for (const membership of memberships) {
+    const existing = map.get(membership.userId) ?? [];
+    existing.push(membership);
+    map.set(membership.userId, existing);
+  }
+
+  return map;
+}
+
+function buildOrganizationIndex(
+  organizations: Array<{
+    id: string;
+    slug: string;
+    name: string;
+    status: string;
+  }>
+) {
+  return new Map(organizations.map((organization) => [organization.id, organization]));
+}
+
 async function getIdentityLinkageBaseData() {
-  const [employees, users, userIdentities] = await Promise.all([
+  const [employees, users, userIdentities, organizations, organizationMemberships] =
+    await Promise.all([
     prisma.employee.findMany({
       select: {
         id: true,
@@ -86,6 +155,7 @@ async function getIdentityLinkageBaseData() {
         firstName: true,
         lastName: true,
         userId: true,
+        organizationId: true,
       },
       orderBy: {
         email: "asc",
@@ -95,6 +165,7 @@ async function getIdentityLinkageBaseData() {
       select: {
         id: true,
         email: true,
+        isActive: true,
       },
       orderBy: {
         email: "asc",
@@ -111,15 +182,41 @@ async function getIdentityLinkageBaseData() {
         createdAt: "asc",
       },
     }),
+    prisma.organization.findMany({
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        status: true,
+      },
+      orderBy: {
+        name: "asc",
+      },
+    }),
+    prisma.organizationMembership.findMany({
+      select: {
+        id: true,
+        organizationId: true,
+        userId: true,
+        role: true,
+        status: true,
+      },
+      orderBy: [{ createdAt: "asc" }],
+    }),
   ]);
 
   return {
     employees,
     users,
     userIdentities,
+    organizations,
+    organizationMemberships,
     employeeEmailIndex: buildEmailIndex(employees),
     userEmailIndex: buildEmailIndex(users),
     userToEmployeeIndex: buildUserToEmployeeIndex(employees),
+    userIdentityIndex: buildUserIdentityIndex(userIdentities),
+    membershipByUserIndex: buildMembershipByUserIndex(organizationMemberships),
+    organizationIndex: buildOrganizationIndex(organizations),
   };
 }
 
@@ -259,6 +356,209 @@ function buildBackfillPreviewRows(
   return rows;
 }
 
+export async function getEmployeeLinkedIdentityDetails(employeeId: string) {
+  const normalizedEmployeeId = String(employeeId || "").trim();
+
+  if (!normalizedEmployeeId) {
+    return null;
+  }
+
+  const data = await getIdentityLinkageBaseData();
+  const employee = data.employees.find(
+    (candidate) => candidate.id === normalizedEmployeeId
+  );
+
+  if (!employee) {
+    return null;
+  }
+
+  const normalizedEmail = normalizeEmail(employee.email);
+  const employeeEmailMatches = normalizedEmail
+    ? data.employeeEmailIndex.get(normalizedEmail) ?? []
+    : [];
+  const userEmailMatches = normalizedEmail
+    ? data.userEmailIndex.get(normalizedEmail) ?? []
+    : [];
+
+  const linkedUser = employee.userId
+    ? await prisma.user.findUnique({
+        where: { id: employee.userId },
+        select: {
+          id: true,
+          email: true,
+          isActive: true,
+          memberships: {
+            select: {
+              id: true,
+              organizationId: true,
+              role: true,
+              status: true,
+              organization: {
+                select: {
+                  id: true,
+                  slug: true,
+                  name: true,
+                  status: true,
+                },
+              },
+            },
+            orderBy: [{ createdAt: "asc" }],
+          },
+          identities: {
+            select: {
+              provider: true,
+              providerAccountId: true,
+            },
+            orderBy: [{ provider: "asc" }, { providerAccountId: "asc" }],
+          },
+          _count: {
+            select: {
+              memberships: true,
+            },
+          },
+        },
+      })
+    : null;
+
+  const employeeOrganization = employee.organizationId
+    ? await prisma.organization.findUnique({
+        where: { id: employee.organizationId },
+        select: {
+          id: true,
+          slug: true,
+          name: true,
+          status: true,
+        },
+      })
+    : null;
+
+  const linkedEmployeeIds = employee.userId
+    ? data.userToEmployeeIndex.get(employee.userId) ?? []
+    : [];
+  const matchingMembership = linkedUser?.memberships.find(
+    (membership) => membership.organizationId === employee.organizationId
+  ) ?? null;
+  const membershipsInDifferentOrganizations =
+    linkedUser?.memberships.filter(
+      (membership) => membership.organizationId !== employee.organizationId
+    ) ?? [];
+
+  const flags: LinkedIdentityFlag[] = [];
+
+  if (!employee.userId) {
+    flags.push("EMPLOYEE_NOT_LINKED");
+  }
+
+  if (employeeEmailMatches.length > 1) {
+    flags.push("EMPLOYEE_EMAIL_DUPLICATE");
+  }
+
+  if (userEmailMatches.length > 1) {
+    flags.push("USER_EMAIL_DUPLICATE");
+  }
+
+  if (
+    linkedUser &&
+    normalizeEmail(linkedUser.email) &&
+    normalizeEmail(linkedUser.email) !== normalizedEmail
+  ) {
+    flags.push("EMPLOYEE_USER_EMAIL_MISMATCH");
+  }
+
+  if (linkedEmployeeIds.length > 1) {
+    flags.push("USER_LINKED_TO_MULTIPLE_EMPLOYEES");
+  }
+
+  if (linkedUser && linkedUser.identities.length === 0) {
+    flags.push("USER_WITHOUT_IDENTITY");
+  }
+
+  if (!employee.organizationId) {
+    flags.push("EMPLOYEE_MISSING_ORGANIZATION");
+  }
+
+  if (
+    employee.organizationId &&
+    employee.userId &&
+    linkedUser &&
+    !matchingMembership
+  ) {
+    flags.push("USER_MISSING_MEMBERSHIP_IN_EMPLOYEE_ORGANIZATION");
+  }
+
+  if (
+    employee.organizationId &&
+    linkedUser &&
+    membershipsInDifferentOrganizations.length > 0 &&
+    !matchingMembership
+  ) {
+    flags.push("USER_HAS_MEMBERSHIP_IN_DIFFERENT_ORGANIZATION");
+  }
+
+  if (matchingMembership && matchingMembership.status !== "ACTIVE") {
+    flags.push("MEMBERSHIP_INACTIVE");
+  }
+
+  return {
+    employee: {
+      id: employee.id,
+      email: employee.email,
+      normalizedEmail,
+      userId: employee.userId,
+      organizationId: employee.organizationId,
+    },
+    organization: employeeOrganization
+      ? {
+          id: employeeOrganization.id,
+          slug: employeeOrganization.slug,
+          name: employeeOrganization.name,
+          status: employeeOrganization.status,
+        }
+      : null,
+    user: linkedUser
+      ? {
+          id: linkedUser.id,
+          email: linkedUser.email,
+          isActive: linkedUser.isActive,
+          organizationMembershipCount: linkedUser._count.memberships,
+        }
+      : null,
+    identities:
+      linkedUser?.identities.map((identity) => ({
+        provider: identity.provider,
+        providerAccountId: identity.providerAccountId,
+      })) ?? [],
+    relatedRecords: {
+      employeeEmailMatchCount: employeeEmailMatches.length,
+      userEmailMatchCount: userEmailMatches.length,
+      linkedEmployeeIdsForUser: linkedEmployeeIds,
+    },
+    membership: matchingMembership
+      ? {
+          id: matchingMembership.id,
+          organizationId: matchingMembership.organizationId,
+          role: matchingMembership.role,
+          status: matchingMembership.status,
+        }
+      : null,
+    membershipsInDifferentOrganizations: membershipsInDifferentOrganizations.map(
+      (membership) => ({
+        id: membership.id,
+        organizationId: membership.organizationId,
+        role: membership.role,
+        status: membership.status,
+        organization: {
+          id: membership.organization.id,
+          slug: membership.organization.slug,
+          name: membership.organization.name,
+          status: membership.organization.status,
+        },
+      })
+    ),
+    flags,
+  };
+}
+
 export async function getIdentityLinkageCoverageSummary() {
   const data = await getIdentityLinkageBaseData();
   const risks = buildCoverageRisks(data);
@@ -290,6 +590,138 @@ export async function getIdentityLinkageCoverageSummary() {
         skipUserLinkedElsewhere: previewRows.filter((row) => row.action === "SKIP_USER_LINKED_ELSEWHERE").length,
       },
       rows: previewRows,
+    },
+  };
+}
+
+export async function getUnifiedIdentityOrganizationReadinessSummary() {
+  const data = await getIdentityLinkageBaseData();
+  const risks = buildCoverageRisks(data);
+
+  let employeesMissingUserLinkage = 0;
+  let employeesMissingOrganization = 0;
+  let linkedUsersMissingOrganizationMembership = 0;
+  let inactiveMemberships = 0;
+  let usersWithMembershipInDifferentOrganization = 0;
+  let linkedUsersWithoutIdentities = 0;
+
+  for (const employee of data.employees) {
+    if (!employee.userId) {
+      employeesMissingUserLinkage += 1;
+    }
+
+    if (!employee.organizationId) {
+      employeesMissingOrganization += 1;
+    }
+
+    if (!employee.userId) {
+      continue;
+    }
+
+    const identities = data.userIdentityIndex.get(employee.userId) ?? [];
+
+    if (identities.length === 0) {
+      linkedUsersWithoutIdentities += 1;
+    }
+
+    if (!employee.organizationId) {
+      continue;
+    }
+
+    const memberships = data.membershipByUserIndex.get(employee.userId) ?? [];
+    const matchingMembership = memberships.find(
+      (membership) => membership.organizationId === employee.organizationId
+    );
+
+    if (!matchingMembership) {
+      linkedUsersMissingOrganizationMembership += 1;
+
+      if (memberships.length > 0) {
+        usersWithMembershipInDifferentOrganization += 1;
+      }
+
+      continue;
+    }
+
+    if (matchingMembership.status !== "ACTIVE") {
+      inactiveMemberships += 1;
+    }
+  }
+
+  const employeeEmailDuplicateRisks = risks.filter(
+    (risk) => risk.type === "EMPLOYEE_NORMALIZED_EMAIL_DUPLICATE"
+  ).length;
+  const userEmailDuplicateRisks = risks.filter(
+    (risk) => risk.type === "USER_NORMALIZED_EMAIL_DUPLICATE"
+  ).length;
+  const employeeUserEmailMismatchRisks = risks.filter(
+    (risk) => risk.type === "EMPLOYEE_USER_EMAIL_MISMATCH"
+  ).length;
+  const userLinkedToMultipleEmployeesRisks = risks.filter(
+    (risk) => risk.type === "USER_LINKED_TO_MULTIPLE_EMPLOYEES"
+  ).length;
+  const duplicateOrAmbiguousEmailRisks =
+    employeeEmailDuplicateRisks +
+    userEmailDuplicateRisks +
+    employeeUserEmailMismatchRisks +
+    userLinkedToMultipleEmployeesRisks;
+  const usersWithoutIdentities = data.users.filter((user) => {
+    const identities = data.userIdentityIndex.get(user.id) ?? [];
+    return identities.length === 0;
+  }).length;
+
+  const blockingIssueCount =
+    employeesMissingUserLinkage +
+    employeesMissingOrganization +
+    linkedUsersMissingOrganizationMembership +
+    duplicateOrAmbiguousEmailRisks;
+  const warningIssueCount =
+    usersWithoutIdentities +
+    inactiveMemberships +
+    usersWithMembershipInDifferentOrganization;
+  const overallStatus: UnifiedReadinessStatus =
+    blockingIssueCount > 0
+      ? "NOT_READY"
+      : warningIssueCount > 0
+        ? "NEEDS_REVIEW"
+        : "READY";
+
+  return {
+    overallStatus,
+    totals: {
+      totalEmployees: data.employees.length,
+      totalUsers: data.users.length,
+      totalOrganizations: data.organizations.length,
+      totalMemberships: data.organizationMemberships.length,
+      totalUserIdentities: data.userIdentities.length,
+    },
+    readiness: {
+      employeesMissingUserLinkage,
+      employeesMissingOrganization,
+      linkedUsersMissingOrganizationMembership,
+      linkedUsersWithoutIdentities,
+      usersWithoutIdentities,
+      duplicateOrAmbiguousEmailRisks,
+      inactiveMemberships,
+      usersWithMembershipInDifferentOrganization,
+    },
+    riskBreakdown: {
+      employeeEmailDuplicateRisks,
+      userEmailDuplicateRisks,
+      employeeUserEmailMismatchRisks,
+      userLinkedToMultipleEmployeesRisks,
+    },
+    counts: {
+      blockingIssueCount,
+      warningIssueCount,
+    },
+    references: {
+      identityLinkagePreviewPath: "/api/admin/auth/identity-linkage",
+      organizationMembershipPreviewPath:
+        "/api/admin/auth/organization-memberships",
+      remediationPlaybookDoc: "docs/operator-identity-remediation-playbook.md",
+      identityCoverageDoc: "docs/identity-linkage-coverage-and-backfill.md",
+      organizationMembershipDoc: "docs/organization-membership-backfill.md",
     },
   };
 }

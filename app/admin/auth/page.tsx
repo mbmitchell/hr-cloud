@@ -1,15 +1,18 @@
+import Link from "next/link";
+
 import {
   isAuthorizationError,
   requireAdmin,
 } from "../../../lib/server/authorization";
 import { buildAuthDiagnostics } from "../../../lib/server/auth-diagnostics";
+import { getUnifiedIdentityOrganizationReadinessSummary } from "../../../lib/server/auth/identity-linkage";
 
 function StatusRow({
   label,
   value,
 }: {
   label: string;
-  value: string | boolean | null;
+  value: string | number | boolean | null;
 }) {
   const displayValue =
     typeof value === "boolean" ? (value ? "Yes" : "No") : value ?? "Not available";
@@ -18,6 +21,44 @@ function StatusRow({
     <div className="flex items-center justify-between gap-4 border-b border-slate-200 py-2 text-sm">
       <div className="text-slate-700">{label}</div>
       <div className="font-mono text-slate-900">{displayValue}</div>
+    </div>
+  );
+}
+
+function ToneBadge({
+  tone,
+  children,
+}: {
+  tone: "green" | "amber" | "red";
+  children: React.ReactNode;
+}) {
+  const className =
+    tone === "green"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : tone === "amber"
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : "border-red-200 bg-red-50 text-red-700";
+
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${className}`}
+    >
+      {children}
+    </span>
+  );
+}
+
+function SummaryStat({
+  label,
+  value,
+}: {
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+      <div className="text-2xl font-semibold text-slate-900">{value}</div>
+      <div className="mt-1 text-sm text-slate-600">{label}</div>
     </div>
   );
 }
@@ -42,6 +83,13 @@ export default async function AuthDiagnosticsPage() {
   }
 
   const diagnostics = buildAuthDiagnostics();
+  const readiness = await getUnifiedIdentityOrganizationReadinessSummary();
+  const readinessTone =
+    readiness.overallStatus === "READY"
+      ? "green"
+      : readiness.overallStatus === "NEEDS_REVIEW"
+        ? "amber"
+        : "red";
 
   return (
     <div className="max-w-3xl space-y-8">
@@ -102,6 +150,134 @@ export default async function AuthDiagnosticsPage() {
             label="Expected callback URL"
             value={diagnostics.entra.callbackUrl}
           />
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-medium text-slate-900">
+              Unified Identity And Organization Readiness
+            </h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Read-only readiness view for the current Employee to User to
+              UserIdentity to OrganizationMembership path before tenant
+              enforcement is introduced.
+            </p>
+          </div>
+          <ToneBadge tone={readinessTone}>
+            {readiness.overallStatus === "READY"
+              ? "Ready"
+              : readiness.overallStatus === "NEEDS_REVIEW"
+                ? "Needs Review"
+                : "Not Ready"}
+          </ToneBadge>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <SummaryStat
+            label="Total employees"
+            value={readiness.totals.totalEmployees}
+          />
+          <SummaryStat
+            label="Employees missing user linkage"
+            value={readiness.readiness.employeesMissingUserLinkage}
+          />
+          <SummaryStat
+            label="Employees missing organization"
+            value={readiness.readiness.employeesMissingOrganization}
+          />
+          <SummaryStat
+            label="Linked users missing membership"
+            value={readiness.readiness.linkedUsersMissingOrganizationMembership}
+          />
+          <SummaryStat
+            label="Users without identities"
+            value={readiness.readiness.usersWithoutIdentities}
+          />
+          <SummaryStat
+            label="Inactive memberships"
+            value={readiness.readiness.inactiveMemberships}
+          />
+        </div>
+
+        <div className="mt-5">
+          <StatusRow
+            label="Duplicate or ambiguous email risks"
+            value={readiness.readiness.duplicateOrAmbiguousEmailRisks}
+          />
+          <StatusRow
+            label="Employee email duplicate risks"
+            value={readiness.riskBreakdown.employeeEmailDuplicateRisks}
+          />
+          <StatusRow
+            label="User email duplicate risks"
+            value={readiness.riskBreakdown.userEmailDuplicateRisks}
+          />
+          <StatusRow
+            label="Employee and user email mismatch risks"
+            value={readiness.riskBreakdown.employeeUserEmailMismatchRisks}
+          />
+          <StatusRow
+            label="Users linked to multiple employees"
+            value={readiness.riskBreakdown.userLinkedToMultipleEmployeesRisks}
+          />
+          <StatusRow
+            label="Linked users without identities"
+            value={readiness.readiness.linkedUsersWithoutIdentities}
+          />
+          <StatusRow
+            label="Users with membership in a different organization"
+            value={readiness.readiness.usersWithMembershipInDifferentOrganization}
+          />
+          <StatusRow
+            label="Blocking issue count"
+            value={readiness.counts.blockingIssueCount}
+          />
+          <StatusRow
+            label="Warning issue count"
+            value={readiness.counts.warningIssueCount}
+          />
+        </div>
+
+        <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+          <h3 className="font-medium text-slate-900">Operator Review Flow</h3>
+          <ul className="mt-3 list-disc space-y-2 pl-5">
+            <li>
+              Start with employee linkage coverage in{" "}
+              <code>{readiness.references.identityCoverageDoc}</code> or the
+              preview endpoint{" "}
+              <Link
+                href={readiness.references.identityLinkagePreviewPath}
+                className="font-medium text-slate-900 underline underline-offset-2"
+              >
+                {readiness.references.identityLinkagePreviewPath}
+              </Link>
+              .
+            </li>
+            <li>
+              Review organization membership readiness in{" "}
+              <code>{readiness.references.organizationMembershipDoc}</code> or
+              the preview endpoint{" "}
+              <Link
+                href={readiness.references.organizationMembershipPreviewPath}
+                className="font-medium text-slate-900 underline underline-offset-2"
+              >
+                {readiness.references.organizationMembershipPreviewPath}
+              </Link>
+              .
+            </li>
+            <li>
+              Use <code>{readiness.references.remediationPlaybookDoc}</code> to
+              resolve flagged mismatch, duplicate-email, and inactive-membership
+              cases before any tenant enforcement work begins.
+            </li>
+            <li>
+              Keep this workflow read-only for now. No linkage or membership
+              apply actions should run until the flagged data issues are
+              understood.
+            </li>
+          </ul>
         </div>
       </section>
 
