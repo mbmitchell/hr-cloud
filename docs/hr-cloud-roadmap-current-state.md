@@ -39,6 +39,7 @@ Completed so far on this branch:
 24. employee directory shadow results UI
 25. employee master report shadow compare
 26. employee master report shadow results UI
+27. report tenant context seam design
 
 ## Current Architecture State
 
@@ -67,6 +68,7 @@ Current branch state:
 - the admin auth diagnostics page now surfaces employee directory shadow results so operators can verify parity before any real tenant filtering is enabled
 - the employee master report now also has an admin-only shadow compare path while the live report page and exports remain unchanged
 - the admin auth diagnostics page now surfaces employee master report shadow results so operators can validate report parity before any real tenant-scoped reporting is enabled
+- report pages, export routes, and report services are now classified by tenant-context seam and scoping risk before any live report filtering is introduced
 
 ## Remaining Risks
 
@@ -82,18 +84,19 @@ The biggest remaining risks before tenant enforcement are:
 
 ## Next 5 Recommended Phases
 
-1. read-only report scoping design and pilot
-   - choose one low-risk report and make tenant-context inputs explicit without changing visible output yet
-   - validate where later organization filters will belong
+1. employee master read-only tenant-context seam pilot
+   - make `TenantContext` an explicit non-enforcing input to the employee master report service and export seam
+   - keep live page and exports unchanged while validating parity expectations
 
-2. internal job scope design
+2. read-only report scoping diagnostics adoption
+   - extend the diagnostics pattern to another low-risk report seam such as reporting structure
+   - keep output unchanged
+
+3. internal job scope design
    - define how scheduled jobs will carry organization scope, system actor identity, and platform-wide admin modes before changing PTO or notification jobs
 
-3. tenant-aware authorization design
+4. tenant-aware authorization design
    - plan how global employee roles and permissions will later interact with organization membership without changing current access rules yet
-
-4. tenant-context report/export diagnostics adoption
-   - use the same pattern in one low-risk report or export route before any query scoping begins
 
 5. employee detail shadow tenant-filter pilot design
    - map the employee detail read path before any organization-aware filtering work
@@ -122,5 +125,5 @@ The safest next implementation phase is:
 Why:
 
 - both employee-centered shadow compare diagnostics are now in place
-- the next safe step is to design how tenant context should enter report seams before any real query scoping
+- the next safe step is to make tenant context explicit in one low-risk report seam without changing report output
 - it still avoids changing live business behavior or authorization rules

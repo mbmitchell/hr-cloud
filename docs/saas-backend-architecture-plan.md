@@ -109,6 +109,13 @@ Implemented in the next route and repository scaffolding phases:
 - adopted the route-edge pattern in multiple preview-only admin diagnostics routes
 - added two read-only repository-wrapper pilots that accept `TenantContext` without changing filters or returned data
 
+Implemented in the next report diagnostics phases:
+
+- added employee directory shadow compare diagnostics and results UI
+- added employee master report shadow compare diagnostics and results UI
+- kept live report pages and exports unchanged
+- documented report tenant-context seam entry points and report scoping risk order before any live report filtering work begins
+
 Planned in the next tenant-scope candidate classification phase:
 
 - classify modules and route groups by tenant-scoping risk
