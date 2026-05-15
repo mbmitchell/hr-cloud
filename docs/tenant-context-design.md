@@ -21,6 +21,9 @@ It does not change:
 - tenant enforcement
 - PTO, documents, reports, onboarding, offboarding, jobs, or API scoping
 
+The branch now also has an initial read-only resolver scaffold described in
+[docs/tenant-context-resolver-scaffolding.md](/Users/mmitchell/dev/hr-cloud/docs/tenant-context-resolver-scaffolding.md:1).
+
 ## Current Backend Resolution Pattern
 
 The current app is still employee-centric.
@@ -314,6 +317,14 @@ Recommended first implementation behavior:
   - never block login
   - return nullable `organizationId` and `userId`
   - attach a transparent resolution source
+
+Current branch status:
+
+- a first read-only `resolveTenantContext()` scaffold now exists
+- it resolves from the current employee-based session
+- it preserves current role and permission resolution
+- it may use the known `default-org` only as a diagnostics fallback
+- it is not used for authorization or data scoping yet
 
 ## Proposed Migration Order By Module
 

@@ -1,5 +1,6 @@
 import EmployeeCompensationPanel from "./EmployeeCompensationPanel";
 import EmployeeEditForm from "./EmployeeEditForm";
+import EmployeeIdentityDiagnosticsPanel from "./EmployeeIdentityDiagnosticsPanel";
 import EmployeeRolePanel from "./EmployeeRolePanel";
 import EmployeeTotalCompensationSummaryCard from "./EmployeeTotalCompensationSummaryCard";
 
@@ -76,6 +77,11 @@ export default function EmployeeAdminTab({
         employeeId={employee.id}
         roles={roles}
         assignedRoleCodes={assignedRoleCodes}
+        defaultExpanded
+      />
+
+      <EmployeeIdentityDiagnosticsPanel
+        employeeId={employee.id}
         defaultExpanded
       />
     </div>

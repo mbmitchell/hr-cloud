@@ -6,6 +6,7 @@ import {
 } from "../../../lib/server/authorization";
 import { buildAuthDiagnostics } from "../../../lib/server/auth-diagnostics";
 import { getUnifiedIdentityOrganizationReadinessSummary } from "../../../lib/server/auth/identity-linkage";
+import { resolveTenantContext } from "../../../lib/server/tenant-context";
 
 function StatusRow({
   label,
@@ -84,6 +85,7 @@ export default async function AuthDiagnosticsPage() {
 
   const diagnostics = buildAuthDiagnostics();
   const readiness = await getUnifiedIdentityOrganizationReadinessSummary();
+  const tenantContext = await resolveTenantContext();
   const readinessTone =
     readiness.overallStatus === "READY"
       ? "green"
@@ -150,6 +152,151 @@ export default async function AuthDiagnosticsPage() {
             label="Expected callback URL"
             value={diagnostics.entra.callbackUrl}
           />
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-medium text-slate-900">
+              Current Admin Tenant Context
+            </h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Read-only resolver output for the current authenticated admin.
+              This does not change authorization or data scoping yet.
+            </p>
+          </div>
+          <ToneBadge
+            tone={
+              tenantContext.warnings.length === 0
+                ? "green"
+                : tenantContext.source === "transition_default_organization"
+                  ? "amber"
+                  : "red"
+            }
+          >
+            {tenantContext.source}
+          </ToneBadge>
+        </div>
+
+        <div className="mt-5">
+          <StatusRow label="Employee ID" value={tenantContext.employeeId} />
+          <StatusRow label="User ID" value={tenantContext.userId} />
+          <StatusRow
+            label="Organization ID"
+            value={tenantContext.organizationId}
+          />
+          <StatusRow
+            label="Resolved organization slug"
+            value={tenantContext.organization?.slug ?? null}
+          />
+          <StatusRow
+            label="Resolved organization name"
+            value={tenantContext.organization?.name ?? null}
+          />
+          <StatusRow
+            label="Linked user email"
+            value={tenantContext.user?.email ?? null}
+          />
+          <StatusRow
+            label="Linked user identity count"
+            value={tenantContext.user?.identityCount ?? null}
+          />
+          <StatusRow
+            label="Linked user membership count"
+            value={tenantContext.user?.membershipCount ?? null}
+          />
+          <StatusRow
+            label="Membership role"
+            value={tenantContext.membership?.role ?? null}
+          />
+          <StatusRow
+            label="Membership status"
+            value={tenantContext.membership?.status ?? null}
+          />
+          <StatusRow
+            label="Role code count"
+            value={tenantContext.roleCodes.length}
+          />
+          <StatusRow
+            label="Permission code count"
+            value={tenantContext.permissionCodes.length}
+          />
+        </div>
+
+        <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+          <h3 className="font-medium text-slate-900">Resolved Codes</h3>
+          <div className="mt-3 grid gap-4 lg:grid-cols-2">
+            <div>
+              <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                Roles
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {tenantContext.roleCodes.length > 0 ? (
+                  tenantContext.roleCodes.map((roleCode) => (
+                    <span
+                      key={roleCode}
+                      className="rounded-full border border-slate-200 bg-white px-2.5 py-1 font-mono text-xs text-slate-700"
+                    >
+                      {roleCode}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-slate-500">No role codes resolved.</span>
+                )}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                Permissions
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {tenantContext.permissionCodes.length > 0 ? (
+                  tenantContext.permissionCodes.map((permissionCode) => (
+                    <span
+                      key={permissionCode}
+                      className="rounded-full border border-slate-200 bg-white px-2.5 py-1 font-mono text-xs text-slate-700"
+                    >
+                      {permissionCode}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-slate-500">
+                    No permission codes resolved.
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+          <h3 className="font-medium text-slate-900">Resolver Warnings</h3>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {tenantContext.warnings.length > 0 ? (
+              tenantContext.warnings.map((warning) => (
+                <span
+                  key={warning}
+                  className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 font-mono text-xs text-amber-700"
+                >
+                  {warning}
+                </span>
+              ))
+            ) : (
+              <span className="text-slate-500">
+                No tenant-context warnings for the current admin.
+              </span>
+            )}
+          </div>
+          <p className="mt-3">
+            API preview:{" "}
+            <Link
+              href="/api/admin/auth/tenant-context"
+              className="font-medium text-slate-900 underline underline-offset-2"
+            >
+              /api/admin/auth/tenant-context
+            </Link>
+          </p>
         </div>
       </section>
 

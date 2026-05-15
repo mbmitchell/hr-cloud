@@ -86,6 +86,14 @@ Planned in the next tenant context design phase:
 - identify the migration order for routes, services, reports, and internal jobs
 - keep the phase documentation-only so current runtime behavior stays unchanged
 
+Implemented in the next tenant context resolver scaffolding phase:
+
+- added a server-side read-only `TenantContext` resolver
+- resolved nullable `organizationId`, `userId`, `employeeId`, role codes, permission codes, source, and warnings
+- added an admin-only diagnostics endpoint for the current resolved tenant context
+- surfaced the current admin tenant context on the existing auth diagnostics page
+- kept authorization and data-access behavior unchanged
+
 ## 1. Current Backend Architecture Summary
 
 The current backend is a single-company internal HR system built around one global employee directory and one global policy/role space.
