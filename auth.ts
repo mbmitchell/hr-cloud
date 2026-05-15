@@ -23,6 +23,7 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
+import { linkAuthenticatedIdentity } from "./lib/auth/link-authenticated-identity";
 import { resolveAuthenticatedEmployeeByEmail } from "./lib/auth/resolve-authenticated-employee";
 import {
   allowedMicrosoftEmailDomain,
@@ -287,6 +288,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           },
         });
 
+        await linkAuthenticatedIdentity({
+          employeeId: employee.id,
+          email: employee.email,
+          name: `${employee.firstName} ${employee.lastName}`.trim(),
+          provider: "credentials",
+        });
+
         return {
           id: employee.id,
           email: employee.email,
@@ -404,6 +412,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           entraTid: result.authenticatedUser.tid,
           matchedBy: result.matchedBy,
         },
+      });
+
+      await linkAuthenticatedIdentity({
+        employeeId: result.authenticatedUser.employeeId,
+        email: result.authenticatedUser.email,
+        name: result.authenticatedUser.name,
+        provider: "microsoft-entra-id",
+        providerAccountId: result.authenticatedUser.oid,
       });
 
       user.id = result.authenticatedUser.employeeId;

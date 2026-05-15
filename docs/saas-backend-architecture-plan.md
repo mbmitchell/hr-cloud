@@ -19,6 +19,15 @@ Still intentionally not implemented in this phase:
 - repository refactors
 - any runtime multi-tenant enforcement
 
+Implemented in the next low-risk auth scaffolding phase:
+
+- best-effort `User` creation during successful auth
+- best-effort `UserIdentity` creation during successful Microsoft Entra auth
+- best-effort `Employee.userId` linkage when a matching employee already exists and is still unlinked
+- no changes to sign-in allow/deny behavior
+- no changes to session shape
+- no tenant enforcement
+
 ## 1. Current Backend Architecture Summary
 
 The current backend is a single-company internal HR system built around one global employee directory and one global policy/role space.
