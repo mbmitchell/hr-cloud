@@ -44,6 +44,7 @@ Completed so far on this branch:
 29. employee master export seam decision
 30. employee master tenant filter validation checklist
 31. organization membership backfill apply validation
+32. identity linkage completeness planning
 
 ## Current Architecture State
 
@@ -77,6 +78,7 @@ Current branch state:
 - the employee master export decision is now documented: exports stay intentionally global for now, but should eventually join the same rollout flag rather than a separate long-term flag
 - the employee master tenant filter now has an explicit validation checklist with go/no-go gates before expanding to exports or other modules
 - organization membership backfill apply has now been validated on the scratch Neon database: missing memberships were created, readiness improved, and both employee shadow parity diagnostics remained clean
+- identity linkage completeness is now explicitly classified by environment: preview dev-auth users may legitimately lack `UserIdentity`, while production Microsoft Entra users should eventually have real provider-backed identities
 
 ## Remaining Risks
 
@@ -88,17 +90,18 @@ The biggest remaining risks before tenant enforcement are:
 - reports still assume whole-system datasets except where employee visibility is manually applied
 - copied-data transition assumptions still rely on a default organization fallback in diagnostics
 - linked `User` and `OrganizationMembership` coverage may still have gaps or mismatches in real data
+- readiness interpretation for `usersWithoutIdentities` still needs a future diagnostics refinement so preview dev-auth exceptions and production remediation are surfaced separately
 - auth remains intentionally employee-centric, so a future transition to richer tenant context must avoid changing login/session behavior too early
 
 ## Next 5 Recommended Phases
 
-1. identity linkage completeness planning
-   - address the remaining `usersWithoutIdentities` readiness warning without changing login or tenant enforcement
-   - decide how preview/test identities should be represented long-term
-
-2. employee master export parity diagnostics planning
+1. employee master export parity diagnostics planning
    - turn the validation checklist into a repeatable operator-facing parity review flow
    - keep export behavior unchanged
+
+2. readiness diagnostics severity refinement
+   - distinguish preview dev-auth-only users from real provider-backed users
+   - keep behavior unchanged while improving rollout signal quality
 
 3. read-only report scoping diagnostics adoption
    - extend the diagnostics pattern to another low-risk report seam such as reporting structure
@@ -118,6 +121,7 @@ Do not do these yet:
 - do not require `Employee.organizationId` globally
 - do not require `Employee.userId` globally
 - do not move session identity from `employeeId` to `userId`
+- do not create fake provider identities to satisfy readiness metrics
 - do not refactor repositories broadly
 - do not tenant-scope PTO, documents, onboarding, offboarding, reports, jobs, or permissions in one large pass
 - do not redesign role or permission semantics yet
@@ -128,10 +132,10 @@ Do not do these yet:
 
 The safest next implementation phase is:
 
-- identity linkage completeness planning
+- employee master export parity diagnostics planning
 
 Why:
 
-- missing organization memberships have been resolved in preview, but `usersWithoutIdentities` still blocks a fully clean readiness state
-- the next safe step is to decide how much identity completeness is required before expanding tenant-scoped behavior
+- employee master page scoping now has a default-off pilot while exports remain intentionally global
+- the next safe step is to formalize page-versus-export parity review before extending scoped behavior further
 - it still avoids changing live business behavior or authorization rules
