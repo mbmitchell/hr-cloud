@@ -75,6 +75,14 @@ type EmployeeMasterShadowWarning =
   | "REPORT_EMPLOYEES_MISSING_ORGANIZATION"
   | "TENANT_FILTER_EXCLUDES_REPORT_EMPLOYEES";
 
+type EmployeeMasterExportParityWarning =
+  | "TENANT_CONTEXT_ORGANIZATION_ID_MISSING"
+  | "PAGE_EXPORT_COUNT_MISMATCH"
+  | "CSV_PDF_COUNT_MISMATCH"
+  | "REPORT_EMPLOYEES_MISSING_ORGANIZATION"
+  | "TENANT_FILTER_EXCLUDES_REPORT_EMPLOYEES"
+  | "PAGE_FLAG_ENABLED_EXPORTS_REMAIN_GLOBAL";
+
 type EmployeeMasterBaseData = {
   allRows: EmployeeMasterScopedRow[];
   filterOptions: EmployeeMasterFilterOptions;
@@ -262,6 +270,31 @@ function filterEmployeeMasterRows<T extends EmployeeMasterRow>(
 
 function isEmployeeMasterTenantFilterEnabled(env: NodeJS.ProcessEnv = process.env) {
   return env.HR_CLOUD_ENABLE_EMPLOYEE_MASTER_TENANT_FILTER === "true";
+}
+
+function buildExpectedExportMismatchExplanation(input: {
+  tenantFilteringEnabled: boolean;
+  tenantContextOrganizationId: string | null;
+  pageCount: number;
+  csvExportCount: number;
+  pdfExportCount: number;
+}) {
+  if (!input.tenantFilteringEnabled) {
+    return null;
+  }
+
+  if (!input.tenantContextOrganizationId) {
+    return "The employee master tenant filter flag is enabled, but TenantContext.organizationId is missing. The live page may fail closed while CSV and PDF exports intentionally remain global in this pilot.";
+  }
+
+  if (
+    input.pageCount !== input.csvExportCount ||
+    input.pageCount !== input.pdfExportCount
+  ) {
+    return "The employee master tenant filter flag is enabled. The live page may be tenant-scoped, while CSV and PDF exports intentionally remain global during this pilot. A page/export count mismatch is expected until exports join the same rollout path.";
+  }
+
+  return "The employee master tenant filter flag is enabled, but the current page and export counts still match for this filter set. CSV and PDF exports remain intentionally global until export rollout is explicitly enabled.";
 }
 
 async function getEmployeeMasterBaseData(): Promise<EmployeeMasterBaseData> {
@@ -507,5 +540,76 @@ export async function getEmployeeMasterReportTenantShadowCompare(input: {
     },
     excludedByTenantFilter,
     warnings,
+  };
+}
+
+export async function getEmployeeMasterExportParityDiagnostics(input: {
+  filters: EmployeeMasterFilters;
+  tenantContext: TenantContext;
+}) {
+  const tenantFilteringEnabled = isEmployeeMasterTenantFilterEnabled();
+  const [pageReport, csvRows, pdfRows, shadowCompare] = await Promise.all([
+    getEmployeeMasterReport(input.filters, {
+      tenantContext: input.tenantContext,
+    }),
+    getEmployeeMasterExportRows(input.filters),
+    getEmployeeMasterExportRows(input.filters),
+    getEmployeeMasterReportTenantShadowCompare(input),
+  ]);
+
+  const warnings = new Set<EmployeeMasterExportParityWarning>();
+
+  for (const warning of shadowCompare.warnings) {
+    warnings.add(warning);
+  }
+
+  if (csvRows.length !== pdfRows.length) {
+    warnings.add("CSV_PDF_COUNT_MISMATCH");
+  }
+
+  if (
+    pageReport.summary.totalEmployees !== csvRows.length ||
+    pageReport.summary.totalEmployees !== pdfRows.length
+  ) {
+    warnings.add("PAGE_EXPORT_COUNT_MISMATCH");
+  }
+
+  if (tenantFilteringEnabled) {
+    warnings.add("PAGE_FLAG_ENABLED_EXPORTS_REMAIN_GLOBAL");
+  }
+
+  return {
+    flagState: {
+      employeeMasterTenantFilterEnabled: tenantFilteringEnabled,
+    },
+    filters: {
+      status: input.filters.status,
+      department: input.filters.department,
+      role: input.filters.role,
+      managerId: input.filters.managerId,
+      search: input.filters.search,
+      employmentClassification: input.filters.employmentClassification,
+      sort: input.filters.sort,
+      direction: input.filters.direction,
+    },
+    counts: {
+      livePageCount: pageReport.summary.totalEmployees,
+      csvExportCount: csvRows.length,
+      pdfExportCount: pdfRows.length,
+      tenantShadowScopedCount:
+        shadowCompare.counts.tenantScopedReportEmployeeCount,
+      missingOrganizationCount: shadowCompare.counts.missingOrganizationCount,
+      excludedByTenantFilterCount:
+        shadowCompare.counts.excludedByTenantFilterCount,
+    },
+    expectedMismatchExplanation: buildExpectedExportMismatchExplanation({
+      tenantFilteringEnabled,
+      tenantContextOrganizationId: input.tenantContext.organizationId,
+      pageCount: pageReport.summary.totalEmployees,
+      csvExportCount: csvRows.length,
+      pdfExportCount: pdfRows.length,
+    }),
+    excludedByTenantFilter: shadowCompare.excludedByTenantFilter,
+    warnings: Array.from(warnings),
   };
 }

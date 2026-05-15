@@ -46,6 +46,7 @@ Completed so far on this branch:
 31. organization membership backfill apply validation
 32. identity linkage completeness planning
 33. employee master export parity diagnostics planning
+34. employee master export parity diagnostics endpoint
 
 ## Current Architecture State
 
@@ -79,6 +80,7 @@ Current branch state:
 - the employee master export decision is now documented: exports stay intentionally global for now, but should eventually join the same rollout flag rather than a separate long-term flag
 - the employee master tenant filter now has an explicit validation checklist with go/no-go gates before expanding to exports or other modules
 - employee master export parity planning now defines how page count, CSV count, PDF count, and tenant-shadow count should be compared before exports join the tenant-filter rollout
+- an admin-only employee master export parity endpoint now compares live page, CSV, PDF, and tenant-shadow counts without changing any live page or export behavior
 - organization membership backfill apply has now been validated on the scratch Neon database: missing memberships were created, readiness improved, and both employee shadow parity diagnostics remained clean
 - identity linkage completeness is now explicitly classified by environment: preview dev-auth users may legitimately lack `UserIdentity`, while production Microsoft Entra users should eventually have real provider-backed identities
 
@@ -97,9 +99,9 @@ The biggest remaining risks before tenant enforcement are:
 
 ## Next 5 Recommended Phases
 
-1. employee master export parity diagnostics design or implementation
-   - compare live page, CSV, PDF, and tenant-shadow counts for the same filter set
-   - keep export behavior unchanged while proving rollout safety
+1. employee master export parity diagnostics UI
+   - surface the new parity endpoint in the admin diagnostics experience
+   - keep export behavior unchanged while improving operator review
 
 2. readiness diagnostics severity refinement
    - distinguish preview dev-auth-only users from real provider-backed users
@@ -134,10 +136,10 @@ Do not do these yet:
 
 The safest next implementation phase is:
 
-- employee master export parity diagnostics design or implementation
+- employee master export parity diagnostics UI
 
 Why:
 
 - employee master page scoping now has a default-off pilot while exports remain intentionally global
-- the parity plan now exists, so the next safe step is to add a read-only way to compare live page, CSV, PDF, and shadow counts
+- the new endpoint now exposes live page, CSV, PDF, and shadow counts, so the next safe step is to surface that data for operator review
 - it still avoids changing live business behavior or authorization rules
