@@ -28,6 +28,14 @@ Implemented in the next low-risk auth scaffolding phase:
 - no changes to session shape
 - no tenant enforcement
 
+Implemented in the next linked-identity coverage phase:
+
+- read-only linkage coverage summary helpers
+- preview-first, idempotent backfill support for `User` plus `Employee.userId`
+- admin-only route for coverage inspection and controlled apply mode
+- no `UserIdentity` backfill without known provider identity
+- no changes to auth/session behavior
+
 ## 1. Current Backend Architecture Summary
 
 The current backend is a single-company internal HR system built around one global employee directory and one global policy/role space.
