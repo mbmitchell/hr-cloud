@@ -223,6 +223,10 @@ Every new enforcement pilot should follow this preview validation sequence:
 9. validate rollback by disabling the flag
 10. record operator signoff
 
+For the current employee master pilot, the concrete operator runbook is:
+
+- `docs/employee-master-pilot-operational-validation.md`
+
 ## Rollback Procedures
 
 Rollback must be possible without schema changes or emergency data rewrites.
@@ -269,6 +273,10 @@ Before expanding enforcement to a new module, signoff should include:
 
 No module should move from diagnostics-only to enforced filtering without human
 operator review.
+
+The current employee master pilot should use the operator capture process in:
+
+- `docs/employee-master-pilot-operational-validation.md`
 
 ## Recommended Rollout Order By Module
 

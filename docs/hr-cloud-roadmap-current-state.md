@@ -50,6 +50,7 @@ Completed so far on this branch:
 35. employee master export parity diagnostics UI
 36. readiness diagnostics severity refinement
 37. tenant enforcement rollout governance planning
+38. employee master pilot operational validation planning
 
 ## Current Architecture State
 
@@ -87,6 +88,7 @@ Current branch state:
 - the admin auth diagnostics page now surfaces employee master export parity so operators can compare live page, CSV, PDF, and tenant-shadow counts before export scoping is introduced
 - readiness diagnostics now classify `usersWithoutIdentities` by environment: preview/dev-auth-enabled environments treat them as warning-only, while production-like environments treat them as blocking provider-linkage gaps
 - tenant enforcement rollout governance is now documented, including approved pilot scope, rollout gates, rollback rules, feature-flag governance, and the recommended module-by-module enforcement sequence
+- an operator-focused employee master pilot validation runbook now defines preview setup, flag-off and flag-on test flow, parity capture expectations, rollback checks, and pass/fail criteria
 - organization membership backfill apply has now been validated on the scratch Neon database: missing memberships were created, readiness improved, and both employee shadow parity diagnostics remained clean
 - identity linkage completeness is now explicitly classified by environment: preview dev-auth users may legitimately lack `UserIdentity`, while production Microsoft Entra users should eventually have real provider-backed identities
 
@@ -115,8 +117,9 @@ The biggest remaining risks before tenant enforcement are:
 3. tenant-aware authorization design
    - plan how global employee roles and permissions will later interact with organization membership without changing current access rules yet
 
-4. employee master export parity validation runbook
-   - turn the new UI into a repeatable operator review checklist before exports join the shared feature flag
+4. employee master pilot validation execution
+   - run the new operator validation checklist in Preview and capture the results
+   - confirm flag-off baseline, flag-on scoped behavior, and rollback
 
 5. provider-backed identity validation runbook
    - define the preview-to-production verification steps for real Microsoft Entra sign-in creating `UserIdentity` rows without relying on dev auth
@@ -145,5 +148,5 @@ The safest next implementation phase is:
 Why:
 
 - readiness and export parity diagnostics are now in place for the current pilots
-- the new governance plan now defines the rollout gates, so the next safe step is to extend the same read-only diagnostics pattern to another low-risk report seam before any broader scoping rollout
+- the new governance plan and pilot runbook now define rollout gates and validation flow, so the next safe step is to execute validation and then extend the same read-only diagnostics pattern to another low-risk report seam
 - it still avoids changing live business behavior or authorization rules
