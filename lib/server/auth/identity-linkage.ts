@@ -49,6 +49,7 @@ type LinkedIdentityFlag =
   | "MEMBERSHIP_INACTIVE";
 
 type UnifiedReadinessStatus = "READY" | "NEEDS_REVIEW" | "NOT_READY";
+type UserIdentityGapSeverity = "WARNING" | "BLOCKING";
 
 function normalizeEmail(value: string | null | undefined) {
   const normalizedValue = String(value || "").trim().toLowerCase();
@@ -597,6 +598,7 @@ export async function getIdentityLinkageCoverageSummary() {
 export async function getUnifiedIdentityOrganizationReadinessSummary() {
   const data = await getIdentityLinkageBaseData();
   const risks = buildCoverageRisks(data);
+  const devAuthEnabled = process.env.AUTH_ENABLE_DEV_AUTH === "true";
 
   let employeesMissingUserLinkage = 0;
   let employeesMissingOrganization = 0;
@@ -669,14 +671,26 @@ export async function getUnifiedIdentityOrganizationReadinessSummary() {
     const identities = data.userIdentityIndex.get(user.id) ?? [];
     return identities.length === 0;
   }).length;
+  const usersWithoutIdentitiesSeverity: UserIdentityGapSeverity = devAuthEnabled
+    ? "WARNING"
+    : "BLOCKING";
+  const previewExpectedUsersWithoutIdentities =
+    usersWithoutIdentitiesSeverity === "WARNING" ? usersWithoutIdentities : 0;
+  const providerBackedUsersWithoutIdentities =
+    usersWithoutIdentitiesSeverity === "BLOCKING" ? usersWithoutIdentities : 0;
+  const usersWithoutIdentitiesBlockingCount =
+    usersWithoutIdentitiesSeverity === "BLOCKING" ? usersWithoutIdentities : 0;
+  const usersWithoutIdentitiesWarningCount =
+    usersWithoutIdentitiesSeverity === "WARNING" ? usersWithoutIdentities : 0;
 
   const blockingIssueCount =
     employeesMissingUserLinkage +
     employeesMissingOrganization +
     linkedUsersMissingOrganizationMembership +
-    duplicateOrAmbiguousEmailRisks;
+    duplicateOrAmbiguousEmailRisks +
+    usersWithoutIdentitiesBlockingCount;
   const warningIssueCount =
-    usersWithoutIdentities +
+    usersWithoutIdentitiesWarningCount +
     inactiveMemberships +
     usersWithMembershipInDifferentOrganization;
   const overallStatus: UnifiedReadinessStatus =
@@ -701,9 +715,19 @@ export async function getUnifiedIdentityOrganizationReadinessSummary() {
       linkedUsersMissingOrganizationMembership,
       linkedUsersWithoutIdentities,
       usersWithoutIdentities,
+      previewExpectedUsersWithoutIdentities,
+      providerBackedUsersWithoutIdentities,
       duplicateOrAmbiguousEmailRisks,
       inactiveMemberships,
       usersWithMembershipInDifferentOrganization,
+    },
+    severity: {
+      devAuthEnabled,
+      usersWithoutIdentitiesSeverity,
+      usersWithoutIdentitiesClassification:
+        usersWithoutIdentitiesSeverity === "WARNING"
+          ? "Preview/dev-auth-only expected warning while break-glass auth remains enabled."
+          : "Production/provider-backed identity gap that should block tenant-readiness rollout until real sign-in creates UserIdentity rows.",
     },
     riskBreakdown: {
       employeeEmailDuplicateRisks,

@@ -201,6 +201,18 @@ Before broader tenant-scoping rollout:
 - require at least one successful real Entra-linked readiness validation before
   calling production tenant rollout ready
 
+Current implementation on `postgres-rehearsal` now follows that direction:
+
+- with `AUTH_ENABLE_DEV_AUTH=true`, `usersWithoutIdentities` is classified as a
+  warning-only preview/dev-auth signal
+- with dev auth disabled, `usersWithoutIdentities` is classified as a blocking
+  provider-linkage gap
+
+This refinement is intentionally environment-aware rather than per-user-aware,
+because the current schema and diagnostics layer do not yet track durable
+identity provenance for users who have never completed a real provider-backed
+sign-in.
+
 ## Recommended Next Phase
 
 The safest next phase is:

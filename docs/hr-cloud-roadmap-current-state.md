@@ -48,6 +48,7 @@ Completed so far on this branch:
 33. employee master export parity diagnostics planning
 34. employee master export parity diagnostics endpoint
 35. employee master export parity diagnostics UI
+36. readiness diagnostics severity refinement
 
 ## Current Architecture State
 
@@ -83,6 +84,7 @@ Current branch state:
 - employee master export parity planning now defines how page count, CSV count, PDF count, and tenant-shadow count should be compared before exports join the tenant-filter rollout
 - an admin-only employee master export parity endpoint now compares live page, CSV, PDF, and tenant-shadow counts without changing any live page or export behavior
 - the admin auth diagnostics page now surfaces employee master export parity so operators can compare live page, CSV, PDF, and tenant-shadow counts before export scoping is introduced
+- readiness diagnostics now classify `usersWithoutIdentities` by environment: preview/dev-auth-enabled environments treat them as warning-only, while production-like environments treat them as blocking provider-linkage gaps
 - organization membership backfill apply has now been validated on the scratch Neon database: missing memberships were created, readiness improved, and both employee shadow parity diagnostics remained clean
 - identity linkage completeness is now explicitly classified by environment: preview dev-auth users may legitimately lack `UserIdentity`, while production Microsoft Entra users should eventually have real provider-backed identities
 
@@ -101,22 +103,21 @@ The biggest remaining risks before tenant enforcement are:
 
 ## Next 5 Recommended Phases
 
-1. readiness diagnostics severity refinement
-   - distinguish preview dev-auth-only users from real provider-backed users
-   - keep behavior unchanged while improving rollout signal quality
-
-2. read-only report scoping diagnostics adoption
+1. read-only report scoping diagnostics adoption
    - extend the diagnostics pattern to another low-risk report seam such as reporting structure
    - keep output unchanged
 
-3. internal job scope design
+2. internal job scope design
    - define how scheduled jobs will carry organization scope, system actor identity, and platform-wide admin modes before changing PTO or notification jobs
 
-4. tenant-aware authorization design
+3. tenant-aware authorization design
    - plan how global employee roles and permissions will later interact with organization membership without changing current access rules yet
 
-5. employee master export parity validation runbook
+4. employee master export parity validation runbook
    - turn the new UI into a repeatable operator review checklist before exports join the shared feature flag
+
+5. provider-backed identity validation runbook
+   - define the preview-to-production verification steps for real Microsoft Entra sign-in creating `UserIdentity` rows without relying on dev auth
 
 ## Guardrails
 
@@ -137,10 +138,10 @@ Do not do these yet:
 
 The safest next implementation phase is:
 
-- readiness diagnostics severity refinement
+- read-only report scoping diagnostics adoption
 
 Why:
 
-- export parity is now visible in the admin diagnostics UI
-- the next safe step is to improve rollout signal quality by distinguishing preview dev-auth exceptions from production identity gaps
+- readiness and export parity diagnostics are now in place for the current pilots
+- the next safe step is to extend the same read-only diagnostics pattern to another low-risk report seam before any broader scoping rollout
 - it still avoids changing live business behavior or authorization rules

@@ -377,6 +377,22 @@ export default async function AuthDiagnosticsPage() {
             value={readiness.readiness.linkedUsersWithoutIdentities}
           />
           <StatusRow
+            label="Users without identities severity"
+            value={readiness.severity.usersWithoutIdentitiesSeverity}
+          />
+          <StatusRow
+            label="Preview-expected users without identities"
+            value={readiness.readiness.previewExpectedUsersWithoutIdentities}
+          />
+          <StatusRow
+            label="Provider-backed identity gaps"
+            value={readiness.readiness.providerBackedUsersWithoutIdentities}
+          />
+          <StatusRow
+            label="Dev auth enabled for severity classification"
+            value={readiness.severity.devAuthEnabled}
+          />
+          <StatusRow
             label="Users with membership in a different organization"
             value={readiness.readiness.usersWithMembershipInDifferentOrganization}
           />
@@ -388,6 +404,13 @@ export default async function AuthDiagnosticsPage() {
             label="Warning issue count"
             value={readiness.counts.warningIssueCount}
           />
+        </div>
+
+        <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+          <h3 className="font-medium text-slate-900">Identity Gap Severity</h3>
+          <p className="mt-3">
+            {readiness.severity.usersWithoutIdentitiesClassification}
+          </p>
         </div>
 
         <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
@@ -421,6 +444,12 @@ export default async function AuthDiagnosticsPage() {
               Use <code>{readiness.references.remediationPlaybookDoc}</code> to
               resolve flagged mismatch, duplicate-email, and inactive-membership
               cases before any tenant enforcement work begins.
+            </li>
+            <li>
+              Treat providerless users differently by environment. With dev auth
+              enabled, they remain visible as preview warnings. With dev auth
+              disabled, they should be treated as real provider-linkage gaps
+              that block rollout readiness.
             </li>
             <li>
               Keep this workflow read-only for now. No linkage or membership
