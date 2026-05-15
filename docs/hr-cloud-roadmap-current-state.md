@@ -35,6 +35,7 @@ Completed so far on this branch:
 20. second read-only repository wrapper pilot
 21. tenant scope candidate selection and risk classification
 22. employee read tenant-filter pilot design
+23. employee directory tenant shadow compare
 
 ## Current Architecture State
 
@@ -59,6 +60,7 @@ Current branch state:
 - two low-risk diagnostics queries now have `TenantContext`-accepting read-only wrappers with documented parity expectations
 - tenant-scoping candidates are now classified by risk so the first real organization-filter pilot can stay narrow
 - the first actual tenant-filter pilot is now designed as a shadow comparison on employee read paths before any live filtering is introduced
+- the employee directory now has an admin-only tenant shadow compare path while the live directory behavior remains unchanged
 
 ## Remaining Risks
 
@@ -74,9 +76,9 @@ The biggest remaining risks before tenant enforcement are:
 
 ## Next 5 Recommended Phases
 
-1. employee-directory shadow tenant-filter pilot
-   - compare unscoped versus `Employee.organizationId`-scoped results in diagnostics only
-   - keep the live `/employees` page behavior unchanged
+1. employee master report shadow tenant-filter pilot
+   - add the same unscoped versus scoped comparison pattern to the employee master read path
+   - keep the live report and exports unchanged
 
 2. read-only report scoping design and pilot
    - choose one low-risk report and make tenant-context inputs explicit without changing visible output yet
@@ -109,10 +111,10 @@ Do not do these yet:
 
 The safest next implementation phase is:
 
-- employee-directory shadow tenant-filter pilot in an admin/internal diagnostics surface
+- employee master report shadow tenant-filter pilot in an admin/internal diagnostics surface
 
 Why:
 
-- it builds on the route-edge and repository-wrapper groundwork already in place
-- it uses the one employee-centered read path with the narrowest parity surface
-- it keeps the user-facing directory behavior unchanged while proving the comparison logic
+- it reuses the exact comparison approach proven on the directory path
+- it extends validation to the next employee-centered read surface without changing live output
+- it still avoids write paths and authorization changes
