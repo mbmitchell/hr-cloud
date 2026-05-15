@@ -43,6 +43,7 @@ Completed so far on this branch:
 28. employee master feature-flagged tenant filter pilot
 29. employee master export seam decision
 30. employee master tenant filter validation checklist
+31. organization membership backfill apply validation
 
 ## Current Architecture State
 
@@ -75,6 +76,7 @@ Current branch state:
 - the employee master report page now has a default-off tenant filter pilot flag, while flag-off behavior remains unchanged and exports remain unscoped
 - the employee master export decision is now documented: exports stay intentionally global for now, but should eventually join the same rollout flag rather than a separate long-term flag
 - the employee master tenant filter now has an explicit validation checklist with go/no-go gates before expanding to exports or other modules
+- organization membership backfill apply has now been validated on the scratch Neon database: missing memberships were created, readiness improved, and both employee shadow parity diagnostics remained clean
 
 ## Remaining Risks
 
@@ -90,23 +92,23 @@ The biggest remaining risks before tenant enforcement are:
 
 ## Next 5 Recommended Phases
 
-1. employee master export parity diagnostics planning
+1. identity linkage completeness planning
+   - address the remaining `usersWithoutIdentities` readiness warning without changing login or tenant enforcement
+   - decide how preview/test identities should be represented long-term
+
+2. employee master export parity diagnostics planning
    - turn the validation checklist into a repeatable operator-facing parity review flow
    - keep export behavior unchanged
 
-2. read-only report scoping diagnostics adoption
+3. read-only report scoping diagnostics adoption
    - extend the diagnostics pattern to another low-risk report seam such as reporting structure
    - keep output unchanged
 
-3. internal job scope design
+4. internal job scope design
    - define how scheduled jobs will carry organization scope, system actor identity, and platform-wide admin modes before changing PTO or notification jobs
 
-4. tenant-aware authorization design
+5. tenant-aware authorization design
    - plan how global employee roles and permissions will later interact with organization membership without changing current access rules yet
-
-5. employee detail shadow tenant-filter pilot design
-   - map the employee detail read path before any organization-aware filtering work
-   - keep employee detail behavior unchanged
 
 ## Guardrails
 
@@ -126,10 +128,10 @@ Do not do these yet:
 
 The safest next implementation phase is:
 
-- employee master export parity diagnostics planning
+- identity linkage completeness planning
 
 Why:
 
-- the live page pilot is now documented and exports intentionally still diverge
-- the next safe step is to turn the checklist into a repeatable parity review flow before CSV and PDF adopt the same flag
+- missing organization memberships have been resolved in preview, but `usersWithoutIdentities` still blocks a fully clean readiness state
+- the next safe step is to decide how much identity completeness is required before expanding tenant-scoped behavior
 - it still avoids changing live business behavior or authorization rules

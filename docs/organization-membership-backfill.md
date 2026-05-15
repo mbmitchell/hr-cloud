@@ -80,6 +80,52 @@ Re-running the backfill will:
 - create only still-missing memberships
 - continue skipping invalid or incomplete records
 
+## Preview / Apply Validation
+
+Validated against the scratch / preview Neon database on `2026-05-15`.
+
+Observed preview state before apply:
+
+- `totalEmployees: 9`
+- `linkedEmployeesWithUserAndOrganization: 2`
+- `existingMemberships: 0`
+- `missingMemberships: 2`
+- `skippedRecords: 7`
+
+Observed apply result:
+
+- `appliedRows: 2`
+- `createdMemberships: 2`
+- `existingMemberships: 0`
+- `skippedRows: 7`
+
+Created memberships:
+
+- `mmitchell@mfncuso.com`
+- `test.siteadmin@mfncuso.com`
+
+Skipped rows were all `SKIP_MISSING_USER` cases and did not indicate
+membership conflicts:
+
+- `postgres.rehearsal.sample@mfncuso.com`
+- `test.accounting@mfncuso.com`
+- `test.auditor@mfncuso.com`
+- `test.employee@mfncuso.com`
+- `test.executive@mfncuso.com`
+- `test.hradmin@mfncuso.com`
+- `test.manager@mfncuso.com`
+
+Post-apply verification:
+
+- `linkedUsersMissingOrganizationMembership` dropped to `0`
+- `usersWithoutIdentities` remained `2`
+- no duplicate `OrganizationMembership` rows were found for the same
+  `organizationId + userId`
+- employee directory shadow parity remained intact
+- employee master report shadow parity remained intact
+- `test.siteadmin@mfncuso.com` still resolves as an active employee for the
+  current login flow
+
 ## Authorization
 
 The route uses existing admin-only authorization:
@@ -97,8 +143,10 @@ The route uses existing admin-only authorization:
 
 ## Recommended Next Phase
 
-The next low-risk phase should be read-only organization visibility:
+The next low-risk phase should be identity linkage completion planning:
 
-1. expose organization and membership status in admin diagnostics
-2. let operators review identity linkage and membership coverage together
-3. keep all membership tooling preview-first until the operator workflow is well proven
+1. focus on the remaining `usersWithoutIdentities` readiness warning
+2. decide whether preview environments should rely on dev-auth-only users or
+   whether Microsoft Entra-linked preview identities are needed
+3. keep tenant enforcement disabled while identity completeness is still being
+   validated
