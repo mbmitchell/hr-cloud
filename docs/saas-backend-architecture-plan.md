@@ -103,6 +103,18 @@ Implemented in the next tenant context resolver scaffolding phase:
 - surfaced the current admin tenant context on the existing auth diagnostics page
 - kept authorization and data-access behavior unchanged
 
+Implemented in the next route and repository scaffolding phases:
+
+- added request-edge tenant-context helpers for low-risk admin diagnostics routes
+- adopted the route-edge pattern in multiple preview-only admin diagnostics routes
+- added two read-only repository-wrapper pilots that accept `TenantContext` without changing filters or returned data
+
+Planned in the next tenant-scope candidate classification phase:
+
+- classify modules and route groups by tenant-scoping risk
+- identify which modules should not be scoped yet
+- recommend the first real organization-filter pilot on the lowest-risk employee-centered read path
+
 ## 1. Current Backend Architecture Summary
 
 The current backend is a single-company internal HR system built around one global employee directory and one global policy/role space.
