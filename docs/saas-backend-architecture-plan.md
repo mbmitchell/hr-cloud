@@ -9,6 +9,7 @@ Current state summary as of this checkpoint:
 - auth still signs users in as `Employee` and session shape is still `employeeId`-centric
 - best-effort `User`, `UserIdentity`, and `Employee.userId` linkage scaffolding exists
 - admin-only diagnostics now cover identity linkage, organization readiness, and current tenant-context resolution
+- tenant enforcement rollout governance is now documented before broader enforcement expansion, including pilot scope, rollout gates, rollback expectations, and high-risk module ordering
 - no tenant enforcement, repository scoping, auth-session redesign, or business-module scoping has started yet
 
 Implemented on the `postgres-rehearsal` branch in the low-risk platform identity foundation phase:

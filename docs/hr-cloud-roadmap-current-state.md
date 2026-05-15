@@ -49,6 +49,7 @@ Completed so far on this branch:
 34. employee master export parity diagnostics endpoint
 35. employee master export parity diagnostics UI
 36. readiness diagnostics severity refinement
+37. tenant enforcement rollout governance planning
 
 ## Current Architecture State
 
@@ -85,6 +86,7 @@ Current branch state:
 - an admin-only employee master export parity endpoint now compares live page, CSV, PDF, and tenant-shadow counts without changing any live page or export behavior
 - the admin auth diagnostics page now surfaces employee master export parity so operators can compare live page, CSV, PDF, and tenant-shadow counts before export scoping is introduced
 - readiness diagnostics now classify `usersWithoutIdentities` by environment: preview/dev-auth-enabled environments treat them as warning-only, while production-like environments treat them as blocking provider-linkage gaps
+- tenant enforcement rollout governance is now documented, including approved pilot scope, rollout gates, rollback rules, feature-flag governance, and the recommended module-by-module enforcement sequence
 - organization membership backfill apply has now been validated on the scratch Neon database: missing memberships were created, readiness improved, and both employee shadow parity diagnostics remained clean
 - identity linkage completeness is now explicitly classified by environment: preview dev-auth users may legitimately lack `UserIdentity`, while production Microsoft Entra users should eventually have real provider-backed identities
 
@@ -98,8 +100,8 @@ The biggest remaining risks before tenant enforcement are:
 - reports still assume whole-system datasets except where employee visibility is manually applied
 - copied-data transition assumptions still rely on a default organization fallback in diagnostics
 - linked `User` and `OrganizationMembership` coverage may still have gaps or mismatches in real data
-- readiness interpretation for `usersWithoutIdentities` still needs a future diagnostics refinement so preview dev-auth exceptions and production remediation are surfaced separately
 - auth remains intentionally employee-centric, so a future transition to richer tenant context must avoid changing login/session behavior too early
+- jobs, audit logging, PTO, compensation, and document flows still require dedicated design review before any tenant enforcement work is approved
 
 ## Next 5 Recommended Phases
 
@@ -143,5 +145,5 @@ The safest next implementation phase is:
 Why:
 
 - readiness and export parity diagnostics are now in place for the current pilots
-- the next safe step is to extend the same read-only diagnostics pattern to another low-risk report seam before any broader scoping rollout
+- the new governance plan now defines the rollout gates, so the next safe step is to extend the same read-only diagnostics pattern to another low-risk report seam before any broader scoping rollout
 - it still avoids changing live business behavior or authorization rules
