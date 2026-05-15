@@ -38,6 +38,7 @@ Completed so far on this branch:
 23. employee directory tenant shadow compare
 24. employee directory shadow results UI
 25. employee master report shadow compare
+26. employee master report shadow results UI
 
 ## Current Architecture State
 
@@ -65,6 +66,7 @@ Current branch state:
 - the employee directory now has an admin-only tenant shadow compare path while the live directory behavior remains unchanged
 - the admin auth diagnostics page now surfaces employee directory shadow results so operators can verify parity before any real tenant filtering is enabled
 - the employee master report now also has an admin-only shadow compare path while the live report page and exports remain unchanged
+- the admin auth diagnostics page now surfaces employee master report shadow results so operators can validate report parity before any real tenant-scoped reporting is enabled
 
 ## Remaining Risks
 
@@ -80,22 +82,22 @@ The biggest remaining risks before tenant enforcement are:
 
 ## Next 5 Recommended Phases
 
-1. employee master report shadow results UI
-   - surface the employee master shadow compare in an admin-only diagnostics view
-   - keep the live report page and exports unchanged
-
-2. read-only report scoping design and pilot
+1. read-only report scoping design and pilot
    - choose one low-risk report and make tenant-context inputs explicit without changing visible output yet
    - validate where later organization filters will belong
 
-3. internal job scope design
+2. internal job scope design
    - define how scheduled jobs will carry organization scope, system actor identity, and platform-wide admin modes before changing PTO or notification jobs
 
-4. tenant-aware authorization design
+3. tenant-aware authorization design
    - plan how global employee roles and permissions will later interact with organization membership without changing current access rules yet
 
-5. tenant-context report/export diagnostics adoption
+4. tenant-context report/export diagnostics adoption
    - use the same pattern in one low-risk report or export route before any query scoping begins
+
+5. employee detail shadow tenant-filter pilot design
+   - map the employee detail read path before any organization-aware filtering work
+   - keep employee detail behavior unchanged
 
 ## Guardrails
 
@@ -115,10 +117,10 @@ Do not do these yet:
 
 The safest next implementation phase is:
 
-- employee master report shadow tenant-filter pilot in an admin/internal diagnostics surface
+- read-only report scoping design and pilot
 
 Why:
 
-- it reuses the exact comparison approach proven on the directory path
-- it extends validation to the next employee-centered read surface without changing live output
-- it still avoids write paths and authorization changes
+- both employee-centered shadow compare diagnostics are now in place
+- the next safe step is to design how tenant context should enter report seams before any real query scoping
+- it still avoids changing live business behavior or authorization rules

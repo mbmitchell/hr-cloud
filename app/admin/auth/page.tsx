@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import EmployeeDirectoryShadowResultsPanel from "./EmployeeDirectoryShadowResultsPanel";
+import EmployeeMasterShadowResultsPanel from "./EmployeeMasterShadowResultsPanel";
 import {
   isAuthorizationError,
   requireAdmin,
@@ -443,6 +444,23 @@ export default async function AuthDiagnosticsPage() {
 
         <div className="mt-5">
           <EmployeeDirectoryShadowResultsPanel />
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-6">
+        <div>
+          <h2 className="text-lg font-medium text-slate-900">
+            Employee Master Report Shadow Results
+          </h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Read-only comparison of the current employee master report against a
+            shadow organization filter. This does not change the live report
+            page, CSV export, PDF export, or enable tenant enforcement.
+          </p>
+        </div>
+
+        <div className="mt-5">
+          <EmployeeMasterShadowResultsPanel />
         </div>
       </section>
 
