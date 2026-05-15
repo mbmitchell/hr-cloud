@@ -1,5 +1,24 @@
 # SaaS Backend Architecture Plan
 
+## Current Rehearsal Status
+
+Implemented on the `postgres-rehearsal` branch in the low-risk platform identity foundation phase:
+
+- added `Organization`
+- added `User`
+- added `OrganizationMembership`
+- added `UserIdentity`
+- added nullable `organizationId` to `Employee`
+- added nullable `userId` to `Employee`
+- generated a PostgreSQL rehearsal migration artifact for this phase, including default-organization backfill SQL
+
+Still intentionally not implemented in this phase:
+
+- tenant scoping for PTO, documents, onboarding, offboarding, notifications, jobs, or APIs
+- auth/session changes
+- repository refactors
+- any runtime multi-tenant enforcement
+
 ## 1. Current Backend Architecture Summary
 
 The current backend is a single-company internal HR system built around one global employee directory and one global policy/role space.
@@ -565,6 +584,16 @@ Why this should be first:
 - no tenant switching yet
 - no organization-aware UI yet
 - no document storage migration yet
+
+## Phase 3 Implementation Notes
+
+The current branch now matches the intended first schema/code phase except for live migration application.
+
+- the schema foundation is present in [prisma/schema.prisma](/Users/mmitchell/dev/hr-cloud/prisma/schema.prisma:1)
+- the PostgreSQL rehearsal migration artifact lives at [prisma/postgres-rehearsal/migrations/platform_identity_foundation/migration.sql](/Users/mmitchell/dev/hr-cloud/prisma/postgres-rehearsal/migrations/platform_identity_foundation/migration.sql:1)
+- the artifact inserts one `default-org` organization and backfills existing `Employee.organizationId` values where null
+- live `prisma migrate dev` is still blocked locally until `DATABASE_URL` points to a scratch PostgreSQL database
+- the legacy MySQL SQL migration history remains preserved and is not reused for PostgreSQL execution
 
 ## Notes From Existing Repo Structure
 

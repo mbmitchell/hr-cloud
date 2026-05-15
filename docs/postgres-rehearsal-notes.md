@@ -39,6 +39,28 @@ Generated a fresh PostgreSQL rehearsal baseline SQL file at:
 
 This baseline was generated from the current logical Prisma schema and does not reuse the MySQL migration SQL files.
 
+### Platform identity foundation artifact
+
+Added the low-risk Phase 3 identity foundation in [prisma/schema.prisma](/Users/mmitchell/dev/hr-cloud/prisma/schema.prisma:1):
+
+- `Organization`
+- `User`
+- `OrganizationMembership`
+- `UserIdentity`
+- nullable `Employee.organizationId`
+- nullable `Employee.userId`
+
+Generated the rehearsal migration artifact at:
+
+- [prisma/postgres-rehearsal/migrations/platform_identity_foundation/migration.sql](/Users/mmitchell/dev/hr-cloud/prisma/postgres-rehearsal/migrations/platform_identity_foundation/migration.sql:1)
+
+This artifact includes:
+
+- schema changes for the new identity models
+- indexes and uniqueness constraints for the new identity relations
+- a default `Organization` insert using slug `default-org`
+- a backfill update that assigns existing `Employee` rows to that default organization when `organizationId` is null
+
 ## Commands Used
 
 ### Prisma client generation
@@ -78,6 +100,29 @@ Reason:
 - the current local `.env` still points at a MySQL `DATABASE_URL`
 - no scratch PostgreSQL database was available in this workspace for safe rehearsal use
 
+### Platform identity migration via `migrate dev`
+
+Requested command:
+
+```bash
+npx prisma migrate dev --name platform_identity_foundation
+```
+
+Result:
+
+- failed before migration execution
+
+Exact error:
+
+```text
+Error validating datasource `db`: the URL must start with the protocol `postgresql://` or `postgres://`.
+```
+
+Reason:
+
+- the current local `.env` still points at a MySQL-style `DATABASE_URL`
+- Prisma rejected the datasource configuration before it could create or apply a PostgreSQL migration
+
 ## Baseline Generation Outcome
 
 The current logical Prisma schema produced PostgreSQL DDL successfully.
@@ -99,6 +144,7 @@ Observed compatibility signals from the generated SQL:
 
 - no Prisma schema errors encountered in this rehearsal
 - no PostgreSQL baseline generation errors encountered
+- `npx prisma migrate dev --name platform_identity_foundation` failed with datasource URL validation because the local `.env` is still MySQL-formatted
 
 ## Build Result
 
@@ -150,13 +196,21 @@ If you want to abandon this rehearsal branch:
 1. switch back to the non-rehearsal branch
 2. revert `prisma/schema.prisma` datasource provider to `mysql`
 3. revert `.env.example` to the non-rehearsal placeholder if desired
-4. remove `prisma/postgres-rehearsal/` if the rehearsal artifact should not be kept
+4. remove `prisma/postgres-rehearsal/` if the rehearsal artifacts should not be kept
 
 If you want to keep this branch but back out the provider change:
 
 1. change `provider = "postgresql"` back to `provider = "mysql"`
 2. regenerate Prisma Client
 3. keep the rehearsal notes and generated SQL as reference only
+
+If you want to roll back only the platform identity foundation work:
+
+1. remove `Organization`, `User`, `OrganizationMembership`, and `UserIdentity` from `prisma/schema.prisma`
+2. remove nullable `organizationId` and `userId` from `Employee`
+3. delete [prisma/postgres-rehearsal/migrations/platform_identity_foundation/migration.sql](/Users/mmitchell/dev/hr-cloud/prisma/postgres-rehearsal/migrations/platform_identity_foundation/migration.sql:1)
+4. regenerate Prisma Client
+5. keep this note documenting why the phase was abandoned if useful for later retries
 
 ## Recommended Next Step
 
@@ -178,3 +232,4 @@ npm run build
 ```
 
 5. validate that the generated baseline applies cleanly without manual SQL edits
+6. rerun `npx prisma migrate dev --name platform_identity_foundation` once the scratch PostgreSQL URL is in place

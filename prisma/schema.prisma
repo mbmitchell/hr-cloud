@@ -82,18 +82,77 @@ enum HrNotificationTemplateKey {
   EMPLOYEE_CHANGE_REQUEST_APPLIED
 }
 
+model Organization {
+  id        String   @id @default(uuid())
+  slug      String   @unique
+  name      String
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employees   Employee[]
+  memberships OrganizationMembership[]
+}
+
+model User {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  displayName String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  employees   Employee[]
+  memberships OrganizationMembership[]
+  identities  UserIdentity[]
+}
+
+model OrganizationMembership {
+  id             String   @id @default(uuid())
+  organizationId String
+  userId         String
+  role           String?
+  status         String   @default("ACTIVE")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
+}
+
+model UserIdentity {
+  id                String   @id @default(uuid())
+  userId            String
+  provider          String
+  providerAccountId String
+  email             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
 model Employee {
-  id         String   @id @default(uuid())
-  email      String   @unique(map: "emp_email_key")
-  entraOid   String?
-  entraTid   String?
-  firstName  String
-  lastName   String
-  title      String?
-  department String?
-  hireDate   DateTime
-  managerId  String?
-  status     String
+  id             String   @id @default(uuid())
+  organizationId String?
+  userId         String?
+  email          String   @unique(map: "emp_email_key")
+  entraOid       String?
+  entraTid       String?
+  firstName      String
+  lastName       String
+  title          String?
+  department     String?
+  hireDate       DateTime
+  managerId      String?
+  status         String
   employmentClassification String?
   workLocation             String?
 
@@ -110,7 +169,8 @@ model Employee {
   advancedAccrualEffectiveDate DateTime?
   advancedAccrualReason        String?
 
-
+  organization  Organization? @relation(fields: [organizationId], references: [id])
+  user          User?         @relation(fields: [userId], references: [id])
   manager       Employee?  @relation("ManagerToReports", fields: [managerId], references: [id])
   directReports Employee[] @relation("ManagerToReports")
 
@@ -150,6 +210,8 @@ model Employee {
   updatedAt DateTime @updatedAt
 
   @@unique([entraTid, entraOid], map: "emp_entra_key")
+  @@index([organizationId], map: "emp_org_idx")
+  @@index([userId], map: "emp_user_idx")
   @@index([managerId], map: "emp_mgr_idx")
 }
 
