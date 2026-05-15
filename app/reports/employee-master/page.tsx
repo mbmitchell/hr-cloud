@@ -12,6 +12,7 @@ import {
   isAuthorizationError,
   requireRole,
 } from "../../../lib/server/authorization";
+import { resolveTenantContext } from "../../../lib/server/tenant-context";
 
 type SearchParams = Promise<{
   status?: string;
@@ -104,7 +105,8 @@ export default async function EmployeeMasterReportPage({
 
   const resolvedSearchParams = await searchParams;
   const filters = getEmployeeMasterFilters(resolvedSearchParams);
-  const report = await getEmployeeMasterReport(filters);
+  const tenantContext = await resolveTenantContext();
+  const report = await getEmployeeMasterReport(filters, { tenantContext });
 
   const baseParams = {
     status: report.filters.status,

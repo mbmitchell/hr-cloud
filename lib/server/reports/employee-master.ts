@@ -76,11 +76,15 @@ type EmployeeMasterShadowWarning =
   | "TENANT_FILTER_EXCLUDES_REPORT_EMPLOYEES";
 
 type EmployeeMasterBaseData = {
-  allRows: EmployeeMasterRow[];
+  allRows: EmployeeMasterScopedRow[];
   filterOptions: EmployeeMasterFilterOptions;
 };
 
-type EmployeeMasterShadowRow = EmployeeMasterRow & {
+type EmployeeMasterReportOptions = {
+  tenantContext?: TenantContext | null;
+};
+
+type EmployeeMasterScopedRow = EmployeeMasterRow & {
   organizationId: string | null;
 };
 
@@ -256,6 +260,10 @@ function filterEmployeeMasterRows<T extends EmployeeMasterRow>(
   });
 }
 
+function isEmployeeMasterTenantFilterEnabled(env: NodeJS.ProcessEnv = process.env) {
+  return env.HR_CLOUD_ENABLE_EMPLOYEE_MASTER_TENANT_FILTER === "true";
+}
+
 async function getEmployeeMasterBaseData(): Promise<EmployeeMasterBaseData> {
   const employees = await prisma.employee.findMany({
     include: {
@@ -287,7 +295,7 @@ async function getEmployeeMasterBaseData(): Promise<EmployeeMasterBaseData> {
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
   });
 
-  const allRows: EmployeeMasterRow[] = employees.map((employee) => {
+  const allRows: EmployeeMasterScopedRow[] = employees.map((employee) => {
     const { roleCodes, roleDisplay } = getRoleDisplay(employee.roleAssignments);
 
     return {
@@ -314,6 +322,7 @@ async function getEmployeeMasterBaseData(): Promise<EmployeeMasterBaseData> {
         managerId: employee.managerId,
         roleCodes,
       }),
+      organizationId: employee.organizationId,
     };
   });
 
@@ -359,62 +368,9 @@ async function getEmployeeMasterBaseData(): Promise<EmployeeMasterBaseData> {
   };
 }
 
-async function getEmployeeMasterShadowBaseRows(): Promise<EmployeeMasterShadowRow[]> {
-  const employees = await prisma.employee.findMany({
-    include: {
-      manager: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-        },
-      },
-      roleAssignments: {
-        where: {
-          isActive: true,
-        },
-        include: {
-          role: {
-            select: {
-              code: true,
-            },
-          },
-        },
-      },
-    },
-    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-  });
-
-  return employees.map((employee) => {
-    const { roleCodes, roleDisplay } = getRoleDisplay(employee.roleAssignments);
-
-    return {
-      employeeId: employee.id,
-      employeeName: `${employee.firstName} ${employee.lastName}`.trim(),
-      employeeIdentifier: employee.id,
-      status: employee.status,
-      jobTitle: employee.title ?? null,
-      department: employee.department ?? null,
-      managerName: employee.manager
-        ? `${employee.manager.firstName} ${employee.manager.lastName}`.trim()
-        : null,
-      managerId: employee.manager?.id ?? null,
-      role: roleDisplay,
-      roleCodes,
-      hireDate: employee.hireDate.toISOString(),
-      workLocation: employee.workLocation ?? null,
-      employmentClassification: employee.employmentClassification ?? null,
-      workEmail: employee.email,
-      payrollFrequency: employee.payrollFrequency,
-      isActive: employee.status === "ACTIVE",
-      shouldFlagMissingManager: shouldFlagMissingManager({
-        status: employee.status,
-        managerId: employee.managerId,
-        roleCodes,
-      }),
-      organizationId: employee.organizationId,
-    };
-  });
+async function getEmployeeMasterShadowBaseRows(): Promise<EmployeeMasterScopedRow[]> {
+  const { allRows } = await getEmployeeMasterBaseData();
+  return allRows;
 }
 
 function buildEmployeeMasterReportResult(
@@ -455,10 +411,22 @@ function buildEmployeeMasterReportResult(
 }
 
 export async function getEmployeeMasterReport(
-  filters: EmployeeMasterFilters
+  filters: EmployeeMasterFilters,
+  options: EmployeeMasterReportOptions = {}
 ): Promise<EmployeeMasterReportResult> {
   const { allRows, filterOptions } = await getEmployeeMasterBaseData();
-  return buildEmployeeMasterReportResult(allRows, filterOptions, filters);
+
+  const tenantFilteringEnabled = isEmployeeMasterTenantFilterEnabled();
+  const scopedRows =
+    tenantFilteringEnabled && options.tenantContext?.organizationId
+      ? allRows.filter(
+          (row) => row.organizationId === options.tenantContext!.organizationId
+        )
+      : tenantFilteringEnabled
+        ? []
+        : allRows;
+
+  return buildEmployeeMasterReportResult(scopedRows, filterOptions, filters);
 }
 
 export async function getEmployeeMasterExportRows(filters: EmployeeMasterFilters) {

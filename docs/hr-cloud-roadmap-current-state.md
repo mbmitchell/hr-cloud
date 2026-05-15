@@ -40,6 +40,7 @@ Completed so far on this branch:
 25. employee master report shadow compare
 26. employee master report shadow results UI
 27. report tenant context seam design
+28. employee master feature-flagged tenant filter pilot
 
 ## Current Architecture State
 
@@ -69,6 +70,7 @@ Current branch state:
 - the employee master report now also has an admin-only shadow compare path while the live report page and exports remain unchanged
 - the admin auth diagnostics page now surfaces employee master report shadow results so operators can validate report parity before any real tenant-scoped reporting is enabled
 - report pages, export routes, and report services are now classified by tenant-context seam and scoping risk before any live report filtering is introduced
+- the employee master report page now has a default-off tenant filter pilot flag, while flag-off behavior remains unchanged and exports remain unscoped
 
 ## Remaining Risks
 
@@ -84,9 +86,9 @@ The biggest remaining risks before tenant enforcement are:
 
 ## Next 5 Recommended Phases
 
-1. employee master read-only tenant-context seam pilot
-   - make `TenantContext` an explicit non-enforcing input to the employee master report service and export seam
-   - keep live page and exports unchanged while validating parity expectations
+1. employee master export seam decision and parity review
+   - decide whether CSV and PDF exports should adopt the same default-off flag
+   - keep export behavior unchanged until explicit rollout approval
 
 2. read-only report scoping diagnostics adoption
    - extend the diagnostics pattern to another low-risk report seam such as reporting structure
@@ -120,10 +122,10 @@ Do not do these yet:
 
 The safest next implementation phase is:
 
-- read-only report scoping design and pilot
+- employee master export seam decision and parity review
 
 Why:
 
-- both employee-centered shadow compare diagnostics are now in place
-- the next safe step is to make tenant context explicit in one low-risk report seam without changing report output
+- the live page pilot is now behind a default-off flag, but exports intentionally still diverge
+- the next safe step is to decide whether exports should remain global or adopt the same guarded rollout path
 - it still avoids changing live business behavior or authorization rules
