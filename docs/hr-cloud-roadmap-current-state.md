@@ -30,6 +30,7 @@ Completed so far on this branch:
 15. tenant context design
 16. tenant context resolver scaffolding
 17. request-edge tenant context helper pattern
+18. limited tenant-context diagnostics adoption
 
 ## Current Architecture State
 
@@ -50,6 +51,7 @@ Current branch state:
   - unified readiness summary
   - current resolved tenant context
 - low-risk admin diagnostics routes can now resolve `TenantContext` once at the route edge after existing authorization succeeds
+- the route-edge helper is now reused across multiple preview-only admin diagnostics routes
 
 ## Remaining Risks
 
@@ -65,23 +67,22 @@ The biggest remaining risks before tenant enforcement are:
 
 ## Next 5 Recommended Phases
 
-1. tenant-context diagnostics adoption
-   - use the new request-edge helper in one or two existing internal/admin diagnostics or report routes
-   - confirm the resolved context is stable before any enforcement work
-
-2. read-only repository wrapper pilot
+1. read-only repository wrapper pilot
    - introduce one low-risk read-only wrapper around employee-directory or report queries that accepts `TenantContext`
    - keep returned data unchanged for now
 
-3. read-only report scoping design and pilot
+2. read-only report scoping design and pilot
    - choose one low-risk report and make tenant-context inputs explicit without changing visible output yet
    - validate where later organization filters will belong
 
-4. internal job scope design
+3. internal job scope design
    - define how scheduled jobs will carry organization scope, system actor identity, and platform-wide admin modes before changing PTO or notification jobs
 
-5. tenant-aware authorization design
+4. tenant-aware authorization design
    - plan how global employee roles and permissions will later interact with organization membership without changing current access rules yet
+
+5. tenant-context report/export diagnostics adoption
+   - use the same pattern in one low-risk report or export route before any query scoping begins
 
 ## Guardrails
 
@@ -101,10 +102,10 @@ Do not do these yet:
 
 The safest next implementation phase is:
 
-- tenant-context diagnostics adoption in one or two additional low-risk internal/admin routes
+- read-only repository wrapper pilot for one low-risk employee-directory or diagnostics query
 
 Why:
 
-- it builds on the new route-edge helper without changing auth or business logic
-- it expands validation coverage for tenant-context plumbing before data scoping begins
-- it still keeps repository and business-module behavior unchanged
+- it builds on the now-validated route-edge helper pattern
+- it starts shaping a stable server-side calling convention below the route layer
+- it still keeps business-module behavior and query filters unchanged

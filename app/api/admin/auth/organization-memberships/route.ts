@@ -9,14 +9,18 @@ import {
   backfillOrganizationMemberships,
   previewOrganizationMembershipBackfill,
 } from "../../../../../lib/server/auth/organization-membership-backfill";
+import { requireRoleWithTenantContext } from "../../../../../lib/server/tenant-context-route";
 
 export async function GET() {
   try {
-    await requireRole(["SITE_ADMIN", "HR_ADMIN"], {
-      attemptedAction: "ORGANIZATION_MEMBERSHIP_BACKFILL_VIEW",
-      entityType: "OrganizationMembership",
-      entityId: "preview",
-    });
+    const { tenantContext } = await requireRoleWithTenantContext(
+      ["SITE_ADMIN", "HR_ADMIN"],
+      {
+        attemptedAction: "ORGANIZATION_MEMBERSHIP_BACKFILL_VIEW",
+        entityType: "OrganizationMembership",
+        entityId: "preview",
+      }
+    );
 
     const preview = await previewOrganizationMembershipBackfill();
 
@@ -24,6 +28,7 @@ export async function GET() {
       {
         mode: "preview",
         preview,
+        tenantContext,
       },
       withPrivateNoStoreHeaders()
     );

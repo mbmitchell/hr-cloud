@@ -9,14 +9,18 @@ import {
   backfillIdentityLinkage,
   getIdentityLinkageCoverageSummary,
 } from "../../../../../lib/server/auth/identity-linkage";
+import { requireRoleWithTenantContext } from "../../../../../lib/server/tenant-context-route";
 
 export async function GET() {
   try {
-    await requireRole(["SITE_ADMIN", "HR_ADMIN"], {
-      attemptedAction: "AUTH_IDENTITY_LINKAGE_VIEW",
-      entityType: "AuthIdentityLinkage",
-      entityId: "coverage",
-    });
+    const { tenantContext } = await requireRoleWithTenantContext(
+      ["SITE_ADMIN", "HR_ADMIN"],
+      {
+        attemptedAction: "AUTH_IDENTITY_LINKAGE_VIEW",
+        entityType: "AuthIdentityLinkage",
+        entityId: "coverage",
+      }
+    );
 
     const coverage = await getIdentityLinkageCoverageSummary();
 
@@ -24,6 +28,7 @@ export async function GET() {
       {
         mode: "preview",
         coverage,
+        tenantContext,
       },
       withPrivateNoStoreHeaders()
     );

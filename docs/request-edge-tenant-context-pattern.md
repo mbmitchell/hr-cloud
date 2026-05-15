@@ -25,6 +25,8 @@ Updated routes:
 
 - [app/api/admin/auth/tenant-context/route.ts](/Users/mmitchell/dev/hr-cloud/app/api/admin/auth/tenant-context/route.ts:1)
 - [app/api/admin/auth/readiness/route.ts](/Users/mmitchell/dev/hr-cloud/app/api/admin/auth/readiness/route.ts:1)
+- [app/api/admin/auth/identity-linkage/route.ts](/Users/mmitchell/dev/hr-cloud/app/api/admin/auth/identity-linkage/route.ts:1)
+- [app/api/admin/auth/organization-memberships/route.ts](/Users/mmitchell/dev/hr-cloud/app/api/admin/auth/organization-memberships/route.ts:1)
 
 ## Pattern
 
@@ -55,6 +57,29 @@ The readiness diagnostics route now includes a clearly labeled
 
 The tenant-context route still returns the same top-level
 `tenantContext` diagnostics payload.
+
+The following preview-only diagnostics routes now also include a clearly
+labeled `tenantContext` field:
+
+- `GET /api/admin/auth/identity-linkage`
+- `GET /api/admin/auth/organization-memberships`
+
+The corresponding `POST` apply routes were intentionally left unchanged in this
+phase so the pattern remains read-only first.
+
+## Example Adoption
+
+Current low-risk adoption examples:
+
+1. `GET /api/admin/auth/readiness`
+   - existing admin authorization remains authoritative
+   - route now returns readiness data plus `tenantContext`
+2. `GET /api/admin/auth/identity-linkage`
+   - existing admin authorization remains authoritative
+   - route now returns coverage preview plus `tenantContext`
+3. `GET /api/admin/auth/organization-memberships`
+   - existing admin authorization remains authoritative
+   - route now returns membership preview plus `tenantContext`
 
 ## Recommended Next Phase
 
