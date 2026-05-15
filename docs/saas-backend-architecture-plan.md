@@ -36,6 +36,28 @@ Implemented in the next linked-identity coverage phase:
 - no `UserIdentity` backfill without known provider identity
 - no changes to auth/session behavior
 
+Implemented in the next read-only identity consumption phase:
+
+- per-employee linked identity resolver
+- admin-only diagnostics route for linked `User` and `UserIdentity` state
+- organization membership count visibility for linked users
+- read-only mismatch/conflict flags
+- no session or login behavior changes
+
+Implemented in the next admin diagnostics UI phase:
+
+- read-only linked identity diagnostics panel inside the existing admin employee tab
+- operator guidance for common flag states
+- diagnostics UI backed by the existing admin-only endpoint
+- no mutation controls yet
+
+Implemented in the next operator playbook phase:
+
+- remediation guidance for each linked identity diagnostics flag
+- safe review and cleanup sequencing for operators
+- explicit guidance on when not to auto-fix ambiguous identity states
+- playbook reference linked from the admin diagnostics documentation
+
 ## 1. Current Backend Architecture Summary
 
 The current backend is a single-company internal HR system built around one global employee directory and one global policy/role space.
