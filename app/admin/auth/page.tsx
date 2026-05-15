@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import EmployeeDirectoryShadowResultsPanel from "./EmployeeDirectoryShadowResultsPanel";
 import EmployeeMasterExportParityDiagnosticsPanel from "./EmployeeMasterExportParityDiagnosticsPanel";
+import EmployeeMasterPilotTelemetryPanel from "./EmployeeMasterPilotTelemetryPanel";
 import EmployeeMasterShadowResultsPanel from "./EmployeeMasterShadowResultsPanel";
 import {
   isAuthorizationError,
@@ -508,6 +509,23 @@ export default async function AuthDiagnosticsPage() {
 
         <div className="mt-5">
           <EmployeeMasterExportParityDiagnosticsPanel />
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-6">
+        <div>
+          <h2 className="text-lg font-medium text-slate-900">
+            Employee Master Rollout Telemetry
+          </h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Read-only pilot telemetry for employee master tenant-scoped
+            behavior, export divergence, and rollout readiness. This does not
+            change live report or export behavior.
+          </p>
+        </div>
+
+        <div className="mt-5">
+          <EmployeeMasterPilotTelemetryPanel />
         </div>
       </section>
 

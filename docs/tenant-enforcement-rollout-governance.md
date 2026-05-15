@@ -36,6 +36,7 @@ This means the branch has proven:
 - preview-first parity validation
 - default-off feature flag behavior on one narrow report seam
 - rollback-safe scaffolding for identity and membership readiness
+- lightweight telemetry and metrics for the employee master pilot
 
 It does not yet prove:
 
@@ -222,10 +223,12 @@ Every new enforcement pilot should follow this preview validation sequence:
 8. validate feature flag on behavior in preview only
 9. validate rollback by disabling the flag
 10. record operator signoff
+11. capture telemetry status and warning state for the acting admin
 
 For the current employee master pilot, the concrete operator runbook is:
 
 - `docs/employee-master-pilot-operational-validation.md`
+- `docs/tenant-rollout-telemetry-and-metrics.md`
 
 ## Rollback Procedures
 
@@ -277,6 +280,7 @@ operator review.
 The current employee master pilot should use the operator capture process in:
 
 - `docs/employee-master-pilot-operational-validation.md`
+- `docs/tenant-rollout-telemetry-and-metrics.md`
 
 ## Recommended Rollout Order By Module
 

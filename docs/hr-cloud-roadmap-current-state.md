@@ -51,6 +51,7 @@ Completed so far on this branch:
 36. readiness diagnostics severity refinement
 37. tenant enforcement rollout governance planning
 38. employee master pilot operational validation planning
+39. tenant rollout telemetry and metrics
 
 ## Current Architecture State
 
@@ -89,6 +90,7 @@ Current branch state:
 - readiness diagnostics now classify `usersWithoutIdentities` by environment: preview/dev-auth-enabled environments treat them as warning-only, while production-like environments treat them as blocking provider-linkage gaps
 - tenant enforcement rollout governance is now documented, including approved pilot scope, rollout gates, rollback rules, feature-flag governance, and the recommended module-by-module enforcement sequence
 - an operator-focused employee master pilot validation runbook now defines preview setup, flag-off and flag-on test flow, parity capture expectations, rollback checks, and pass/fail criteria
+- lightweight employee master rollout telemetry now provides aggregate HEALTHY/WARNING/BLOCKING status plus tenant-scoped counts, mismatch state, and rollback guidance in admin diagnostics
 - organization membership backfill apply has now been validated on the scratch Neon database: missing memberships were created, readiness improved, and both employee shadow parity diagnostics remained clean
 - identity linkage completeness is now explicitly classified by environment: preview dev-auth users may legitimately lack `UserIdentity`, while production Microsoft Entra users should eventually have real provider-backed identities
 

@@ -83,6 +83,8 @@ type EmployeeMasterExportParityWarning =
   | "TENANT_FILTER_EXCLUDES_REPORT_EMPLOYEES"
   | "PAGE_FLAG_ENABLED_EXPORTS_REMAIN_GLOBAL";
 
+type EmployeeMasterPilotTelemetryStatus = "HEALTHY" | "WARNING" | "BLOCKING";
+
 type EmployeeMasterBaseData = {
   allRows: EmployeeMasterScopedRow[];
   filterOptions: EmployeeMasterFilterOptions;
@@ -611,5 +613,62 @@ export async function getEmployeeMasterExportParityDiagnostics(input: {
     }),
     excludedByTenantFilter: shadowCompare.excludedByTenantFilter,
     warnings: Array.from(warnings),
+  };
+}
+
+export async function getEmployeeMasterPilotTelemetry(input: {
+  filters: EmployeeMasterFilters;
+  tenantContext: TenantContext;
+}) {
+  const parity = await getEmployeeMasterExportParityDiagnostics(input);
+
+  const warnings = new Set<EmployeeMasterExportParityWarning>(parity.warnings);
+  const hasBlockingWarning =
+    warnings.has("TENANT_CONTEXT_ORGANIZATION_ID_MISSING") ||
+    warnings.has("CSV_PDF_COUNT_MISMATCH") ||
+    warnings.has("REPORT_EMPLOYEES_MISSING_ORGANIZATION");
+  const hasWarningOnlySignal =
+    warnings.has("PAGE_EXPORT_COUNT_MISMATCH") ||
+    warnings.has("TENANT_FILTER_EXCLUDES_REPORT_EMPLOYEES") ||
+    warnings.has("PAGE_FLAG_ENABLED_EXPORTS_REMAIN_GLOBAL");
+
+  const status: EmployeeMasterPilotTelemetryStatus = hasBlockingWarning
+    ? "BLOCKING"
+    : hasWarningOnlySignal
+      ? "WARNING"
+      : "HEALTHY";
+
+  return {
+    status,
+    currentOrganizationSlug: input.tenantContext.organization?.slug ?? null,
+    currentTenantContextOrganizationId: input.tenantContext.organizationId,
+    currentFeatureFlagState:
+      parity.flagState.employeeMasterTenantFilterEnabled,
+    counts: {
+      currentLivePageCount: parity.counts.livePageCount,
+      tenantScopedCount: parity.counts.tenantShadowScopedCount,
+      excludedRowCount: parity.counts.excludedByTenantFilterCount,
+      missingOrganizationCount: parity.counts.missingOrganizationCount,
+      csvExportCount: parity.counts.csvExportCount,
+      pdfExportCount: parity.counts.pdfExportCount,
+    },
+    exportPageMismatchState:
+      parity.counts.livePageCount !== parity.counts.csvExportCount ||
+      parity.counts.livePageCount !== parity.counts.pdfExportCount,
+    expectedMismatchExplanation: parity.expectedMismatchExplanation,
+    warnings: parity.warnings,
+    rolloutGuidance: {
+      rollbackRecommended:
+        status === "BLOCKING" ||
+        warnings.has("CSV_PDF_COUNT_MISMATCH") ||
+        warnings.has("TENANT_CONTEXT_ORGANIZATION_ID_MISSING"),
+      rolloutExpansionBlocked: status !== "HEALTHY",
+      statusMeaning:
+        status === "HEALTHY"
+          ? "Current Preview telemetry shows stable employee master pilot behavior for the acting tenant context."
+          : status === "WARNING"
+            ? "Current Preview telemetry shows an expected pilot warning or a review item. Rollout expansion should pause until operators confirm the warning is understood and accepted."
+            : "Current Preview telemetry shows a blocking rollout issue. Rollback or halt expansion until the issue is resolved.",
+    },
   };
 }
