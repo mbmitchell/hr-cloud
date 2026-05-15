@@ -34,6 +34,7 @@ Completed so far on this branch:
 19. read-only repository wrapper pilot
 20. second read-only repository wrapper pilot
 21. tenant scope candidate selection and risk classification
+22. employee read tenant-filter pilot design
 
 ## Current Architecture State
 
@@ -57,6 +58,7 @@ Current branch state:
 - the route-edge helper is now reused across multiple preview-only admin diagnostics routes
 - two low-risk diagnostics queries now have `TenantContext`-accepting read-only wrappers with documented parity expectations
 - tenant-scoping candidates are now classified by risk so the first real organization-filter pilot can stay narrow
+- the first actual tenant-filter pilot is now designed as a shadow comparison on employee read paths before any live filtering is introduced
 
 ## Remaining Risks
 
@@ -72,9 +74,9 @@ The biggest remaining risks before tenant enforcement are:
 
 ## Next 5 Recommended Phases
 
-1. first actual tenant-filter pilot
-   - use an employee-directory or employee-master read path
-   - keep the pilot narrow and centered on `Employee.organizationId`
+1. employee-directory shadow tenant-filter pilot
+   - compare unscoped versus `Employee.organizationId`-scoped results in diagnostics only
+   - keep the live `/employees` page behavior unchanged
 
 2. read-only report scoping design and pilot
    - choose one low-risk report and make tenant-context inputs explicit without changing visible output yet
@@ -107,10 +109,10 @@ Do not do these yet:
 
 The safest next implementation phase is:
 
-- first actual tenant-filter pilot on one employee-directory or employee-master read path
+- employee-directory shadow tenant-filter pilot in an admin/internal diagnostics surface
 
 Why:
 
 - it builds on the route-edge and repository-wrapper groundwork already in place
-- it uses the one table that already has `organizationId`
-- it avoids high-risk write paths and background jobs
+- it uses the one employee-centered read path with the narrowest parity surface
+- it keeps the user-facing directory behavior unchanged while proving the comparison logic
