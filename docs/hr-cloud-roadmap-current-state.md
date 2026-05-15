@@ -36,6 +36,7 @@ Completed so far on this branch:
 21. tenant scope candidate selection and risk classification
 22. employee read tenant-filter pilot design
 23. employee directory tenant shadow compare
+24. employee directory shadow results UI
 
 ## Current Architecture State
 
@@ -61,6 +62,7 @@ Current branch state:
 - tenant-scoping candidates are now classified by risk so the first real organization-filter pilot can stay narrow
 - the first actual tenant-filter pilot is now designed as a shadow comparison on employee read paths before any live filtering is introduced
 - the employee directory now has an admin-only tenant shadow compare path while the live directory behavior remains unchanged
+- the admin auth diagnostics page now surfaces employee directory shadow results so operators can verify parity before any real tenant filtering is enabled
 
 ## Remaining Risks
 

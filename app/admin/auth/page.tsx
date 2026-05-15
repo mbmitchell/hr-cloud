@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import EmployeeDirectoryShadowResultsPanel from "./EmployeeDirectoryShadowResultsPanel";
 import {
   isAuthorizationError,
   requireAdmin,
@@ -425,6 +426,23 @@ export default async function AuthDiagnosticsPage() {
               understood.
             </li>
           </ul>
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-6">
+        <div>
+          <h2 className="text-lg font-medium text-slate-900">
+            Employee Directory Shadow Results
+          </h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Read-only comparison of the current employee directory against a
+            shadow organization filter. This does not change the live directory
+            result set or enable tenant enforcement.
+          </p>
+        </div>
+
+        <div className="mt-5">
+          <EmployeeDirectoryShadowResultsPanel />
         </div>
       </section>
 
