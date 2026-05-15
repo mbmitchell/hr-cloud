@@ -42,6 +42,7 @@ Completed so far on this branch:
 27. report tenant context seam design
 28. employee master feature-flagged tenant filter pilot
 29. employee master export seam decision
+30. employee master tenant filter validation checklist
 
 ## Current Architecture State
 
@@ -73,6 +74,7 @@ Current branch state:
 - report pages, export routes, and report services are now classified by tenant-context seam and scoping risk before any live report filtering is introduced
 - the employee master report page now has a default-off tenant filter pilot flag, while flag-off behavior remains unchanged and exports remain unscoped
 - the employee master export decision is now documented: exports stay intentionally global for now, but should eventually join the same rollout flag rather than a separate long-term flag
+- the employee master tenant filter now has an explicit validation checklist with go/no-go gates before expanding to exports or other modules
 
 ## Remaining Risks
 
@@ -89,7 +91,7 @@ The biggest remaining risks before tenant enforcement are:
 ## Next 5 Recommended Phases
 
 1. employee master export parity diagnostics planning
-   - define how operators will verify page/export parity before CSV and PDF join the same rollout flag
+   - turn the validation checklist into a repeatable operator-facing parity review flow
    - keep export behavior unchanged
 
 2. read-only report scoping diagnostics adoption
@@ -129,5 +131,5 @@ The safest next implementation phase is:
 Why:
 
 - the live page pilot is now documented and exports intentionally still diverge
-- the next safe step is to define how operators will verify parity before CSV and PDF adopt the same flag
+- the next safe step is to turn the checklist into a repeatable parity review flow before CSV and PDF adopt the same flag
 - it still avoids changing live business behavior or authorization rules
