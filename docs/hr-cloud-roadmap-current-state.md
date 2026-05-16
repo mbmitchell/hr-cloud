@@ -52,6 +52,8 @@ Completed so far on this branch:
 37. tenant enforcement rollout governance planning
 38. employee master pilot operational validation planning
 39. tenant rollout telemetry and metrics
+40. production readiness gap assessment
+41. provider-backed identity validation runbook
 
 ## Current Architecture State
 
@@ -91,8 +93,10 @@ Current branch state:
 - tenant enforcement rollout governance is now documented, including approved pilot scope, rollout gates, rollback rules, feature-flag governance, and the recommended module-by-module enforcement sequence
 - an operator-focused employee master pilot validation runbook now defines preview setup, flag-off and flag-on test flow, parity capture expectations, rollback checks, and pass/fail criteria
 - lightweight employee master rollout telemetry now provides aggregate HEALTHY/WARNING/BLOCKING status plus tenant-scoped counts, mismatch state, and rollback guidance in admin diagnostics
+- production-readiness gaps are now explicitly classified by gate type, including what is required before production, before an external tenant pilot, before broad tenant enforcement, and what can wait
 - organization membership backfill apply has now been validated on the scratch Neon database: missing memberships were created, readiness improved, and both employee shadow parity diagnostics remained clean
 - identity linkage completeness is now explicitly classified by environment: preview dev-auth users may legitimately lack `UserIdentity`, while production Microsoft Entra users should eventually have real provider-backed identities
+- a provider-backed identity validation runbook now defines the exact Entra callback, environment variables, sign-in expectations, linkage expectations, rollback path, and go/no-go gates before dev auth can be retired
 
 ## Remaining Risks
 
@@ -109,22 +113,23 @@ The biggest remaining risks before tenant enforcement are:
 
 ## Next 5 Recommended Phases
 
-1. read-only report scoping diagnostics adoption
+1. provider-backed identity validation execution
+   - run the Entra validation runbook with a real provider-backed Preview user
+   - verify first and repeat sign-in plus `UserIdentity` creation
+
+2. employee master pilot validation execution
+   - run the operator validation checklist in Preview and capture the results
+   - confirm flag-off baseline, flag-on scoped behavior, rollback, and telemetry
+
+3. read-only report scoping diagnostics adoption
    - extend the diagnostics pattern to another low-risk report seam such as reporting structure
    - keep output unchanged
 
-2. internal job scope design
+4. internal job scope design
    - define how scheduled jobs will carry organization scope, system actor identity, and platform-wide admin modes before changing PTO or notification jobs
 
-3. tenant-aware authorization design
+5. tenant-aware authorization design
    - plan how global employee roles and permissions will later interact with organization membership without changing current access rules yet
-
-4. employee master pilot validation execution
-   - run the new operator validation checklist in Preview and capture the results
-   - confirm flag-off baseline, flag-on scoped behavior, and rollback
-
-5. provider-backed identity validation runbook
-   - define the preview-to-production verification steps for real Microsoft Entra sign-in creating `UserIdentity` rows without relying on dev auth
 
 ## Guardrails
 
@@ -145,10 +150,13 @@ Do not do these yet:
 
 The safest next implementation phase is:
 
-- read-only report scoping diagnostics adoption
+- provider-backed identity validation execution
 
 Why:
 
-- readiness and export parity diagnostics are now in place for the current pilots
-- the new governance plan and pilot runbook now define rollout gates and validation flow, so the next safe step is to execute validation and then extend the same read-only diagnostics pattern to another low-risk report seam
+- the runbook is now written, so execution is the next safe step
+- the production-readiness assessment still shows that real provider-backed
+  identity validation is the biggest production trust gap
+- it still avoids widening tenant enforcement while improving production
+  rollout confidence
 - it still avoids changing live business behavior or authorization rules
