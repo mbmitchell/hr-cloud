@@ -29,6 +29,7 @@ The current validated state on `postgres-rehearsal` is:
 - employee master export parity diagnostics available
 - organization membership parity validated
 - remaining provider-identity warnings are expected for preview/dev-auth users
+- production-readiness gap assessment completed
 
 This means the branch has proven:
 
@@ -45,6 +46,7 @@ It does not yet prove:
 - safe scheduled-job scoping
 - safe audit-log scoping
 - safe write-path tenant enforcement
+- production readiness for real tenant rollout
 
 ## Approved Pilot Scope
 
@@ -281,6 +283,10 @@ The current employee master pilot should use the operator capture process in:
 
 - `docs/employee-master-pilot-operational-validation.md`
 - `docs/tenant-rollout-telemetry-and-metrics.md`
+
+Broader rollout should also consult:
+
+- `docs/production-readiness-gap-assessment.md`
 
 ## Recommended Rollout Order By Module
 
